@@ -1,8 +1,20 @@
 "use client";
 
-import { motion, useMotionValue, useTransform } from "framer-motion";
-import { ShuffleIcon } from "lucide-react";
-import { useCallback, useMemo, useReducer, useRef, useState } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useTransform,
+} from "framer-motion";
+import { Check, ChevronDown, ShuffleIcon } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { FlashcardViewer } from "@/components/flashcard";
 import { Button } from "@/components/ui/button";
 import { haptic } from "@/lib/haptics";
@@ -36,6 +48,7 @@ type Session = {
 
 type State = {
   filters: Filters;
+  allCards: Flashcard[];
   deck: Flashcard[];
   index: number;
   session: Session;
@@ -118,7 +131,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         filters,
-        deck: buildDeck(state.deck.concat(), filters, state.shuffleSeed),
+        deck: buildDeck(state.allCards, filters, state.shuffleSeed),
         index: 0,
         session: { again: 0, hard: 0, good: 0, easy: 0 },
         done: false,
@@ -129,7 +142,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         shuffleSeed: seed,
-        deck: buildDeck(state.deck.concat(), state.filters, seed),
+        deck: buildDeck(state.allCards, state.filters, seed),
         index: 0,
         session: { again: 0, hard: 0, good: 0, easy: 0 },
         done: false,
@@ -184,6 +197,7 @@ export function CardDeck({
 
   const [state, dispatch] = useReducer(reducer, {
     filters: initialFilters,
+    allCards: cards,
     deck: buildDeck(cards, initialFilters, initialSeed),
     index: 0,
     session: { again: 0, hard: 0, good: 0, easy: 0 },
@@ -218,7 +232,11 @@ export function CardDeck({
 
   const currentCard = state.deck[state.index];
   const topicOptions = useMemo(
-    () => Object.entries(TopicMeta) as [TopicId, { label: string }][],
+    () =>
+      Object.entries(TopicMeta) as [
+        TopicId,
+        { label: string; emoji: string; accent: string },
+      ][],
     [],
   );
 
@@ -372,6 +390,223 @@ function Stat({
   );
 }
 
+type SegmentOption<V extends string> = {
+  value: V;
+  label: string;
+  dot?: "emerald" | "amber" | "rose";
+};
+
+function Segmented<V extends string>({
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  options: SegmentOption<V>[];
+  value: V;
+  onChange: (v: V) => void;
+  ariaLabel?: string;
+}) {
+  const DOT: Record<NonNullable<SegmentOption<V>["dot"]>, string> = {
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    rose: "bg-rose-500",
+  };
+  return (
+    <fieldset
+      aria-label={ariaLabel}
+      className="glass relative inline-flex items-center rounded-full p-0.5 gap-0.5 border-0"
+    >
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => {
+              if (!active) {
+                haptic("tap");
+                onChange(opt.value);
+              }
+            }}
+            className="relative px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+          >
+            {active && (
+              <motion.span
+                layoutId={`seg-${ariaLabel ?? opt.value}`}
+                className="absolute inset-0 rounded-full bg-foreground/10 border border-foreground/15 shadow-[inset_0_1px_0_color-mix(in_oklch,white_14%,transparent)]"
+                transition={{ type: "spring", stiffness: 520, damping: 36 }}
+              />
+            )}
+            <span
+              className={`relative flex items-center gap-1.5 ${
+                active ? "text-foreground" : "text-muted-foreground/80"
+              }`}
+            >
+              {opt.dot && (
+                <span className={`size-1.5 rounded-full ${DOT[opt.dot]}`} />
+              )}
+              {opt.label}
+            </span>
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+function TopicPicker({
+  value,
+  options,
+  onChange,
+}: {
+  value: TopicId | "all";
+  options: [TopicId, { label: string; emoji: string; accent: string }][];
+  onChange: (v: TopicId | "all") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("mousedown", handler);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", handler);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  const current =
+    value === "all"
+      ? { label: "All topics", emoji: "✦", accent: "var(--foreground)" }
+      : options.find(([id]) => id === value)?.[1];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          haptic("tap");
+          setOpen((o) => !o);
+        }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="glass inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-medium hover:border-foreground/20 transition-colors"
+        style={
+          value !== "all" && current
+            ? ({ "--accent": current.accent } as React.CSSProperties)
+            : undefined
+        }
+      >
+        {value !== "all" && current && (
+          <span
+            className="size-1.5 rounded-full"
+            style={{ background: current.accent }}
+          />
+        )}
+        <span className="text-base leading-none">{current?.emoji}</span>
+        <span className="text-foreground">{current?.label}</span>
+        <ChevronDown
+          className={`size-3 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+          strokeWidth={2}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: [0.2, 0.8, 0.2, 1] }}
+            role="listbox"
+            className="glass-strong absolute z-20 mt-1.5 left-0 min-w-[220px] rounded-2xl p-1.5 origin-top-left"
+          >
+            <OptionRow
+              active={value === "all"}
+              emoji="✦"
+              label="All topics"
+              accent="var(--foreground)"
+              onClick={() => {
+                onChange("all");
+                setOpen(false);
+              }}
+            />
+            <div className="h-px bg-foreground/8 my-1 mx-1" />
+            {options.map(([id, meta]) => (
+              <OptionRow
+                key={id}
+                active={value === id}
+                emoji={meta.emoji}
+                label={meta.label}
+                accent={meta.accent}
+                onClick={() => {
+                  onChange(id);
+                  setOpen(false);
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function OptionRow({
+  active,
+  emoji,
+  label,
+  accent,
+  onClick,
+}: {
+  active: boolean;
+  emoji: string;
+  label: string;
+  accent: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={active}
+      onClick={() => {
+        haptic("tap");
+        onClick();
+      }}
+      className={`relative w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-[12.5px] text-left transition-colors ${
+        active
+          ? "bg-foreground/8 text-foreground"
+          : "text-foreground/80 hover:bg-foreground/5 hover:text-foreground"
+      }`}
+    >
+      <span
+        className="size-1.5 rounded-full shrink-0"
+        style={{ background: accent }}
+      />
+      <span className="text-base leading-none">{emoji}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {active && (
+        <Check
+          className="size-3.5 text-foreground/80 shrink-0"
+          strokeWidth={2.5}
+        />
+      )}
+    </button>
+  );
+}
+
 function Filters({
   state,
   dispatch,
@@ -379,72 +614,61 @@ function Filters({
 }: {
   state: State;
   dispatch: React.Dispatch<Action>;
-  topicOptions: [TopicId, { label: string }][];
+  topicOptions: [TopicId, { label: string; emoji: string; accent: string }][];
 }) {
   return (
-    <div className="flex flex-wrap gap-2 text-xs">
-      <select
-        value={state.filters.mode}
-        onChange={(e) =>
+    <div className="flex flex-wrap items-center gap-2">
+      <Segmented<FilterMode | "topic">
+        ariaLabel="Deck mode"
+        options={[
+          { value: "all", label: "All" },
+          { value: "due", label: "Due" },
+        ]}
+        value={state.filters.mode === "topic" ? "all" : state.filters.mode}
+        onChange={(v) =>
           dispatch({
             type: "SET_FILTER",
-            filters: { mode: e.target.value as FilterMode },
+            filters: { mode: v as FilterMode },
           })
         }
-        className="rounded-lg bg-muted border border-foreground/10 px-2 py-1.5 text-foreground text-xs outline-none"
-      >
-        <option value="all">All cards</option>
-        <option value="due">Due only</option>
-      </select>
+      />
 
-      <select
+      <TopicPicker
         value={state.filters.topic}
-        onChange={(e) =>
-          dispatch({
-            type: "SET_FILTER",
-            filters: { topic: e.target.value as TopicId | "all" },
-          })
+        options={topicOptions}
+        onChange={(v) =>
+          dispatch({ type: "SET_FILTER", filters: { topic: v } })
         }
-        className="rounded-lg bg-muted border border-foreground/10 px-2 py-1.5 text-foreground text-xs outline-none"
-      >
-        <option value="all">All topics</option>
-        {topicOptions.map(([id, meta]) => (
-          <option key={id} value={id}>
-            {meta.label}
-          </option>
-        ))}
-      </select>
+      />
 
-      <select
+      <Segmented<Difficulty | "all">
+        ariaLabel="Difficulty"
+        options={[
+          { value: "all", label: "Any" },
+          { value: "easy", label: "Easy", dot: "emerald" },
+          { value: "medium", label: "Med", dot: "amber" },
+          { value: "hard", label: "Hard", dot: "rose" },
+        ]}
         value={state.filters.difficulty}
-        onChange={(e) =>
+        onChange={(v) =>
           dispatch({
             type: "SET_FILTER",
-            filters: { difficulty: e.target.value as Difficulty | "all" },
+            filters: { difficulty: v },
           })
         }
-        className="rounded-lg bg-muted border border-foreground/10 px-2 py-1.5 text-foreground text-xs outline-none"
-      >
-        <option value="all">All difficulties</option>
-        <option value="easy">Easy</option>
-        <option value="medium">Medium</option>
-        <option value="hard">Hard</option>
-      </select>
+      />
 
-      <select
+      <Segmented<Interleave>
+        ariaLabel="Ordering"
+        options={[
+          { value: "none", label: "Linear" },
+          { value: "mixed", label: "Interleave" },
+        ]}
         value={state.filters.interleave}
-        onChange={(e) =>
-          dispatch({
-            type: "SET_FILTER",
-            filters: { interleave: e.target.value as Interleave },
-          })
+        onChange={(v) =>
+          dispatch({ type: "SET_FILTER", filters: { interleave: v } })
         }
-        className="rounded-lg bg-muted border border-foreground/10 px-2 py-1.5 text-foreground text-xs outline-none"
-        title="Interleaving boosts long-term retention"
-      >
-        <option value="none">Sequential</option>
-        <option value="mixed">Interleaved</option>
-      </select>
+      />
     </div>
   );
 }

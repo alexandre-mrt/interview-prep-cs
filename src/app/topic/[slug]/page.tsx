@@ -3,7 +3,7 @@ import path from "node:path";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CardDeck } from "@/components/card-deck";
-import { loadFlashcardsByTopic } from "@/lib/content-loader";
+import { loadAllFlashcards } from "@/lib/content-loader";
 import { type TopicId, TopicMeta } from "@/lib/schema";
 
 type TopicPageProps = {
@@ -67,7 +67,8 @@ export default async function TopicPage({ params }: TopicPageProps) {
   const meta = TopicMeta[slug as TopicId];
   if (!meta) notFound();
 
-  const cards = loadFlashcardsByTopic(slug);
+  const allCards = loadAllFlashcards();
+  const cards = allCards.filter((c) => c.topic === slug);
   const notes = loadTopicNotes(slug);
 
   return (
@@ -98,7 +99,7 @@ export default async function TopicPage({ params }: TopicPageProps) {
         </div>
       ) : (
         <section className="mb-10">
-          <CardDeck cards={cards} initialMode="all" initialTopic={slug} />
+          <CardDeck cards={allCards} initialMode="all" initialTopic={slug} />
         </section>
       )}
 
