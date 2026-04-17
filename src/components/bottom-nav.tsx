@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Layers, Timer } from "lucide-react";
+import { BarChart3, BookOpen, Home, Layers, Timer } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { haptic } from "@/lib/haptics";
@@ -8,8 +8,14 @@ import { haptic } from "@/lib/haptics";
 const items = [
   { href: "/", label: "Home", icon: Home, match: (p: string) => p === "/" },
   {
+    href: "/learn",
+    label: "Learn",
+    icon: BookOpen,
+    match: (p: string) => p.startsWith("/learn"),
+  },
+  {
     href: "/review",
-    label: "Review",
+    label: "Drill",
     icon: Layers,
     match: (p: string) => p.startsWith("/review") || p.startsWith("/topic"),
   },
@@ -34,7 +40,7 @@ export function BottomNav() {
       className="fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/70 backdrop-blur-2xl backdrop-saturate-150 lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="grid grid-cols-4 max-w-lg mx-auto">
+      <ul className="grid grid-cols-5 max-w-lg mx-auto">
         {items.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;

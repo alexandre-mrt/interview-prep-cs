@@ -1,14 +1,30 @@
 import { ArrowRight, Layers3, Timer } from "lucide-react";
 import Link from "next/link";
+import { ContinueLearning } from "@/components/continue-learning";
 import { DailyReviewCta } from "@/components/daily-review-cta";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopicCard } from "@/components/topic-card";
 import { loadAllFlashcards } from "@/lib/content-loader";
+import { loadCurriculum } from "@/lib/curriculum";
 import { type TopicId, TopicMeta } from "@/lib/schema";
 
 export default function Home() {
   const cards = loadAllFlashcards();
   const allCardIds = cards.map((c) => c.id);
+  const curriculum = loadCurriculum();
+  const continueTopics = curriculum.map((t) => ({
+    topicId: t.topicId,
+    slug: t.slug,
+    label: t.label,
+    emoji: t.emoji,
+    accent: t.accent,
+    chapters: t.chapters.map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      label: c.label,
+      order: c.order,
+    })),
+  }));
 
   const topicGroups = Object.entries(TopicMeta).map(([topicId, meta]) => {
     const topicCards = cards.filter((c) => c.topic === topicId);
@@ -28,8 +44,9 @@ export default function Home() {
       </div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-16 lg:items-start">
-        <section className="lg:sticky lg:top-10">
+        <section className="lg:sticky lg:top-10 flex flex-col gap-4">
           <DailyReviewCta allCardIds={allCardIds} />
+          <ContinueLearning topics={continueTopics} />
         </section>
 
         <section className="flex flex-col gap-4 mt-12 lg:mt-0">

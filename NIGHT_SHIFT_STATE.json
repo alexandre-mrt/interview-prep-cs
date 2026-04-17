@@ -1,298 +1,168 @@
 {
-  "project": "interview-prep-cs",
-  "started_at": "2026-04-17T23:00:00Z",
-  "current_iteration": 1,
-  "branch": "feat/night-shift-2026-04-17",
-  "stability_gate": {
-    "active": false,
-    "consecutive_clean_passes": 0,
-    "total_loops": 0
+  "meta": {
+    "version": "3.0",
+    "project": "interview-prep-cs: structured learning refont",
+    "branch": "feat/night-shift-learn",
+    "started_at": "2026-04-18",
+    "iteration": 0,
+    "total_tasks": 9,
+    "completed_tasks": 0
   },
-  "doom_loop": {
-    "file_edit_counts": {},
-    "error_hash_counts": {},
-    "no_progress_streak": 0
-  },
+  "spec_summary": "Transform flashcard-only app into structured learning platform. Add /learn path with guided chapters per topic. Each chapter = read notes -> drill cards -> senior insights with progress gates (read, drilled, completed). Home reoriented around continue-learning. Keep existing /review /topic/:slug /mock /stats routes working.",
   "tasks": [
     {
-      "id": "T01-scaffold",
-      "title": "Scaffold Next.js 15 app with Tailwind, shadcn, Bun, Biome",
-      "status": "completed",
+      "id": "T1",
+      "title": "Schema + curriculum loader: add Chapter type, build chapters from flashcards grouped by (topic, subtopic) in src/lib/curriculum.ts. Chapter = { id, topicId, slug, label, cardCount, cardIds, order }. Export loadCurriculum() that returns all topics with their chapters ordered deterministically.",
+      "status": "pending",
+      "priority": 1,
       "depends_on": [],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": [],
-      "notes": "create-next-app, configure strict TS, Biome, shadcn init, dark mode default, add framer-motion + fuse.js + next-pwa"
+      "parallel_group": "A",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T02-content-schema",
-      "title": "Define flashcard TypeScript schema + Zod validator + content loader",
-      "status": "completed",
-      "depends_on": ["T01-scaffold"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["src/lib/schema.ts", "src/lib/content-loader.ts"],
-      "notes": "Schema from ENRICHED_SPEC. Loader reads /content/cs/flashcards/**/*.json at build time. Topic-config driven for future finance swap."
+      "id": "T2",
+      "title": "Learn progress store: src/lib/learn-progress.ts with localStorage key 'ipc-learn-progress-v1'. Schema { [chapterId]: { read: boolean, drillRecall: number (0-1), completed: boolean, lastVisited: number, cardsReviewed: number } }. Export loadLearnProgress, markRead, recordDrillRecall, isCompleted, topicProgress(topicId), getLastVisitedChapter. useLearnProgress hook for client components.",
+      "status": "pending",
+      "priority": 1,
+      "depends_on": ["T1"],
+      "parallel_group": "B",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T03-ui-shell",
-      "title": "Home page with mixed mode (daily review CTA + topic grid + mock entry)",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": [
-        "src/app/page.tsx",
-        "src/components/topic-card.tsx",
-        "src/components/daily-review-cta.tsx"
-      ],
-      "notes": "Dark mode default. Progress rings use CSS conic-gradient. Read SRS state from localStorage."
+      "id": "T3",
+      "title": "Content synthesis utility: src/lib/chapter-content.ts. synthesizeNotes(cards), synthesizeExamples(cards), synthesizeSenior(cards) produce structured sections from flashcards' back/senior_nuance/quote_to_say. Also loadChapterOverrides(topicSlug, chapterSlug) that reads optional content/cs/learn/<topic>/<chapter>/{notes.md, examples.md, senior.md} (server-side, fs). Prefer overrides when present.",
+      "status": "pending",
+      "priority": 1,
+      "depends_on": ["T1"],
+      "parallel_group": "B",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T04-flashcard-viewer",
-      "title": "Swipe flashcard viewer with Framer Motion + SM-2 lite SRS",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T03-ui-shell"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": [
-        "src/app/review/page.tsx",
-        "src/components/flashcard.tsx",
-        "src/lib/srs.ts"
-      ],
-      "notes": "Swipe left=hard right=easy up=medium tap=flip. SM-2 lite: ease factor, interval, next review date. localStorage key per card id. Filter bar topic+difficulty+due-only."
+      "id": "T4",
+      "title": "/learn index page (src/app/learn/page.tsx): grid of topics with progress bars. Editorial hero 'Learn.' serif italic. Each topic card: emoji, label, accent-tinted progress ring, chapters count, continue CTA (deep-links to last-visited chapter or first pending). Mobile-first + desktop grid. Uses existing glass + topic-glow utilities.",
+      "status": "pending",
+      "priority": 2,
+      "depends_on": ["T1", "T2"],
+      "parallel_group": "C",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T05-topic-pages",
-      "title": "Topic detail pages (MDX + embedded deck)",
-      "status": "completed",
-      "depends_on": ["T04-flashcard-viewer"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["src/app/topic/[slug]/page.tsx"],
-      "notes": "MDX from /content/cs/topics/. Embed topic flashcards at bottom."
+      "id": "T5",
+      "title": "/learn/[topic] page (src/app/learn/[topic]/page.tsx): ordered chapter list. Header: topic emoji + label (accent-tinted), overall progress bar. Each chapter row: number, label, cardCount, progress dots (read/drilled/completed), click to /learn/[topic]/[chapter]. Locked chapters greyed (soft gating). generateStaticParams.",
+      "status": "pending",
+      "priority": 2,
+      "depends_on": ["T1", "T2"],
+      "parallel_group": "C",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T06-search",
-      "title": "Cmd+K search with Fuse.js across all flashcards",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T03-ui-shell", "T04-flashcard-viewer"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["src/components/command-palette.tsx"],
-      "notes": "shadcn Command component. Search front+back+tags. Jump to card or topic."
+      "id": "T6",
+      "title": "/learn/[topic]/[chapter] page: core chapter experience. Sections: (1) Hero with accent + label + progress ring, (2) Read section: synthesized notes, marks chapter read on scroll, (3) Worked examples (expandable), (4) Drill section with Start drill button -> ChapterDrill, (5) Senior insights list. Prev/next chapter nav. generateStaticParams.",
+      "status": "pending",
+      "priority": 3,
+      "depends_on": ["T1", "T2", "T3", "T8"],
+      "parallel_group": "D",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T07-mock-interview",
-      "title": "Mock interview mode with chrono + reveal",
-      "status": "completed",
-      "depends_on": ["T04-flashcard-viewer"],
-      "parallel_with": ["T05-topic-pages", "T06-search"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["src/app/mock/page.tsx", "src/components/mock-timer.tsx"],
-      "notes": "Pool from flashcards flagged mock-eligible (difficulty hard). Timer 2-5min configurable. Reveal + self-rate."
+      "id": "T7",
+      "title": "Sidebar + home refactor. side-nav.tsx: add Learn link (BookOpen icon). Home page: Daily review CTA + Continue learning card (last-visited chapter) + Topics grid (linking to /learn/[topic]) + Mock/All cards quick actions. bottom-nav.tsx: add Learn.",
+      "status": "pending",
+      "priority": 4,
+      "depends_on": ["T1", "T2", "T4"],
+      "parallel_group": "E",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T08-pwa-offline",
-      "title": "PWA manifest + service worker for offline",
-      "status": "completed",
-      "depends_on": ["T03-ui-shell"],
-      "parallel_with": ["T04-flashcard-viewer", "T05-topic-pages"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["public/manifest.json", "next.config.ts"],
-      "notes": "next-pwa or manual SW. Cache shell + all /content/ JSON. Install prompt."
+      "id": "T8",
+      "title": "ChapterDrill client component (src/components/chapter-drill.tsx): lean wrapper around FlashcardViewer. Receives chapterId + cards. Tracks session ratings, on finish computes recall = (good+easy + hard*0.5)/total, calls recordDrillRecall. Mini progress UI. Do NOT reuse full CardDeck (too many filters); lean component leveraging FlashcardViewer + SRS hooks.",
+      "status": "pending",
+      "priority": 3,
+      "depends_on": ["T1", "T2"],
+      "parallel_group": "C",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     },
     {
-      "id": "T09-content-algos",
-      "title": "Author 120 flashcards: algos & data structures",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": [
-        "T10-content-sysdesign",
-        "T11-content-backend",
-        "T12-content-blockchain",
-        "T13-content-ml",
-        "T15-content-senior-signals",
-        "T16-content-classics"
-      ],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/algos/*.json"],
-      "notes": "Arrays, hashmaps, trees, graphs, DP, greedy, sorting, searching, big-O, patterns (two pointers, sliding window, BFS/DFS, union-find, segment tree, trie). Each card must have senior_nuance. Mix easy/medium/hard."
-    },
-    {
-      "id": "T10-content-sysdesign",
-      "title": "Author 100 flashcards: system design + scaling",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/system-design/*.json"],
-      "notes": "CAP, PACELC, consistent hashing, sharding, consensus (Raft, Paxos), leader election, CDN, rate limiting, circuit breakers, caching layers, load balancing (L4/L7), pub/sub vs queues, idempotency, at-least-once/at-most-once/exactly-once. Include canonical design questions (URL shortener, rate limiter, feed, chat, ride-share). Quote-ready tradeoffs."
-    },
-    {
-      "id": "T11-content-backend",
-      "title": "Author 80 flashcards: backend / infra / DevOps",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/backend/*.json"],
-      "notes": "Postgres (indexes, MVCC, isolation levels, EXPLAIN), Redis, Kafka, K8s (pods, deploys, services, ingress, HPA), Docker, CI/CD, Terraform/IaC, observability (Prometheus, Grafana, RED/USE, tracing, structured logging), SRE concepts (SLO/SLI/SLA, error budget), HTTP/2/3, gRPC, REST vs GraphQL, auth (OAuth, OIDC, JWT pitfalls)."
-    },
-    {
-      "id": "T12-content-blockchain",
-      "title": "Author 80 flashcards: blockchain / smart contract",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/blockchain/*.json"],
-      "notes": "Solidity (reentrancy, integer overflow pre-0.8, delegatecall, storage collisions, ERC-20/721/1155), Sui Move (abilities, objects, PTB, shared vs owned), Solana (accounts, PDAs, rent, CPI, Anchor), ZK (Groth16, PLONK, trusted setup, circuits, Nova), MEV, bridges, L2s (rollups optimistic vs zk), consensus variants (PoS, BFT). Security patterns CEI, access control, oracle manipulation."
-    },
-    {
-      "id": "T13-content-ml",
-      "title": "Author 60 flashcards: ML / AI engineering",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/ml/*.json"],
-      "notes": "Classical ML (bias/variance, regularization, cross-val, metrics), neural net basics, transformers, LLMs (context window, attention, KV cache, fine-tuning vs RAG, LoRA, quantization), RAG (chunking, embeddings, vector DBs Pinecone/Weaviate/pgvector, hybrid search, reranking), MLOps (feature store, model registry, drift, canary, shadow), evals (golden sets, LLM-as-judge pitfalls), prompt engineering signals."
-    },
-    {
-      "id": "T14-content-mysten",
-      "title": "Author 60 flashcards + topic page: Mysten Labs",
-      "status": "completed",
-      "depends_on": ["T02-content-schema", "MYSTEN_RESEARCH.md complete"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "opus",
-      "files": [
-        "content/cs/flashcards/mysten/*.json",
-        "content/cs/topics/mysten.mdx"
-      ],
-      "notes": "Read MYSTEN_RESEARCH.md. Cover Sui object model, Move specifics, Mysticeti consensus, Walrus, DeepBook, zkLogin, Prometheus+Grafana observability for Sui nodes (RED/USE, PromQL examples, block height lag, peer count, finality latency). Include 20+ tailored interview questions with senior-quality answers. Use opus for this — judgment-heavy."
-    },
-    {
-      "id": "T15-content-senior-signals",
-      "title": "Author 50 flashcards: senior signals, tradeoffs, red flags",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "opus",
-      "files": ["content/cs/flashcards/senior-signals/*.json"],
-      "notes": "Quote-ready phrases: 'I'd start by clarifying the access pattern before picking a data store', 'SLOs before features', 'The first question is what does failure look like here', etc. War story templates. Red flags to avoid (over-engineering, premature abstraction, ignoring ops). Architecture decision phrases. Use opus for phrasing quality."
-    },
-    {
-      "id": "T16-content-classics",
-      "title": "Author 50 flashcards: OS + networks + concurrency + security classics",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "sonnet",
-      "files": ["content/cs/flashcards/classics/*.json"],
-      "notes": "OS (processes vs threads, virtual memory, paging, scheduling, syscalls, signals), networks (OSI, TCP vs UDP, TLS handshake, DNS, HTTP/2/3, QUIC, NAT), concurrency (mutex vs semaphore, deadlock, race, memory model, happens-before, MVCC), security (OWASP top 10, SQLi, XSS, CSRF, SSRF, password hashing, crypto basics, JWT pitfalls)."
-    },
-    {
-      "id": "T17-behavioral-star",
-      "title": "STAR story templates + interviewer questions + negotiation tips",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
-      "agent": "night-coder",
-      "model": "opus",
-      "files": [
-        "content/cs/stars/*.mdx",
-        "content/cs/flashcards/behavioral/*.json"
-      ],
-      "notes": "STAR templates: Leadership, Conflict, Failure, Impact, Ambiguity, Disagreement, Ownership, Scaling a system. Each with placeholders. Questions to ask interviewer (senior-signal: oncall, tech debt, roadmap, why they joined). Negotiation phrases (competing offer framing, total comp vs base, signing bonus ask). Use opus — phrasing matters."
-    },
-    {
-      "id": "T18-seed-basic-cards",
-      "title": "Seed a minimal set of 30 cards across topics before big content authoring",
-      "status": "completed",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "haiku",
-      "files": ["content/cs/flashcards/seed/*.json"],
-      "notes": "Bootstrap so UI has content to test against before big authoring agents finish. 30 cards, 3-5 per topic."
-    },
-    {
-      "id": "T19-qa-mobile",
-      "title": "Functional QA: swipe viewer works on mobile viewport",
-      "status": "completed",
-      "depends_on": ["T04-flashcard-viewer", "T18-seed-basic-cards"],
-      "parallel_with": [],
-      "agent": "night-qa",
-      "model": "sonnet",
-      "files": [],
-      "notes": "Puppeteer mobile viewport 390x844. Navigate /review. Verify swipe gestures, tap to flip, localStorage persistence. Screenshots saved."
-    },
-    {
-      "id": "T20-deploy-vercel",
-      "title": "GitHub repo + push + Vercel deploy",
-      "status": "completed",
-      "depends_on": ["T19-qa-mobile"],
-      "parallel_with": [],
-      "agent": "night-coder",
-      "model": "haiku",
-      "files": [],
-      "notes": "gh repo create alexandremourot/interview-prep-cs --public --source=. --push. Then vercel --prod (assume vercel CLI logged in — if not, log to PROBLEMS.md)."
-    },
-    {
-      "id": "T21-e2e-script",
-      "title": "Write scripts/e2e-test.ts for functional verification gate",
-      "status": "completed",
-      "depends_on": ["T20-deploy-vercel"],
-      "parallel_with": [],
-      "agent": "night-tester",
-      "model": "sonnet",
-      "files": ["scripts/e2e-test.ts"],
-      "notes": "Puppeteer: navigate deployed URL, check home loads, click 'Start review', verify card renders, simulate swipe, verify localStorage updated. Exit 0/1."
-    },
-    {
-      "id": "T22-readme",
-      "title": "Write README.md (English)",
-      "status": "completed",
-      "depends_on": ["T20-deploy-vercel"],
-      "parallel_with": ["T21-e2e-script"],
-      "agent": "night-coder",
-      "model": "haiku",
-      "files": ["README.md"],
-      "notes": "Scope, stack, commands (bun dev, build, lint), how to add flashcards, how to swap content set (cs → finance), deployed URL."
+      "id": "T9",
+      "title": "Build + biome + smoke test. Run `bunx biome check --write .` and `bun run build`. Fix errors. Start dev server briefly, curl /, /learn, /learn/algos, /learn/algos/<first-chapter>, /review, /topic/algos, /mock, /stats for 200 status. Commit.",
+      "status": "pending",
+      "priority": 5,
+      "depends_on": ["T4", "T5", "T6", "T7", "T8"],
+      "parallel_group": "F",
+      "agent_type": "inline",
+      "isolation": "none",
+      "iterations_attempted": 0,
+      "blocked_reason": null,
+      "completed_at": null
     }
   ],
-  "iteration_log": [
+  "stability_gate": {
+    "entered": false,
+    "audit_loops_completed": 0,
+    "consecutive_clean_passes": 0,
+    "max_loops": 5,
+    "findings_history": []
+  },
+  "functional_verification": {
+    "passed": false,
+    "method": "curl + browser smoke test",
+    "evidence": ""
+  },
+  "errors": [],
+  "problems": [],
+  "decisions": [
     {
-      "iter": 1,
-      "ts": "2026-04-17T18:45:00Z",
-      "completed": [
-        "T01-scaffold",
-        "T02-content-schema",
-        "T18-seed-basic-cards"
-      ],
-      "notes": "Scaffold + schema + 30 seed cards"
+      "iteration": 0,
+      "decision": "Chapters = subtopic groupings. Each JSON file in content/cs/flashcards/<topic>/ maps to one chapter since subtopic values are uniform per file.",
+      "why": "Zero extra authoring. Automatic chapter discovery from existing content."
+    },
+    {
+      "iteration": 0,
+      "decision": "Notes/examples/senior synthesized at runtime from flashcards. Optional .md overrides in content/cs/learn/.",
+      "why": "Lean content pipeline. User can drop override files incrementally."
+    },
+    {
+      "iteration": 0,
+      "decision": "Soft gating (greyed but navigable) instead of hard lock.",
+      "why": "Guidance without imprisonment."
+    },
+    {
+      "iteration": 0,
+      "decision": "Keep existing /topic/:slug and /review routes intact. Learn is additive.",
+      "why": "Additive migration, no breakage."
     }
   ],
-  "decisions": [],
-  "blocked_tasks": [],
-  "completed_count": 3,
-  "total_tasks": 22,
-  "completed_at": "2026-04-17T19:08:00Z"
+  "iteration_log": []
 }
