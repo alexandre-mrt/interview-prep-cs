@@ -1,0 +1,75 @@
+[
+  {
+    "id": "bc-gen-accounts-vs-utxo",
+    "topic": "blockchain",
+    "subtopic": "generalities",
+    "difficulty": "medium",
+    "front": "Compare the account model (Ethereum) and the UTXO model (Bitcoin). What are the privacy and parallelism tradeoffs?",
+    "back": "UTXO: each transaction consumes unspent outputs and creates new ones. No concept of account balance — wallet balance = sum of owned UTXOs. Benefits: natural parallelism (unrelated UTXOs can be processed simultaneously), better privacy (each spend creates new addresses), simpler formal verification of transaction validity. Downsides: complex smart contract state is hard to model, wallet management is complex (UTXO selection), transaction size grows with number of inputs. Account model: global state mapping address → balance/nonce/storage. Benefits: simple mental model, efficient for complex stateful contracts. Downsides: global state contention (all txs from one address are serial), privacy leakage (address reuse common), reentrancy possible.",
+    "senior_nuance": "Cardano uses extended UTXO (eUTXO) — adds a datum and redeemer to UTXO to enable smart contracts while keeping UTXO parallelism. Solana's account model is closer to UTXO in that all accounts are explicitly enumerated per instruction.",
+    "quote_to_say": "UTXO: spend outputs, create new ones — parallel and private. Account: read and write global state — simpler but contentious.",
+    "tags": [
+      "UTXO",
+      "account-model",
+      "Bitcoin",
+      "Ethereum",
+      "parallelism",
+      "privacy"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-gen-tx-ordering-mempool",
+    "topic": "blockchain",
+    "subtopic": "generalities",
+    "difficulty": "medium",
+    "front": "How does the mempool work, and what are the implications of tx ordering for security?",
+    "back": "Mempool: a node's local pool of unconfirmed transactions. Miners/validators select transactions from the mempool to include in blocks, typically by fee (priority). Key properties: (1) Ordering is miner-chosen — no fairness guarantee. (2) Visibility: all nodes can see pending txs — enabling MEV. (3) Replacement: EIP-1559/RBF allows replacing a pending tx with a higher fee. (4) Expiry: txs drop from mempool if not included within a timeout (or if nonce is superseded). Security implications: front-running (see MEV), nonce ordering (Ethereum enforces sequential nonce within an account — a stuck low-nonce tx blocks all subsequent ones), gas price auctions (users compete, driving up gas during demand spikes).",
+    "senior_nuance": "Private mempools (Flashbots Protect) bypass public mempool visibility. Encrypted mempools (SUAVE, based on threshold encryption) hide tx contents until block finality — preventing MEV extraction at ordering time.",
+    "quote_to_say": "The mempool is adversarial broadcast. Every pending tx is public information that someone will exploit if it is profitable.",
+    "tags": ["mempool", "tx-ordering", "MEV", "nonce", "gas"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-gen-replay-protection",
+    "topic": "blockchain",
+    "subtopic": "generalities",
+    "difficulty": "easy",
+    "front": "What is a replay attack in blockchain, and how do nonces and chain IDs prevent it?",
+    "back": "Replay attack: a valid signed transaction on chain A is resubmitted on chain B (e.g., after a hard fork). Since the signature is valid and the same addresses exist on both chains, the tx executes on both. Nonce: Ethereum includes a per-account nonce in every tx. Each tx must have nonce = current account nonce. Nonce increments after each tx. Replaying a tx fails once the nonce is consumed. Chain ID (EIP-155): the chain identifier is included in the signature input. A tx signed for Ethereum mainnet (chainId=1) is cryptographically invalid on Polygon (chainId=137). Pre-EIP-155, cross-chain replay was possible — exploited during the Ethereum Classic fork. Solana: uses recent_blockhash as expiry (must reference a blockhash from the last ~150 blocks).",
+    "senior_nuance": "EIP-155 chain ID protection is opt-in per tx (legacy txs without v/r/s protection still exist). EIP-2930 and EIP-1559 txs always include chainId. Always use type 2 txs in applications.",
+    "quote_to_say": "Nonce prevents replay within a chain. Chain ID prevents replay across chains. Both are required.",
+    "tags": ["replay-attack", "nonce", "chain-ID", "EIP-155", "security"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-gen-reorgs",
+    "topic": "blockchain",
+    "subtopic": "generalities",
+    "difficulty": "hard",
+    "front": "What is a blockchain reorganization (reorg)? How deep can it go, and when is it a security threat?",
+    "back": "Reorg: the canonical chain switches to a fork, invalidating previously confirmed blocks. Occurs naturally when two miners find blocks simultaneously (1-2 block reorgs are normal in Bitcoin/Ethereum PoW). Depth matters: a 1-block reorg is noise. A 6-block reorg on Bitcoin is statistically near-impossible honestly (requires 51%+ hashrate for sustained period). Security threat: 51% attack — attacker controls majority hashrate, mines a private chain, spends coins on the public chain, then reveals the private chain to reorg out the deposit. Double-spend. Ethereum Classic suffered multiple 51% attacks (2020) due to low hashrate. PoS mitigations: Ethereum's finality gadget (Casper FFG) makes >2 epoch reorgs require slashing >1/3 of total stake — economically prohibitive.",
+    "senior_nuance": "Ethereum PoS still has short reorgs (1-2 slots) possible during network latency spikes. Applications handling large value should wait for finality (2 epochs, ~13 min) not just a few confirmations. Exchanges use 12-32 block confirmations as a practical compromise.",
+    "quote_to_say": "Reorgs are normal at depth 1. At depth 6, someone is trying to double-spend. Wait for finality for high-value operations.",
+    "tags": [
+      "reorg",
+      "51-percent-attack",
+      "double-spend",
+      "finality",
+      "Bitcoin"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-gen-hd-wallets",
+    "topic": "blockchain",
+    "subtopic": "generalities",
+    "difficulty": "medium",
+    "front": "How do HD wallets (BIP-32/39/44) work? What is the security model of the seed phrase?",
+    "back": "BIP-39: a mnemonic phrase (12-24 words from a 2048-word list) encodes 128-256 bits of entropy. PBKDF2 with 2048 iterations derives a 512-bit seed from the mnemonic + optional passphrase. BIP-32: hierarchical deterministic key derivation. Master key derived from seed. Child keys derived as: child_key = HMAC-SHA512(parent_key || index). Hardened derivation (index >= 2^31): uses private key as input — child keys cannot be derived from parent public key. BIP-44: standard path m/44'/coin_type'/account'/change/address_index. Security model: the seed phrase IS the master secret. Anyone with the mnemonic can derive all child keys. Hardware wallets store the seed in secure element, never expose it. Social engineering to reveal seed phrase = full account compromise.",
+    "senior_nuance": "Extended public keys (xpub) allow read-only wallet derivation — useful for auditing or watch-only wallets. But xpub + any non-hardened child private key reveals the parent private key. Never share xpub if any non-hardened child key might leak.",
+    "quote_to_say": "Seed phrase = master key. xpub + child private key = parent private key. Hardened derivation breaks this linkage.",
+    "tags": ["HD-wallet", "BIP-32", "BIP-39", "seed-phrase", "key-derivation"],
+    "mock_eligible": false
+  }
+]
