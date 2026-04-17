@@ -2,28 +2,36 @@
 
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { useRef, useState } from "react";
+import { CardContent } from "@/components/card-content";
+import { haptic } from "@/lib/haptics";
 import type { Flashcard } from "@/lib/schema";
-
-type RatingQuality = 1 | 2 | 3;
+import { TopicMeta } from "@/lib/schema";
+import {
+  type CardState,
+  defaultCardState,
+  intervalLabel,
+  type Rating,
+} from "@/lib/srs";
 
 type FlashcardProps = {
   card: Flashcard;
-  onRate: (quality: RatingQuality) => void;
+  cardState?: CardState;
+  onRate: (rating: Rating) => void;
   index: number;
   total: number;
 };
 
-const DRAG_THRESHOLDS = { left: -100, right: 100, up: -80 } as const;
+const THRESHOLDS = { left: -110, right: 110, up: -100, down: 100 } as const;
 
 function DifficultyBadge({ difficulty }: { difficulty: string }) {
   const colors: Record<string, string> = {
-    easy: "text-emerald-400 bg-emerald-400/10",
-    medium: "text-amber-400 bg-amber-400/10",
-    hard: "text-rose-400 bg-rose-400/10",
+    easy: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+    medium: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+    hard: "text-rose-500 bg-rose-500/10 border-rose-500/20",
   };
   return (
     <span
-      className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors[difficulty] ?? "text-muted-foreground bg-muted"}`}
+      className={`text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full border ${colors[difficulty] ?? "text-muted-foreground bg-muted"}`}
     >
       {difficulty}
     </span>
@@ -32,6 +40,7 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
 
 export function FlashcardViewer({
   card,
+  cardState,
   onRate,
   index,
   total,
@@ -39,47 +48,65 @@ export function FlashcardViewer({
   const [flipped, setFlipped] = useState(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  const rotate = useTransform(x, [-220, 220], [-12, 12]);
 
   const dragStartX = useRef(0);
   const dragStartY = useRef(0);
   const wasDragged = useRef(false);
 
+  const state = cardState ?? defaultCardState();
+  const meta = TopicMeta[card.topic];
+
   function snapBack() {
-    animate(x, 0, { type: "spring", stiffness: 400, damping: 30 });
-    animate(y, 0, { type: "spring", stiffness: 400, damping: 30 });
+    animate(x, 0, { type: "spring", stiffness: 380, damping: 32 });
+    animate(y, 0, { type: "spring", stiffness: 380, damping: 32 });
   }
 
-  function exitCard(quality: RatingQuality) {
-    const targetX = quality === 1 ? -600 : quality === 3 ? 600 : 0;
-    const targetY = quality === 2 ? -600 : 0;
-    animate(x, targetX, { duration: 0.25 });
-    animate(y, targetY, { duration: 0.25 });
+  function exitCard(rating: Rating) {
+    haptic(rating === 1 ? "error" : rating === 4 ? "success" : "medium");
+    const dirX =
+      rating === 1 ? -600 : rating === 4 ? 600 : rating === 3 ? 0 : 0;
+    const dirY = rating === 2 ? -600 : rating === 3 ? 0 : 0;
+    animate(x, dirX, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
+    animate(y, dirY, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
     setTimeout(() => {
-      onRate(quality);
+      onRate(rating);
       x.set(0);
       y.set(0);
       setFlipped(false);
-    }, 280);
+    }, 230);
   }
 
-  const leftOpacity = useTransform(x, [-120, -40], [1, 0]);
-  const rightOpacity = useTransform(x, [40, 120], [0, 1]);
-  const upOpacity = useTransform(y, [-100, -40], [1, 0]);
+  const leftOpacity = useTransform(x, [-140, -40], [1, 0]);
+  const rightOpacity = useTransform(x, [40, 140], [0, 1]);
+  const upOpacity = useTransform(y, [-120, -40], [1, 0]);
+  const cardBgTint = useTransform([x, y] as const, ([xv, yv]: number[]) => {
+    const tintX = xv / 200;
+    const tintY = yv / 200;
+    if (tintX < -0.2) return "rgba(244, 63, 94, 0.12)";
+    if (tintX > 0.2) return "rgba(16, 185, 129, 0.12)";
+    if (tintY < -0.2) return "rgba(245, 158, 11, 0.12)";
+    return "transparent";
+  });
 
   return (
-    <div className="relative w-full flex flex-col items-center gap-4">
-      <div className="text-xs text-muted-foreground self-end">
-        {index + 1} / {total}
+    <div className="relative w-full flex flex-col items-center gap-3">
+      <div className="flex items-center justify-between w-full max-w-[480px] px-1">
+        <span className="text-[11px] tracking-wider text-muted-foreground uppercase font-medium">
+          {meta.emoji} {card.subtopic}
+        </span>
+        <span className="text-[11px] text-muted-foreground tabular-nums">
+          {index + 1} / {total}
+        </span>
       </div>
 
       <div
         className="relative w-full"
-        style={{ height: "72vh", maxWidth: 480 }}
+        style={{ height: "68vh", maxWidth: 480 }}
       >
         <motion.div
           drag
-          dragElastic={0.15}
+          dragElastic={0.18}
           dragMomentum={false}
           style={{ x, y, rotate, touchAction: "none" }}
           onDragStart={(_, info) => {
@@ -95,14 +122,15 @@ export function FlashcardViewer({
           onDragEnd={(_, info) => {
             const { offset } = info;
             if (!wasDragged.current) {
+              haptic("tap");
               setFlipped((f) => !f);
               return;
             }
-            if (offset.x < DRAG_THRESHOLDS.left) {
+            if (offset.x < THRESHOLDS.left) {
               exitCard(1);
-            } else if (offset.x > DRAG_THRESHOLDS.right) {
-              exitCard(3);
-            } else if (offset.y < DRAG_THRESHOLDS.up) {
+            } else if (offset.x > THRESHOLDS.right) {
+              exitCard(4);
+            } else if (offset.y < THRESHOLDS.up) {
               exitCard(2);
             } else {
               snapBack();
@@ -110,51 +138,67 @@ export function FlashcardViewer({
           }}
           onClick={() => {
             if (!wasDragged.current) {
+              haptic("tap");
               setFlipped((f) => !f);
             }
           }}
           className="absolute inset-0 cursor-pointer select-none"
         >
-          <div
-            className="relative w-full h-full rounded-2xl ring-1 ring-foreground/10 overflow-hidden"
+          <motion.div
+            className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl ring-1 ring-foreground/10"
             style={{
-              background:
-                "linear-gradient(135deg, oklch(0.205 0 0) 0%, oklch(0.17 0 0) 100%)",
+              background: "var(--card)",
+              backgroundColor: cardBgTint,
             }}
           >
-            <motion.div className="absolute top-2 left-2 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {card.subtopic}
-            </motion.div>
-            <div className="absolute top-2 right-2">
+            <div
+              className="absolute top-0 left-0 right-0 h-1"
+              style={{ background: meta.accent }}
+            />
+
+            <div className="absolute top-3 right-3 z-10">
               <DifficultyBadge difficulty={card.difficulty} />
             </div>
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pt-12">
+            <div className="absolute inset-0 flex flex-col p-6 pt-10 overflow-hidden">
               {!flipped ? (
-                <div className="flex flex-col items-center gap-6 text-center">
-                  <p className="text-lg font-medium leading-relaxed">
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">
+                  <p className="text-[17px] font-medium leading-relaxed tracking-tight text-balance">
                     {card.front}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Tap to reveal answer
+                  <p className="text-[11px] text-muted-foreground/70 uppercase tracking-widest">
+                    Tap to reveal
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-4 overflow-y-auto max-h-full w-full text-sm">
-                  <p className="leading-relaxed">{card.back}</p>
+                <div className="flex-1 flex flex-col overflow-y-auto text-[13.5px]">
+                  <CardContent text={card.back} />
                   {card.senior_nuance && (
-                    <div className="rounded-lg bg-muted/50 p-3 border border-foreground/5">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                    <div
+                      className="mt-3 rounded-xl p-3 border"
+                      style={{
+                        borderColor: `${meta.accent} / 0.25`,
+                        background: "var(--muted)",
+                      }}
+                    >
+                      <p
+                        className="text-[10px] font-semibold uppercase tracking-wider mb-1.5"
+                        style={{ color: meta.accent }}
+                      >
                         Senior insight
                       </p>
-                      <p className="text-xs leading-relaxed text-foreground/80">
-                        {card.senior_nuance}
-                      </p>
+                      <CardContent
+                        className="text-[12.5px] text-foreground/85"
+                        text={card.senior_nuance}
+                      />
                     </div>
                   )}
                   {card.quote_to_say && (
-                    <blockquote className="border-l-2 border-primary pl-3 text-xs italic text-muted-foreground">
-                      {card.quote_to_say}
+                    <blockquote
+                      className="mt-3 border-l-2 pl-3 text-[12.5px] italic text-foreground/80 leading-relaxed"
+                      style={{ borderColor: meta.accent }}
+                    >
+                      “{card.quote_to_say}”
                     </blockquote>
                   )}
                 </div>
@@ -163,61 +207,100 @@ export function FlashcardViewer({
 
             <motion.div
               style={{ opacity: leftOpacity }}
-              className="absolute inset-y-0 left-0 w-16 flex items-center justify-center bg-rose-500/10 pointer-events-none"
+              className="absolute top-3 left-3 rounded-full bg-rose-500 text-white px-3 py-1.5 text-xs font-bold tracking-wide pointer-events-none shadow-lg"
             >
-              <span className="text-rose-400 font-bold text-sm">Hard</span>
+              AGAIN
             </motion.div>
             <motion.div
               style={{ opacity: rightOpacity }}
-              className="absolute inset-y-0 right-0 w-16 flex items-center justify-center bg-emerald-500/10 pointer-events-none"
+              className="absolute top-3 right-3 rounded-full bg-emerald-500 text-white px-3 py-1.5 text-xs font-bold tracking-wide pointer-events-none shadow-lg"
             >
-              <span className="text-emerald-400 font-bold text-sm">Easy</span>
+              EASY
             </motion.div>
             <motion.div
               style={{ opacity: upOpacity }}
-              className="absolute inset-x-0 top-0 h-16 flex items-center justify-center bg-amber-500/10 pointer-events-none"
+              className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 text-white px-3 py-1.5 text-xs font-bold tracking-wide pointer-events-none shadow-lg"
             >
-              <span className="text-amber-400 font-bold text-sm">Medium</span>
+              HARD
             </motion.div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
 
       {flipped && (
-        <div className="flex gap-3 w-full max-w-[480px]">
-          <button
-            type="button"
+        <div className="grid grid-cols-4 gap-2 w-full max-w-[480px]">
+          <GradeButton
+            rating={1}
+            color="rose"
+            label="Again"
+            interval={intervalLabel(1, state)}
             onClick={() => exitCard(1)}
-            className="flex-1 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors"
-          >
-            Hard ←
-          </button>
-          <button
-            type="button"
+          />
+          <GradeButton
+            rating={2}
+            color="amber"
+            label="Hard"
+            interval={intervalLabel(2, state)}
             onClick={() => exitCard(2)}
-            className="flex-1 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 text-sm font-medium hover:bg-amber-500/20 transition-colors"
-          >
-            Medium ↑
-          </button>
-          <button
-            type="button"
+          />
+          <GradeButton
+            rating={3}
+            color="sky"
+            label="Good"
+            interval={intervalLabel(3, state)}
             onClick={() => exitCard(3)}
-            className="flex-1 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 text-sm font-medium hover:bg-emerald-500/20 transition-colors"
-          >
-            Easy →
-          </button>
+          />
+          <GradeButton
+            rating={4}
+            color="emerald"
+            label="Easy"
+            interval={intervalLabel(4, state)}
+            onClick={() => exitCard(4)}
+          />
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>← Hard</span>
-        <span className="opacity-40">|</span>
-        <span>↑ Medium</span>
-        <span className="opacity-40">|</span>
-        <span>Easy →</span>
-        <span className="opacity-40">|</span>
-        <span>Tap to flip</span>
-      </div>
+      {!flipped && (
+        <div className="flex items-center gap-3 text-[10.5px] text-muted-foreground/70 uppercase tracking-widest">
+          <span>← Again</span>
+          <span>↑ Hard</span>
+          <span>Easy →</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+const BTN_COLORS = {
+  rose: "bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-rose-500/20",
+  amber:
+    "bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border-amber-500/20",
+  sky: "bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 border-sky-500/20",
+  emerald:
+    "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20",
+} as const;
+
+function GradeButton({
+  rating: _rating,
+  color,
+  label,
+  interval,
+  onClick,
+}: {
+  rating: Rating;
+  color: keyof typeof BTN_COLORS;
+  label: string;
+  interval: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl border transition-all active:scale-95 ${BTN_COLORS[color]}`}
+    >
+      <span className="text-[12px] font-semibold">{label}</span>
+      <span className="text-[10px] opacity-70 tabular-nums">{interval}</span>
+    </button>
   );
 }

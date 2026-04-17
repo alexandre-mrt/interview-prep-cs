@@ -123,8 +123,66 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01", "ss03";
   }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
+  .font-serif {
+    font-family: var(--font-instrument-serif), Georgia, serif;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.card-markdown pre {
+  background: color-mix(in oklch, var(--background) 40%, black 60%);
+  border: 1px solid color-mix(in oklch, var(--foreground) 15%, transparent);
+}
+.card-markdown code.hljs,
+.card-markdown pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@supports (padding: max(0px)) {
+  .safe-top {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  .safe-x {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--foreground) 8%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
 }
