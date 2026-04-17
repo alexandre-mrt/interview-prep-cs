@@ -29,18 +29,25 @@
       "id": "T02-content-schema",
       "title": "Define flashcard TypeScript schema + Zod validator + content loader",
       "status": "completed",
-      "depends_on": ["T01-scaffold"],
+      "depends_on": [
+        "T01-scaffold"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/lib/schema.ts", "src/lib/content-loader.ts"],
+      "files": [
+        "src/lib/schema.ts",
+        "src/lib/content-loader.ts"
+      ],
       "notes": "Schema from ENRICHED_SPEC. Loader reads /content/cs/flashcards/**/*.json at build time. Topic-config driven for future finance swap."
     },
     {
       "id": "T03-ui-shell",
       "title": "Home page with mixed mode (daily review CTA + topic grid + mock entry)",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "sonnet",
@@ -54,9 +61,13 @@
     {
       "id": "T04-flashcard-viewer",
       "title": "Swipe flashcard viewer with Framer Motion + SM-2 lite SRS",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T03-ui-shell"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T03-ui-shell"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
       "files": [
@@ -69,52 +80,81 @@
     {
       "id": "T05-topic-pages",
       "title": "Topic detail pages (MDX + embedded deck)",
-      "status": "pending",
-      "depends_on": ["T04-flashcard-viewer"],
+      "status": "completed",
+      "depends_on": [
+        "T04-flashcard-viewer"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/app/topic/[slug]/page.tsx"],
+      "files": [
+        "src/app/topic/[slug]/page.tsx"
+      ],
       "notes": "MDX from /content/cs/topics/. Embed topic flashcards at bottom."
     },
     {
       "id": "T06-search",
       "title": "Cmd+K search with Fuse.js across all flashcards",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T03-ui-shell", "T04-flashcard-viewer"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T03-ui-shell",
+        "T04-flashcard-viewer"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/components/command-palette.tsx"],
+      "files": [
+        "src/components/command-palette.tsx"
+      ],
       "notes": "shadcn Command component. Search front+back+tags. Jump to card or topic."
     },
     {
       "id": "T07-mock-interview",
       "title": "Mock interview mode with chrono + reveal",
-      "status": "pending",
-      "depends_on": ["T04-flashcard-viewer"],
-      "parallel_with": ["T05-topic-pages", "T06-search"],
+      "status": "completed",
+      "depends_on": [
+        "T04-flashcard-viewer"
+      ],
+      "parallel_with": [
+        "T05-topic-pages",
+        "T06-search"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/app/mock/page.tsx", "src/components/mock-timer.tsx"],
+      "files": [
+        "src/app/mock/page.tsx",
+        "src/components/mock-timer.tsx"
+      ],
       "notes": "Pool from flashcards flagged mock-eligible (difficulty hard). Timer 2-5min configurable. Reveal + self-rate."
     },
     {
       "id": "T08-pwa-offline",
       "title": "PWA manifest + service worker for offline",
-      "status": "pending",
-      "depends_on": ["T03-ui-shell"],
-      "parallel_with": ["T04-flashcard-viewer", "T05-topic-pages"],
+      "status": "completed",
+      "depends_on": [
+        "T03-ui-shell"
+      ],
+      "parallel_with": [
+        "T04-flashcard-viewer",
+        "T05-topic-pages"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["public/manifest.json", "next.config.ts"],
+      "files": [
+        "public/manifest.json",
+        "next.config.ts"
+      ],
       "notes": "next-pwa or manual SW. Cache shell + all /content/ JSON. Install prompt."
     },
     {
       "id": "T09-content-algos",
       "title": "Author 120 flashcards: algos & data structures",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
       "parallel_with": [
         "T10-content-sysdesign",
         "T11-content-backend",
@@ -125,58 +165,87 @@
       ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/algos/*.json"],
+      "files": [
+        "content/cs/flashcards/algos/*.json"
+      ],
       "notes": "Arrays, hashmaps, trees, graphs, DP, greedy, sorting, searching, big-O, patterns (two pointers, sliding window, BFS/DFS, union-find, segment tree, trie). Each card must have senior_nuance. Mix easy/medium/hard."
     },
     {
       "id": "T10-content-sysdesign",
       "title": "Author 100 flashcards: system design + scaling",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/system-design/*.json"],
+      "files": [
+        "content/cs/flashcards/system-design/*.json"
+      ],
       "notes": "CAP, PACELC, consistent hashing, sharding, consensus (Raft, Paxos), leader election, CDN, rate limiting, circuit breakers, caching layers, load balancing (L4/L7), pub/sub vs queues, idempotency, at-least-once/at-most-once/exactly-once. Include canonical design questions (URL shortener, rate limiter, feed, chat, ride-share). Quote-ready tradeoffs."
     },
     {
       "id": "T11-content-backend",
       "title": "Author 80 flashcards: backend / infra / DevOps",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/backend/*.json"],
+      "files": [
+        "content/cs/flashcards/backend/*.json"
+      ],
       "notes": "Postgres (indexes, MVCC, isolation levels, EXPLAIN), Redis, Kafka, K8s (pods, deploys, services, ingress, HPA), Docker, CI/CD, Terraform/IaC, observability (Prometheus, Grafana, RED/USE, tracing, structured logging), SRE concepts (SLO/SLI/SLA, error budget), HTTP/2/3, gRPC, REST vs GraphQL, auth (OAuth, OIDC, JWT pitfalls)."
     },
     {
       "id": "T12-content-blockchain",
       "title": "Author 80 flashcards: blockchain / smart contract",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/blockchain/*.json"],
+      "files": [
+        "content/cs/flashcards/blockchain/*.json"
+      ],
       "notes": "Solidity (reentrancy, integer overflow pre-0.8, delegatecall, storage collisions, ERC-20/721/1155), Sui Move (abilities, objects, PTB, shared vs owned), Solana (accounts, PDAs, rent, CPI, Anchor), ZK (Groth16, PLONK, trusted setup, circuits, Nova), MEV, bridges, L2s (rollups optimistic vs zk), consensus variants (PoS, BFT). Security patterns CEI, access control, oracle manipulation."
     },
     {
       "id": "T13-content-ml",
       "title": "Author 60 flashcards: ML / AI engineering",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/ml/*.json"],
+      "files": [
+        "content/cs/flashcards/ml/*.json"
+      ],
       "notes": "Classical ML (bias/variance, regularization, cross-val, metrics), neural net basics, transformers, LLMs (context window, attention, KV cache, fine-tuning vs RAG, LoRA, quantization), RAG (chunking, embeddings, vector DBs Pinecone/Weaviate/pgvector, hybrid search, reranking), MLOps (feature store, model registry, drift, canary, shadow), evals (golden sets, LLM-as-judge pitfalls), prompt engineering signals."
     },
     {
       "id": "T14-content-mysten",
       "title": "Author 60 flashcards + topic page: Mysten Labs",
-      "status": "pending",
-      "depends_on": ["T02-content-schema", "MYSTEN_RESEARCH.md complete"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema",
+        "MYSTEN_RESEARCH.md complete"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "opus",
@@ -189,31 +258,47 @@
     {
       "id": "T15-content-senior-signals",
       "title": "Author 50 flashcards: senior signals, tradeoffs, red flags",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "opus",
-      "files": ["content/cs/flashcards/senior-signals/*.json"],
+      "files": [
+        "content/cs/flashcards/senior-signals/*.json"
+      ],
       "notes": "Quote-ready phrases: 'I'd start by clarifying the access pattern before picking a data store', 'SLOs before features', 'The first question is what does failure look like here', etc. War story templates. Red flags to avoid (over-engineering, premature abstraction, ignoring ops). Architecture decision phrases. Use opus for phrasing quality."
     },
     {
       "id": "T16-content-classics",
       "title": "Author 50 flashcards: OS + networks + concurrency + security classics",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["content/cs/flashcards/classics/*.json"],
+      "files": [
+        "content/cs/flashcards/classics/*.json"
+      ],
       "notes": "OS (processes vs threads, virtual memory, paging, scheduling, syscalls, signals), networks (OSI, TCP vs UDP, TLS handshake, DNS, HTTP/2/3, QUIC, NAT), concurrency (mutex vs semaphore, deadlock, race, memory model, happens-before, MVCC), security (OWASP top 10, SQLi, XSS, CSRF, SSRF, password hashing, crypto basics, JWT pitfalls)."
     },
     {
       "id": "T17-behavioral-star",
       "title": "STAR story templates + interviewer questions + negotiation tips",
-      "status": "pending",
-      "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T09-content-algos"],
+      "status": "completed",
+      "depends_on": [
+        "T02-content-schema"
+      ],
+      "parallel_with": [
+        "T09-content-algos"
+      ],
       "agent": "night-coder",
       "model": "opus",
       "files": [
@@ -226,18 +311,25 @@
       "id": "T18-seed-basic-cards",
       "title": "Seed a minimal set of 30 cards across topics before big content authoring",
       "status": "completed",
-      "depends_on": ["T02-content-schema"],
+      "depends_on": [
+        "T02-content-schema"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "haiku",
-      "files": ["content/cs/flashcards/seed/*.json"],
+      "files": [
+        "content/cs/flashcards/seed/*.json"
+      ],
       "notes": "Bootstrap so UI has content to test against before big authoring agents finish. 30 cards, 3-5 per topic."
     },
     {
       "id": "T19-qa-mobile",
       "title": "Functional QA: swipe viewer works on mobile viewport",
-      "status": "pending",
-      "depends_on": ["T04-flashcard-viewer", "T18-seed-basic-cards"],
+      "status": "completed",
+      "depends_on": [
+        "T04-flashcard-viewer",
+        "T18-seed-basic-cards"
+      ],
       "parallel_with": [],
       "agent": "night-qa",
       "model": "sonnet",
@@ -247,8 +339,10 @@
     {
       "id": "T20-deploy-vercel",
       "title": "GitHub repo + push + Vercel deploy",
-      "status": "pending",
-      "depends_on": ["T19-qa-mobile"],
+      "status": "completed",
+      "depends_on": [
+        "T19-qa-mobile"
+      ],
       "parallel_with": [],
       "agent": "night-coder",
       "model": "haiku",
@@ -258,23 +352,33 @@
     {
       "id": "T21-e2e-script",
       "title": "Write scripts/e2e-test.ts for functional verification gate",
-      "status": "pending",
-      "depends_on": ["T20-deploy-vercel"],
+      "status": "completed",
+      "depends_on": [
+        "T20-deploy-vercel"
+      ],
       "parallel_with": [],
       "agent": "night-tester",
       "model": "sonnet",
-      "files": ["scripts/e2e-test.ts"],
+      "files": [
+        "scripts/e2e-test.ts"
+      ],
       "notes": "Puppeteer: navigate deployed URL, check home loads, click 'Start review', verify card renders, simulate swipe, verify localStorage updated. Exit 0/1."
     },
     {
       "id": "T22-readme",
       "title": "Write README.md (English)",
-      "status": "pending",
-      "depends_on": ["T20-deploy-vercel"],
-      "parallel_with": ["T21-e2e-script"],
+      "status": "completed",
+      "depends_on": [
+        "T20-deploy-vercel"
+      ],
+      "parallel_with": [
+        "T21-e2e-script"
+      ],
       "agent": "night-coder",
       "model": "haiku",
-      "files": ["README.md"],
+      "files": [
+        "README.md"
+      ],
       "notes": "Scope, stack, commands (bun dev, build, lint), how to add flashcards, how to swap content set (cs → finance), deployed URL."
     }
   ],
@@ -293,5 +397,6 @@
   "decisions": [],
   "blocked_tasks": [],
   "completed_count": 3,
-  "total_tasks": 22
+  "total_tasks": 22,
+  "completed_at": "2026-04-17T19:08:00Z"
 }
