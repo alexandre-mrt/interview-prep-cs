@@ -35,25 +35,32 @@ export function TopicCard({
     <Link
       href={`/topic/${slug}`}
       onClick={() => haptic("tap")}
-      className="group relative flex flex-col gap-3 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 hover:ring-foreground/25 active:scale-[0.98] transition-all overflow-hidden"
+      className="group relative glass topic-glow flex flex-col gap-3 rounded-2xl p-4 hover:border-foreground/20 active:scale-[0.98] transition-all overflow-hidden min-h-[120px]"
+      style={{ "--accent": accent } as React.CSSProperties}
     >
       <span
         aria-hidden
-        className="absolute inset-x-0 top-0 h-0.5 opacity-80 group-hover:opacity-100 transition-opacity"
-        style={{ background: accent }}
+        className="absolute inset-x-4 top-0 h-px opacity-60 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: `linear-gradient(to right, transparent, ${accent}, transparent)`,
+        }}
       />
       <div className="flex items-start justify-between">
-        <span className="text-2xl" role="img" aria-label={label}>
+        <span
+          className="text-[22px] leading-none"
+          role="img"
+          aria-label={label}
+        >
           {emoji}
         </span>
-        <ProgressRing mastered={mastered} total={totalCards} size={40} />
+        <ProgressRing mastered={mastered} total={totalCards} size={36} />
       </div>
-      <div>
-        <p className="font-medium text-[13.5px] text-foreground leading-tight tracking-tight">
+      <div className="mt-auto">
+        <p className="font-medium text-[13.5px] text-foreground leading-tight tracking-[-0.01em]">
           {label}
         </p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
-          {totalCards === 0 ? "No cards" : `${totalCards} cards`}
+        <p className="eyebrow text-muted-foreground/80 mt-1 text-[9.5px]">
+          {totalCards === 0 ? "No cards" : `${totalCards} · ${mastered} known`}
         </p>
       </div>
     </Link>

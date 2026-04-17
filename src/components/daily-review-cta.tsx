@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Flame } from "lucide-react";
+import { ArrowUpRight, Flame, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { haptic } from "@/lib/haptics";
@@ -22,45 +22,61 @@ export function DailyReviewCta({ allCardIds }: DailyReviewCtaProps) {
   const ready = due !== null;
   const hasDue = ready && due > 0;
   const href = !hasDue ? "/review?mode=all" : "/review?mode=due";
+  const total = allCardIds.length;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-7 float-in">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] tracking-widest uppercase text-muted-foreground font-medium">
-          Today
-        </p>
+        <span className="eyebrow text-muted-foreground">Today</span>
         {streak > 0 && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 bg-amber-500/10 rounded-full px-2 py-0.5 border border-amber-500/20">
-            <Flame className="size-3" />
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold text-amber-500 bg-amber-500/10 rounded-full pl-2 pr-2.5 py-1 border border-amber-500/25 backdrop-blur-sm tracking-wide">
+            <Flame className="size-3" strokeWidth={2.5} />
             {streak}d streak
           </span>
         )}
       </div>
 
-      <div>
-        <h1 className="text-4xl font-serif tracking-tight leading-[1.05] mb-1.5">
-          Interview Prep
+      <div className="flex flex-col gap-3">
+        <h1 className="font-serif text-[56px] leading-[0.92] tracking-[-0.02em] text-balance">
+          Interview{" "}
+          <span className="italic text-muted-foreground/90">Prep.</span>
         </h1>
-        <p className="text-muted-foreground text-[13.5px] leading-relaxed">
-          Senior engineering flashcards with FSRS spaced repetition. Swipe to
-          grade. Mix topics for long-term retention.
+        <p className="text-muted-foreground text-[14px] leading-relaxed max-w-[38ch]">
+          Senior engineering flashcards with FSRS spaced repetition.{" "}
+          <span className="text-foreground/80">Swipe to grade.</span> Mix topics
+          for long-term retention.
         </p>
       </div>
 
       <Link
         href={href}
         onClick={() => haptic("light")}
-        className="group flex items-center justify-between rounded-2xl bg-foreground text-background px-5 py-4 hover:opacity-90 active:scale-[0.99] transition-all"
+        className="group relative glass-strong topic-glow rounded-3xl p-5 flex items-center justify-between overflow-hidden active:scale-[0.99] transition-all hover:border-foreground/20"
+        style={
+          {
+            "--accent": "oklch(0.72 0.18 280)",
+          } as React.CSSProperties
+        }
       >
-        <div>
-          <p className="text-[11px] tracking-widest uppercase opacity-70">
+        <div className="flex flex-col gap-1.5 relative z-10">
+          <span className="eyebrow text-muted-foreground flex items-center gap-1.5">
+            <Sparkles
+              className="size-3 text-amber-500/80"
+              strokeWidth={2.5}
+              aria-hidden
+            />
             {!ready ? "Loading" : hasDue ? "Due now" : "All caught up"}
-          </p>
-          <p className="text-lg font-semibold tabular-nums">
+          </span>
+          <p className="text-[22px] font-semibold tabular-nums tracking-tight">
             {!ready ? "…" : hasDue ? `Review ${due} cards` : "Review anything"}
           </p>
+          <p className="text-[11px] text-muted-foreground font-mono">
+            of {total} total
+          </p>
         </div>
-        <ArrowRight className="size-5 transition-transform group-hover:translate-x-1" />
+        <span className="size-11 rounded-2xl bg-foreground text-background flex items-center justify-center shrink-0 transition-transform group-hover:rotate-[12deg] group-hover:scale-105 relative z-10">
+          <ArrowUpRight className="size-5" strokeWidth={2.2} />
+        </span>
       </Link>
     </div>
   );

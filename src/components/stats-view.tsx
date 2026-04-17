@@ -83,18 +83,24 @@ export function StatsView({ topics, totalCards }: StatsViewProps) {
       <header className="flex items-center justify-between pt-4">
         <Link
           href="/"
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="eyebrow text-muted-foreground hover:text-foreground transition-colors"
         >
           ← Home
         </Link>
-        <h1 className="text-sm font-medium">Stats</h1>
+        <span className="eyebrow text-muted-foreground">Stats</span>
         <div className="w-14" />
       </header>
 
+      <div className="flex flex-col gap-2">
+        <span className="eyebrow text-muted-foreground">Your progress</span>
+        <h1 className="font-serif text-[44px] leading-[0.95] tracking-[-0.02em]">
+          Learning{" "}
+          <span className="italic text-muted-foreground/90">curve.</span>
+        </h1>
+      </div>
+
       <section>
-        <h2 className="text-[11px] tracking-widest uppercase text-muted-foreground font-medium mb-3">
-          Overview
-        </h2>
+        <h2 className="eyebrow text-muted-foreground mb-3">Overview</h2>
         <div className="grid grid-cols-2 gap-3">
           <StatCard
             label="Streak"
@@ -133,10 +139,10 @@ export function StatsView({ topics, totalCards }: StatsViewProps) {
 
       {mounted && totalReviews > 0 && (
         <section>
-          <h2 className="text-[11px] tracking-widest uppercase text-muted-foreground font-medium mb-3">
+          <h2 className="eyebrow text-muted-foreground mb-3">
             Grade distribution · {recallPct}% recall
           </h2>
-          <div className="rounded-2xl bg-card ring-1 ring-foreground/10 p-4">
+          <div className="glass rounded-2xl p-4">
             <div className="flex h-2.5 rounded-full overflow-hidden">
               <Bar
                 count={stats.byRating[1]}
@@ -186,15 +192,14 @@ export function StatsView({ topics, totalCards }: StatsViewProps) {
       )}
 
       <section className="pb-8">
-        <h2 className="text-[11px] tracking-widest uppercase text-muted-foreground font-medium mb-3">
-          By topic
-        </h2>
+        <h2 className="eyebrow text-muted-foreground mb-3">By topic</h2>
         <ul className="flex flex-col gap-2">
           {topicStats.map((t) => (
             <li key={t.topicId}>
               <Link
                 href={`/topic/${t.topicId}`}
-                className="group flex items-center gap-3 rounded-2xl bg-card p-3.5 ring-1 ring-foreground/10 hover:ring-foreground/25 transition-all"
+                className="group flex items-center gap-3 glass topic-glow rounded-2xl p-3.5 hover:border-foreground/20 transition-all"
+                style={{ "--accent": t.accent } as React.CSSProperties}
               >
                 <span
                   aria-hidden
@@ -257,7 +262,7 @@ function StatCard({
     fuchsia: "bg-fuchsia-500/10 border-fuchsia-500/20",
   };
   return (
-    <div className="rounded-2xl bg-card ring-1 ring-foreground/10 p-4">
+    <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] tracking-widest uppercase text-muted-foreground font-medium">
           {label}

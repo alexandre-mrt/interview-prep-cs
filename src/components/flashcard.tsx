@@ -92,11 +92,12 @@ export function FlashcardViewer({
   return (
     <div className="relative w-full flex flex-col items-center gap-3">
       <div className="flex items-center justify-between w-full max-w-[480px] px-1">
-        <span className="text-[11px] tracking-wider text-muted-foreground uppercase font-medium">
+        <span className="eyebrow text-muted-foreground">
           {meta.emoji} {card.subtopic}
         </span>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {index + 1} / {total}
+        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+          {String(index + 1).padStart(2, "0")} /{" "}
+          {String(total).padStart(2, "0")}
         </span>
       </div>
 
@@ -145,15 +146,19 @@ export function FlashcardViewer({
           className="absolute inset-0 cursor-pointer select-none"
         >
           <motion.div
-            className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl ring-1 ring-foreground/10"
-            style={{
-              background: "var(--card)",
-              backgroundColor: cardBgTint,
-            }}
+            className="relative w-full h-full rounded-3xl overflow-hidden glass-strong topic-glow"
+            style={
+              {
+                backgroundColor: cardBgTint,
+                "--accent": meta.accent,
+              } as unknown as React.CSSProperties
+            }
           >
             <div
-              className="absolute top-0 left-0 right-0 h-1"
-              style={{ background: meta.accent }}
+              className="absolute top-0 left-6 right-6 h-px opacity-80"
+              style={{
+                background: `linear-gradient(to right, transparent, ${meta.accent}, transparent)`,
+              }}
             />
 
             <div className="absolute top-3 right-3 z-10">
@@ -162,13 +167,13 @@ export function FlashcardViewer({
 
             <div className="absolute inset-0 flex flex-col p-6 pt-10 overflow-hidden">
               {!flipped ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-6">
-                  <p className="text-[17px] font-medium leading-relaxed tracking-tight text-balance">
+                <div className="flex-1 flex flex-col items-center justify-center text-center gap-8">
+                  <p className="font-serif text-[28px] leading-[1.15] tracking-[-0.01em] text-balance px-2">
                     {card.front}
                   </p>
-                  <p className="text-[11px] text-muted-foreground/70 uppercase tracking-widest">
+                  <span className="eyebrow text-muted-foreground/70">
                     Tap to reveal
-                  </p>
+                  </span>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col overflow-y-auto text-[13.5px]">
@@ -261,7 +266,7 @@ export function FlashcardViewer({
       )}
 
       {!flipped && (
-        <div className="flex items-center gap-3 text-[10.5px] text-muted-foreground/70 uppercase tracking-widest">
+        <div className="flex items-center gap-5 eyebrow text-muted-foreground/60">
           <span>← Again</span>
           <span>↑ Hard</span>
           <span>Easy →</span>
