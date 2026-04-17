@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { CommandPaletteProvider } from "@/components/command-palette-provider";
 import { InstallPrompt } from "@/components/install-prompt";
 import { PwaRegister } from "@/components/pwa-register";
+import { SideNav } from "@/components/side-nav";
 import { loadAllFlashcards } from "@/lib/content-loader";
 
 const plexMono = IBM_Plex_Mono({
@@ -70,7 +71,7 @@ export default function RootLayout({
           href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap"
         />
       </head>
-      <body className="min-h-full flex flex-col pb-[calc(env(safe-area-inset-bottom)+64px)]">
+      <body className="min-h-full flex flex-col pb-[calc(env(safe-area-inset-bottom)+64px)] lg:pb-0 lg:pl-[236px]">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -79,6 +80,7 @@ export default function RootLayout({
         >
           <PwaRegister />
           <CommandPaletteProvider cards={cards} />
+          <SideNav />
           {children}
           <InstallPrompt />
           <BottomNav />

@@ -16,7 +16,7 @@ export default function StatsPage() {
   });
 
   return (
-    <main className="min-h-dvh flex flex-col gap-8 p-6 max-w-2xl mx-auto w-full">
+    <main className="min-h-dvh flex flex-col gap-8 p-6 max-w-2xl mx-auto w-full lg:max-w-5xl lg:p-10 lg:gap-10">
       <StatsView topics={topics} totalCards={cards.length} />
     </main>
   );

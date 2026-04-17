@@ -101,7 +101,7 @@ export function StatsView({ topics, totalCards }: StatsViewProps) {
 
       <section>
         <h2 className="eyebrow text-muted-foreground mb-3">Overview</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
             label="Streak"
             value={mounted ? `${streak.current}d` : "—"}

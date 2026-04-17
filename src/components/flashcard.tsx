@@ -1,7 +1,7 @@
 "use client";
 
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CardContent } from "@/components/card-content";
 import { haptic } from "@/lib/haptics";
 import type { Flashcard } from "@/lib/schema";
@@ -62,20 +62,49 @@ export function FlashcardViewer({
     animate(y, 0, { type: "spring", stiffness: 380, damping: 32 });
   }
 
-  function exitCard(rating: Rating) {
-    haptic(rating === 1 ? "error" : rating === 4 ? "success" : "medium");
-    const dirX =
-      rating === 1 ? -600 : rating === 4 ? 600 : rating === 3 ? 0 : 0;
-    const dirY = rating === 2 ? -600 : rating === 3 ? 0 : 0;
-    animate(x, dirX, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
-    animate(y, dirY, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
-    setTimeout(() => {
-      onRate(rating);
-      x.set(0);
-      y.set(0);
-      setFlipped(false);
-    }, 230);
-  }
+  const exitCard = useCallback(
+    (rating: Rating) => {
+      haptic(rating === 1 ? "error" : rating === 4 ? "success" : "medium");
+      const dirX =
+        rating === 1 ? -600 : rating === 4 ? 600 : rating === 3 ? 0 : 0;
+      const dirY = rating === 2 ? -600 : rating === 3 ? 0 : 0;
+      animate(x, dirX, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
+      animate(y, dirY, { duration: 0.22, ease: [0.22, 1, 0.36, 1] });
+      setTimeout(() => {
+        onRate(rating);
+        x.set(0);
+        y.set(0);
+        setFlipped(false);
+      }, 230);
+    },
+    [onRate, x, y],
+  );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        haptic("tap");
+        setFlipped((f) => !f);
+        return;
+      }
+      if (!flipped) return;
+      if (e.key === "1") exitCard(1);
+      else if (e.key === "2") exitCard(2);
+      else if (e.key === "3") exitCard(3);
+      else if (e.key === "4") exitCard(4);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [flipped, exitCard]);
 
   const leftOpacity = useTransform(x, [-140, -40], [1, 0]);
   const rightOpacity = useTransform(x, [40, 140], [0, 1]);
@@ -102,8 +131,8 @@ export function FlashcardViewer({
       </div>
 
       <div
-        className="relative w-full"
-        style={{ height: "68vh", maxWidth: 480 }}
+        className="relative w-full flashcard-stage"
+        style={{ maxWidth: 480 }}
       >
         <motion.div
           drag
@@ -233,7 +262,7 @@ export function FlashcardViewer({
       </div>
 
       {flipped && (
-        <div className="grid grid-cols-4 gap-2 w-full max-w-[480px]">
+        <div className="grid grid-cols-4 gap-2 w-full max-w-[480px] lg:max-w-[560px]">
           <GradeButton
             rating={1}
             color="rose"
@@ -267,9 +296,21 @@ export function FlashcardViewer({
 
       {!flipped && (
         <div className="flex items-center gap-5 eyebrow text-muted-foreground/60">
-          <span>← Again</span>
-          <span>↑ Hard</span>
-          <span>Easy →</span>
+          <span className="lg:hidden">← Again</span>
+          <span className="lg:hidden">↑ Hard</span>
+          <span className="lg:hidden">Easy →</span>
+          <span className="hidden lg:inline-flex items-center gap-1.5">
+            <kbd className="font-mono text-[10px] bg-foreground/5 border border-foreground/10 rounded px-1.5 py-0.5">
+              Space
+            </kbd>
+            to flip
+          </span>
+          <span className="hidden lg:inline-flex items-center gap-1.5">
+            <kbd className="font-mono text-[10px] bg-foreground/5 border border-foreground/10 rounded px-1.5 py-0.5">
+              1–4
+            </kbd>
+            to rate
+          </span>
         </div>
       )}
     </div>
@@ -286,7 +327,7 @@ const BTN_COLORS = {
 } as const;
 
 function GradeButton({
-  rating: _rating,
+  rating,
   color,
   label,
   interval,
@@ -302,10 +343,15 @@ function GradeButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 py-2.5 rounded-xl border transition-all active:scale-95 ${BTN_COLORS[color]}`}
+      className={`group relative flex flex-col items-center gap-0.5 py-2.5 rounded-xl border transition-all active:scale-95 ${BTN_COLORS[color]}`}
     >
       <span className="text-[12px] font-semibold">{label}</span>
-      <span className="text-[10px] opacity-70 tabular-nums">{interval}</span>
+      <span className="text-[10px] opacity-70 font-mono tabular-nums">
+        {interval}
+      </span>
+      <kbd className="hidden lg:flex absolute top-1.5 right-1.5 font-mono text-[9px] bg-foreground/10 rounded px-1 py-0.5 leading-none opacity-60 group-hover:opacity-100 transition-opacity">
+        {rating}
+      </kbd>
     </button>
   );
 }

@@ -71,16 +71,19 @@ export default async function TopicPage({ params }: TopicPageProps) {
   const notes = loadTopicNotes(slug);
 
   return (
-    <main className="min-h-dvh flex flex-col p-4 max-w-2xl mx-auto w-full pt-6">
-      <div className="flex items-center justify-between mb-6">
+    <main className="min-h-dvh flex flex-col p-4 max-w-2xl mx-auto w-full pt-6 lg:max-w-4xl lg:p-10 lg:pt-10">
+      <div className="flex items-center justify-between mb-6 lg:mb-10">
         <Link
           href="/"
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="eyebrow text-muted-foreground hover:text-foreground transition-colors"
         >
           ← Home
         </Link>
-        <span className="text-sm font-medium">
-          {meta.emoji} {meta.label}
+        <span
+          className="eyebrow font-medium flex items-center gap-2"
+          style={{ color: meta.accent }}
+        >
+          <span className="text-base">{meta.emoji}</span> {meta.label}
         </span>
         <div className="w-14" />
       </div>
