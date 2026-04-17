@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  BookOpen,
   Command,
   Home,
   Layers,
@@ -15,6 +16,12 @@ import { haptic } from "@/lib/haptics";
 
 const items = [
   { href: "/", label: "Home", icon: Home, match: (p: string) => p === "/" },
+  {
+    href: "/learn",
+    label: "Learn",
+    icon: BookOpen,
+    match: (p: string) => p.startsWith("/learn"),
+  },
   {
     href: "/review",
     label: "Review",

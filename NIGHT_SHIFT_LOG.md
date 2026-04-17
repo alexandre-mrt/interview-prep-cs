@@ -1,38 +1,45 @@
-# Night Shift Log — interview-prep-cs
+# Night Shift Log — interview-prep-cs: Learning Platform Refont
 
 ## Mission
-Deliver a deployed mobile-first interview prep site for Computer Science with 500+ flashcards, swipe viewer, mock interview mode, Mysten Labs deep section, and PWA offline support. Structure must be topic-config driven so tomorrow's Finance set plugs in cleanly.
+Transform the flashcard-only app into a structured learning platform. Add `/learn` path with guided chapters per topic. Each chapter = read notes → drill cards → senior insights, with progress tracking per chapter.
+
+## Spec
+User answered questionnaire:
+1. **Structure**: Guided chapters per topic. Subtopic groupings (existing JSON files) become chapters.
+2. **Content**: Chapter notes (markdown) + worked examples with code + senior insights consolidated.
+3. **Scope**: Full refont with new `/learn` path. Existing routes stay functional.
+4. **Progress**: Per chapter with gates (read, drilled, completed). % per topic.
 
 ## Architecture decisions
-- **Content as static JSON** bundled into Next.js (no backend)
-- **SRS** SM-2 lite in localStorage (ease factor, interval, next review)
-- **Content set switch** via URL segment or env (default: cs, tomorrow: finance)
-- **PWA** for offline mobile practice
-- **Mysten section** is opus-authored from a dedicated research report
+- **Chapters = subtopics**. Each flashcards JSON file is one chapter. Zero authoring overhead.
+- **Runtime synthesis**: Notes/examples/senior sections generated at render from card data. Optional markdown overrides at `content/cs/learn/<topic>/<chapter>/{notes.md, examples.md, senior.md}`.
+- **Soft gating**: Chapters greyed when prerequisites not met, but still navigable.
+- **Additive migration**: `/review`, `/topic/:slug`, `/mock`, `/stats` preserved. `/learn` is new root for guided journeys.
+- **Progress store**: new localStorage key `ipc-learn-progress-v1`, independent of SRS state.
+- **ChapterDrill**: dedicated lean component wrapping `FlashcardViewer` (no filters), reports recall to progress store.
 
-## Task graph
-See NIGHT_SHIFT_STATE.json `tasks`. Parallelism:
-- Shell (T01→T02→T03) sequential
-- Content authoring (T09-T13, T15, T16, T17) fully parallel after T02
-- UI features (T04, T06, T08) parallel after shell
-- T14 (Mysten) waits on MYSTEN_RESEARCH.md
-- Deploy gate (T19→T20→T21→T22) sequential at end
+## Task plan (9 tasks, 6 parallel groups)
 
-## Model tiering
-- Opus: T14 Mysten content, T15 senior signals, T17 behavioral (phrasing-heavy)
-- Sonnet: scaffolding, UI, most content
-- Haiku: seed cards, deploy, README
+| ID | Group | Deps | Title |
+|----|-------|------|-------|
+| T1 | A | - | Schema + curriculum loader |
+| T2 | B | T1 | Learn progress store |
+| T3 | B | T1 | Content synthesis utility |
+| T4 | C | T1,T2 | /learn index page |
+| T5 | C | T1,T2 | /learn/[topic] page |
+| T8 | C | T1,T2 | ChapterDrill component |
+| T6 | D | T1,T2,T3,T8 | /learn/[topic]/[chapter] page (core) |
+| T7 | E | T1,T2,T4 | Sidebar + home refactor |
+| T9 | F | all | Build + biome + smoke test |
 
-## Iteration log
+## Acceptance criteria
+- `/learn` renders with topics grid and progress bars
+- `/learn/algos` shows 11 chapters with progress
+- `/learn/algos/arrays-strings` shows synthesized notes, Start drill, senior block
+- Chapter drill completion updates progress (localStorage)
+- Home page shows "Continue learning" section
+- All existing routes still return 200
+- `bun run build` green, `bunx biome check` clean
 
-### Iteration 1 (2026-04-17)
-- Scaffolded Next.js 15 with Tailwind, shadcn, Bun, Biome
-- Defined Zod schema, content loader, SM-2 lite SRS, localStorage helper
-- Authored 30 seed cards across 9 topics
-- Skipped next-pwa — Next 15 compat concern, logged to PROBLEMS.md
+## Iterations
 
-## Decisions
-_(appended per iteration)_
-
-## Summary
-_(final summary lands here before PR creation)_
