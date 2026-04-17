@@ -3,3 +3,29 @@ node_modules/
 .next/
 .env*.local
 .vercel
+
+# Next.js
+/out/
+/build
+/.pnp
+.pnp.*
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env
+.env*
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# coverage
+/coverage
