@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ss-arch-decision-scaffold",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "medium",
+    "front": "You need to justify a major architectural choice in under a minute. What's the scaffold?",
+    "back": "Four sentences: (1) the forcing constraint ('p99 under 50ms at 20k RPS'), (2) the chosen option ('Redis-backed read cache with 5s TTL'), (3) the rejected option and why ('No read replica — replication lag exceeds the TTL'), (4) the reversal criterion ('We revisit if cache hit rate drops below 95% or TTL complaints reach support'). Constraint, choice, rejection, reversal.",
+    "senior_nuance": "This scaffold is the spoken version of an ADR. It forces you to name tradeoffs explicitly and pre-commit to the signal that would change your mind.",
+    "quote_to_say": "Constraint, choice, rejection, reversal. Every decision.",
+    "tags": ["architecture", "decision", "adr"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-sync-vs-queue",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "medium",
+    "front": "Senior phrasing for choosing a queue over a synchronous call.",
+    "back": "'The producer's SLO doesn't depend on the consumer's SLO here — so we decouple with a queue. Failure mode becomes backlog, not cascading timeout. Consumer can scale independently, and we get retry semantics and DLQ for free.' Name the SLO decoupling, the new failure mode (backlog), and the explicit feature you gain (DLQ, independent scaling).",
+    "senior_nuance": "A queue is not a latency fix, it's a failure-mode transformation. The system still has to handle a growing backlog — that's the new problem you just bought.",
+    "quote_to_say": "A queue trades timeouts for backlog. We prefer backlog here.",
+    "tags": ["architecture", "queue", "async", "slo"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-mono-vs-micro",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "hard",
+    "front": "Asked to justify a monolith-first decision in an interview. Senior phrasing?",
+    "back": "'We start monolithic because the bounded contexts aren't stable yet — splitting prematurely freezes the wrong seams. Internal module boundaries and typed interfaces give us 80% of the benefit without the operational tax. We extract a service when an independent scaling, deploy cadence, or team ownership need becomes concrete.' Name the concrete trigger for extraction.",
+    "senior_nuance": "Microservices solve organizational problems, not technical ones. If you don't have multiple teams needing independent deploy cadences, you probably don't need them yet.",
+    "quote_to_say": "Extract services when ownership forces it, not before.",
+    "tags": ["architecture", "monolith", "microservices"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-strong-over-weak",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "medium",
+    "front": "How do you justify picking a stricter consistency model when the team is leaning weak?",
+    "back": "'The domain invariant requires it. If two users can race to claim the last unit of inventory and both succeed, we pay in refunds and support — that operational cost exceeds the latency we'd save with an eventually consistent read. The right level here is linearizable for the claim, eventual for the listing.' Tie consistency to a business invariant, not to taste.",
+    "senior_nuance": "The consistency conversation goes off the rails when it's abstract. Ground it in a specific invariant you can point to on a whiteboard.",
+    "quote_to_say": "Pick consistency per invariant, not per system.",
+    "tags": ["architecture", "consistency", "invariant"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-stateless-first",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "easy",
+    "front": "Default stance on state inside a new service. Senior phrasing?",
+    "back": "'Stateless by default. State lives in Postgres, Redis, or an object store — services are horizontally scalable compute. We put state in a service only when we have a specific reason: locality for latency, a custom index the DB can't express, or a streaming protocol. Stateless services are easier to deploy, scale, and lose.'",
+    "senior_nuance": "'Lose' is the key word. Stateless services can be killed by Kubernetes without ceremony. Stateful services need graceful shutdown, lease handoffs, and data migration plans.",
+    "quote_to_say": "Stateless unless a specific reason forces state.",
+    "tags": ["architecture", "stateless", "state"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-boundary-schema",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "hard",
+    "front": "Asked about API versioning and contract evolution. Senior framing?",
+    "back": "'Backward-compatible changes go in the current version — adding optional fields, widening enums only for non-consumers, relaxing validation. Breaking changes require a new version and an overlap window longer than the slowest client's upgrade cadence. Deprecation is a deploy event with metrics, not an email.' Ship metrics per version, sunset based on usage dropping below a threshold.",
+    "senior_nuance": "Protobuf and OpenAPI give you the tools, but the discipline is organizational: versions retire when usage hits zero, not when you're tired of them.",
+    "quote_to_say": "Deprecation is a metric, not an email.",
+    "tags": ["architecture", "api-versioning", "deprecation"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-single-writer",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "hard",
+    "front": "How do you phrase a single-writer design to avoid distributed-lock pain?",
+    "back": "'This entity has a single writer per partition key. We route by key, the writer owns the invariant, and readers can fan out. No distributed lock, no two-phase commit — just a routing rule and a failover plan for when the writer dies. The hard part is the handoff, and we use <lease mechanism>.' Single-writer is the cheap version of consensus for most domains.",
+    "senior_nuance": "Single-writer is how most successful large systems avoid distributed transactions. Kafka partitions, Akka actors, and sharded Postgres all use this pattern under different names.",
+    "quote_to_say": "Single writer per key beats distributed lock.",
+    "tags": ["architecture", "single-writer", "partition"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-arch-two-way-door",
+    "topic": "senior-signals",
+    "subtopic": "architecture-decisions",
+    "difficulty": "medium",
+    "front": "Frame an architectural decision in terms of reversibility.",
+    "back": "'This is a two-way door — feature flag behind both old and new paths, metrics per path, flip in minutes. Cost of wrong is a rollback, not a rewrite. That's why we don't need a month of debate; we need a week of implementation and a week of observation.' For a one-way door (schema migration, PII sharing agreement), the phrasing inverts: slower, more review, narrower scope.",
+    "senior_nuance": "Bezos' framing. The point is not to avoid one-way doors — it's to spend expensive deliberation only on them.",
+    "quote_to_say": "Two-way door. Cost of wrong is a flag flip.",
+    "tags": ["architecture", "reversibility", "feature-flag"],
+    "mock_eligible": true
+  }
+]

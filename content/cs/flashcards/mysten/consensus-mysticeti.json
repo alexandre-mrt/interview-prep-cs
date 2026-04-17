@@ -1,0 +1,117 @@
+[
+  {
+    "id": "mys-narwhal-role",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "medium",
+    "front": "What does Narwhal do, and why is it separate from the consensus layer?",
+    "back": "Narwhal is a reliable broadcast mempool structured as a round-based DAG. Each validator runs a primary (proposes block headers referencing worker batches) and a set of workers (broadcast transaction batches and produce certificates of availability). Each round requires 2f+1 certified predecessors from the previous round. Narwhal separates data availability from ordering: once data is certified available, the consensus protocol on top only orders the small headers, not the large transactions. EuroSys 2022 Best Paper; reported >130k TPS on WAN.",
+    "senior_nuance": "The insight interviewers want to hear is that dissemination throughput scales with the number of workers, not the number of consensus participants. That's why DAG-BFT chains can saturate bandwidth in a way that linear-chain PBFT/HotStuff cannot. 'Separating availability from ordering' is the single most reusable idea in modern DAG-BFT.",
+    "quote_to_say": "Separating data availability from ordering is the single most important idea in modern DAG-BFT.",
+    "tags": ["narwhal", "consensus", "mempool", "dag"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-bullshark-role",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "medium",
+    "front": "What is Bullshark and how does it relate to Narwhal and Tusk?",
+    "back": "Bullshark is a partially-synchronous BFT ordering protocol that runs on top of a Narwhal DAG. It is famously small (~200 LOC on top of Narwhal) and has lower common-case latency than Tusk, its asynchronous sibling that relies on shared randomness. Bullshark was the production consensus on Sui mainnet from launch through mid-2024 before Mysticeti replaced it.",
+    "senior_nuance": "The interesting framing is that Bullshark is 'cheap to reason about' because it stacks on a well-specified DAG. You get the full data-availability guarantee from Narwhal for free and only have to reason about ordering on top. That modular layering is why the protocol line is so productive.",
+    "tags": ["bullshark", "tusk", "narwhal", "consensus"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-mysticeti-v1-commit-rule",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "What is novel about Mysticeti v1's commit rule?",
+    "back": "Mysticeti v1 drops the explicit certification step of Narwhal: each block is broadcast but not explicitly certified before being referenced in the DAG (an 'uncertified DAG'). A novel commit rule lets every block be a leader candidate that can commit without the classical quorum-of-certificates round trip. Mysticeti-C reportedly reached ~0.5s WAN commit latency at >200k TPS. On production cutover across 106 validators, P50 latency dropped from ~1900 ms (Bullshark) to ~390 ms.",
+    "senior_nuance": "The interview-worthy nuance is that 'uncertified' does not mean 'unsafe.' Safety still comes from the 2f+1 parent requirement per round plus the commit rule checking support in subsequent rounds. What you save is one explicit round of certificate aggregation. Saying 'they traded a synchrony assumption for a round trip' is accurate shorthand.",
+    "quote_to_say": "Uncertified doesn't mean unsafe. It means the commit rule replaces the certification round with support from future rounds.",
+    "tags": ["mysticeti", "consensus", "dag", "commit-rule"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-mysticeti-fpc",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "What is Mysticeti-FPC and when does it bypass consensus?",
+    "back": "Mysticeti-FPC (Fast Path Commit) extends Mysticeti-C with a fast path for asset-transfer transactions that touch only owned objects. Those transactions are woven into the DAG but skip the consensus ordering path entirely because there is no shared state to coordinate. This is the mechanism behind Sui's sub-300 ms owned-object confirmation, which is dramatically lower than the shared-object consensus latency.",
+    "senior_nuance": "FPC only works because the object model declares inputs upfront. The scheduler knows at receive time whether a tx is pure owned-object, and if so it skips consensus. An account-model chain can't do this because it cannot tell what state a tx touches without executing it first.",
+    "quote_to_say": "FPC is what makes the object-model bet pay off at the latency level.",
+    "tags": ["mysticeti", "fpc", "fast-path", "owned-objects"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-mysticeti-v2-latency",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "What changed in Mysticeti v2 vs v1, and what's the latency impact?",
+    "back": "Mysticeti v2 shipped Nov 6, 2025. It merges validation into the consensus path, introduces a new Transaction Driver, and removes redundant pre-consensus checks. v1 kept validation and consensus as separate stages. The benchmarks cited ~25-35% end-to-end latency reduction with the largest gains in Asia (WAN), plus a TPS bump in the same range.",
+    "senior_nuance": "The interesting question isn't 'is it faster' but 'what did they give up for the speed?' Merging validation into consensus couples two concerns that were previously layered. If a validation bug ships, it now affects liveness, not just the correctness of a committed block. This is the kind of tradeoff senior candidates should name.",
+    "quote_to_say": "Merging validation into consensus is a latency/risk tradeoff, not a free lunch.",
+    "tags": ["mysticeti", "v2", "consensus", "latency"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-dag-bft-basics",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "medium",
+    "front": "At a whiteboard level, how does a DAG-BFT protocol advance rounds?",
+    "back": "Each round, every validator broadcasts a block referencing 2f+1 parent blocks from the previous round. Blocks stack into a DAG where horizontal progress is rounds and vertical is validators. The ordering protocol (Bullshark, Mysticeti, etc.) applies a commit rule to determine which blocks in the DAG get committed and in what order. Dissemination and ordering are decoupled: broadcast saturates bandwidth in parallel while the commit rule operates on the lightweight headers.",
+    "senior_nuance": "The usual PBFT/HotStuff pipeline stalls if the designated leader is slow. DAG-BFT has multiple leaders per round implicitly, so one slow validator doesn't stall the whole system. That's why WAN latency is dominated by the slowest 2f+1 out of 3f+1 rather than a single leader.",
+    "tags": ["dag-bft", "consensus", "rounds", "parents"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-bft-safety-liveness",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "In a BFT protocol, how do safety and liveness fail differently?",
+    "back": "Safety violation means two validators commit conflicting state (double-spend, divergent checkpoints). This is catastrophic and permanent. Liveness violation means the network can't make progress (stuck consensus, too many faulty leaders, partition). It is recoverable: the network resumes once conditions improve. Sui chooses safety over liveness: when a consensus edge case shows up (Jan 2026), the network halts rather than risk divergent commits.",
+    "senior_nuance": "The 3f+1 stake quorum with f Byzantine tolerance is what gives you safety under partial synchrony. You cannot drop to 2f+1 total because any two quorums of 2f+1 would not intersect in an honest majority. This is the classical Byzantine quorum intersection argument and interviewers expect you to be able to sketch it.",
+    "quote_to_say": "Halting is a correct failure mode. Forking would not have been.",
+    "tags": ["bft", "safety", "liveness", "quorum"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-cap-under-sui",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "medium",
+    "front": "Where does Sui sit on the CAP spectrum, with an example?",
+    "back": "Under partition, Sui picks C (safety) over A (liveness). The Jan 14, 2026 outage is the clean example: a consensus commit edge case caused divergent checkpoint candidates and the network halted rather than forking. User funds were never at risk (safety preserved). Mysticeti-C is live under partial synchrony, which is a classical BFT assumption, not full asynchrony.",
+    "senior_nuance": "Permissionless L1s can't tolerate fork-and-merge because double-spend is fatal to the economic model. CP is the only correct choice; CA is a database design pattern that doesn't generalize to adversarial settings. Saying this crisply separates candidates who've read BFT literature from those who memorized CAP.",
+    "tags": ["cap", "safety", "liveness", "partition"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-bls-signatures",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "Where does BLS fit in Sui's consensus and checkpointing?",
+    "back": "Validator signatures on checkpoints and certificates use BLS12-381 for aggregation: 2f+1 validators sign and their signatures aggregate into a single pairing-verifiable signature. The result is O(1) checkpoint proof size regardless of validator count, which is essential for light clients and cross-chain bridges. The tradeoff: BLS signing and verification are more expensive than Ed25519, but the bandwidth and storage win dominates at scale.",
+    "senior_nuance": "When the interviewer asks about signature schemes, name BLS for aggregation, Ed25519 for wallet signing, and zkLogin's Groth16 for session signing. Each is chosen for a different constraint (aggregation, speed, proof size). Treating 'signature scheme' as a single choice is a junior move.",
+    "tags": ["bls", "ed25519", "checkpoint", "aggregation"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-reliable-broadcast-design",
+    "topic": "mysten",
+    "subtopic": "consensus",
+    "difficulty": "hard",
+    "front": "Design a reliable broadcast layer for 100 globally distributed validators.",
+    "back": "Point-to-point TLS or mTLS gossip forms the substrate. Sui uses Anemo (in-house) and Tonic gRPC over QUIC/TCP; QUIC tolerates jitter better on WAN and has built-in head-of-line avoidance. Layer the Narwhal worker/primary split: workers broadcast heavy batches with certificates of availability, primaries broadcast lightweight headers. Add back-pressure (bounded channels), windowing, retries with exponential backoff, and dedup via content-addressable ids. Observe with histograms on propagation latency and counters on retry rates.",
+    "senior_nuance": "A staff-level answer names the knobs: window size, batch-flush timeout, retry budget, and the fairness policy for accepting blocks from peers. Real systems tune these per region because cross-Pacific latency dominates cross-US latency. If the interviewer probes, have an opinion on QUIC vs TCP under 1% packet loss.",
+    "tags": ["networking", "gossip", "quic", "anemo", "narwhal"],
+    "mock_eligible": true
+  }
+]

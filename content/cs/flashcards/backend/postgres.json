@@ -1,0 +1,186 @@
+[
+  {
+    "id": "be-pg-mvcc",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "hard",
+    "front": "Explain PostgreSQL MVCC. How does it enable concurrent reads and writes without locks?",
+    "back": "Multi-Version Concurrency Control: every row has xmin (transaction that created it) and xmax (transaction that deleted/updated it). A SELECT sees rows where xmin <= its snapshot txid and xmax is null or > its snapshot. Writers create new row versions rather than overwriting; readers see old versions. This means reads never block writes and writes never block reads. Dead old versions are eventually reclaimed by VACUUM.",
+    "senior_nuance": "The cost of MVCC is table bloat and the need for VACUUM. High update/delete workloads on wide tables can accumulate gigabytes of dead tuples before autovacuum catches up. autovacuum_vacuum_scale_factor defaults to 0.2 (20% dead tuples) — tune it down for hot tables. Also: transaction ID wraparound is a hard limit at 2^31 transactions; autovacuum freezes tuples to prevent this. If you see 'WARNING: database must be vacuumed within N transactions', treat it as P0.",
+    "quote_to_say": "MVCC is what makes Postgres feel fast under mixed read/write load — the tradeoff is you must keep VACUUM healthy.",
+    "tags": ["postgres", "mvcc", "vacuum", "concurrency", "xmin", "xmax"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-pg-isolation",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "hard",
+    "front": "What are the four SQL isolation levels and which anomalies does each prevent? What does Postgres actually implement?",
+    "back": "Levels (weakest to strongest): Read Uncommitted, Read Committed, Repeatable Read, Serializable. Anomalies: dirty read (reading uncommitted data), non-repeatable read (row changes between reads in same tx), phantom read (new rows appear), serialization anomaly (concurrent txs produce result impossible in any serial order). Postgres: Read Uncommitted behaves as Read Committed (no dirty reads ever). Repeatable Read prevents phantoms too (via snapshot). Serializable uses Serializable Snapshot Isolation (SSI) — detects dangerous read-write dependencies and aborts one tx instead of locking.",
+    "senior_nuance": "SSI in Postgres is predicate-lock-free for most workloads. It tracks read-write anti-dependencies and aborts with 'ERROR: could not serialize access due to concurrent update'. Always retry serialization errors in application code. For financial ledger work, Serializable is the right default — the retry overhead is worth the correctness guarantee. Read Committed is the Postgres default but lets you see interleaved states mid-transaction.",
+    "quote_to_say": "I default to Read Committed for reporting, Serializable for anything touching money or inventory.",
+    "tags": [
+      "postgres",
+      "isolation",
+      "serializable",
+      "mvcc",
+      "ssi",
+      "transactions"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-pg-btree",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "When does a B-tree index help and when does it not? What makes a query miss the index entirely?",
+    "back": "B-tree indexes support equality, range (<, >, BETWEEN), IS NULL, ORDER BY, and prefix LIKE patterns. They do NOT help for: non-leading column in multi-column index used alone (unless index-only scan covers it), low-selectivity columns (boolean, status with few values), queries that fetch >5-15% of rows (seq scan wins), functions on the indexed column (f(col) = val), and LIKE '%suffix' patterns. Index is skipped when the planner's cost estimate favors seq scan based on table statistics.",
+    "senior_nuance": "EXPLAIN (ANALYZE, BUFFERS) is the only truth. A 'Seq Scan' is not always bad — if the table fits in shared_buffers a seq scan may be faster. For low-selectivity columns consider partial indexes (CREATE INDEX ON orders (status) WHERE status = 'pending') which are smaller and the planner treats as highly selective. Also: multi-column indexes: column order matters. Put equality columns first, range columns last.",
+    "quote_to_say": "Before adding an index I always check: what's the selectivity, and does EXPLAIN show the planner agrees it should be used?",
+    "tags": ["postgres", "b-tree", "index", "explain", "selectivity"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-gin-brin",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "What are GIN and BRIN indexes? Give a concrete use case for each.",
+    "back": "GIN (Generalized Inverted Index): maps element values to row locations. Ideal for full-text search (tsvector), JSONB containment (@>), and array membership (@>). Writes are expensive (element explosion), so Postgres buffers pending inserts with a fastupdate mechanism. BRIN (Block Range Index): stores min/max of column values per physical block range. Tiny size (few KB). Perfect for append-mostly tables with natural ordering: timestamps, auto-increment IDs, IoT sensor readings. Only useful when physical order correlates with column order — random inserts make BRIN useless.",
+    "senior_nuance": "GIN with fastupdate=on (default) batches inserts into a pending list flushed on VACUUM. This can cause slow vacuum spikes on write-heavy workloads. Disable fastupdate on tables that receive bulk inserts. BRIN is extreme compression: one entry per 128 blocks by default. For a 100M row time-series table the BRIN index may be 100KB vs a B-tree at 2GB — but only works if rows are inserted in time order.",
+    "quote_to_say": "GIN for containment and search, BRIN for time-series where physical order is your friend.",
+    "tags": ["postgres", "gin", "brin", "index", "full-text-search", "jsonb"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-partial-index",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "easy",
+    "front": "What is a partial index in PostgreSQL and when should you use one?",
+    "back": "A partial index has a WHERE clause: CREATE INDEX ON orders (user_id) WHERE status = 'pending'. The index only contains rows matching the predicate — it's smaller, faster to scan, and the planner knows only matching rows are indexed. Use when: (1) you query a small subset frequently (active records, unprocessed jobs); (2) you want a unique constraint on a subset (unique active username per user); (3) you need to exclude null values from a uniqueness constraint.",
+    "senior_nuance": "Partial indexes are underused. A jobs table with 99% 'done' rows: a full index on status wastes space and is barely selective. A partial index WHERE status IN ('pending','running') is tiny and extremely selective. Also useful for multi-tenant soft deletes: CREATE UNIQUE INDEX ON users (email) WHERE deleted_at IS NULL.",
+    "quote_to_say": "Partial indexes are one of the most underused Postgres features for OLTP workloads.",
+    "tags": ["postgres", "partial-index", "index", "performance"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-explain",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "How do you diagnose a slow query in PostgreSQL? Walk through the EXPLAIN output.",
+    "back": "Use EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT). Key nodes: Seq Scan (no index used), Index Scan (uses index, fetches heap), Index Only Scan (no heap fetch, all data in index), Nested Loop (good for small inner sets), Hash Join (good for medium sets, buffers inner side), Merge Join (needs sorted input). Key numbers: 'rows' estimate vs actual rows — large divergence means stale statistics, run ANALYZE. 'Buffers: hit/read' — high 'read' means cache misses. 'actual time' — per-loop time. Look for nodes where actual >> estimated rows.",
+    "senior_nuance": "Most slow queries are caused by: (1) stale statistics — run ANALYZE after bulk loads; (2) missing index — check if predicate is selective; (3) N+1 — single query shows fast but called 10k times; (4) lock waits — doesn't show in EXPLAIN, use pg_stat_activity and pg_locks; (5) connection overhead — use PgBouncer in transaction mode. Also: pg_stat_statements extension is your 24/7 slow query log.",
+    "quote_to_say": "EXPLAIN ANALYZE is the ground truth. I don't guess at slow queries — I read the plan.",
+    "tags": [
+      "postgres",
+      "explain",
+      "query-tuning",
+      "performance",
+      "pg_stat_statements"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-pg-vacuum",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "What does VACUUM do in PostgreSQL and why is autovacuum critical for production health?",
+    "back": "VACUUM reclaims storage from dead tuples (rows made obsolete by UPDATE/DELETE in MVCC). It marks pages as reusable (dead space map) but does not return space to OS unless VACUUM FULL (which locks the table). VACUUM FREEZE advances the transaction ID horizon to prevent wraparound. autovacuum runs in background when dead tuples exceed autovacuum_vacuum_scale_factor * table_size. Without it: table bloat causes slow seq scans, index bloat slows index scans, and eventually transaction ID wraparound shuts down the database.",
+    "senior_nuance": "HOT (Heap-Only Tuple) updates skip index updates when non-indexed columns change — they chain old and new versions within the same page. This is a write optimization but requires sufficient fillfactor on the table (default 100, meaning pages are packed). Setting fillfactor=70-80 on hot-update tables leaves room for HOT chains and dramatically reduces index bloat. Monitor with pg_stat_user_tables: n_dead_tup and last_autovacuum columns.",
+    "quote_to_say": "VACUUM is not optional — it's part of the write path. I add autovacuum monitoring to every Postgres dashboard.",
+    "tags": [
+      "postgres",
+      "vacuum",
+      "autovacuum",
+      "bloat",
+      "hot-update",
+      "transaction-id-wraparound"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-hot-updates",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "hard",
+    "front": "Explain HOT (Heap-Only Tuple) updates in PostgreSQL. What are the conditions and how do you optimize for them?",
+    "back": "HOT update: when an UPDATE modifies only non-indexed columns AND the new row version fits on the same heap page, Postgres creates a chain pointer from old tuple to new without touching any index. This avoids index bloat and index write amplification. Conditions: (1) no indexed column changes; (2) there is free space on the same page (controlled by fillfactor). HOT chains are cleaned up by VACUUM and can also be pruned lazily during subsequent page reads.",
+    "senior_nuance": "fillfactor defaults to 100 (fully packed pages), leaving no room for HOT updates. For tables with frequent in-place updates (user profile, order status), set fillfactor=70-80 at CREATE TABLE time. ALTER TABLE ... SET (fillfactor=75) plus VACUUM FULL to rebuild. Tradeoff: you use 25-30% more disk space to get dramatically fewer index writes and less index bloat. For high-throughput OLTP this is often worth it.",
+    "quote_to_say": "HOT updates are Postgres's write optimization for in-place mutations — you have to configure fillfactor to enable them.",
+    "tags": ["postgres", "hot-update", "fillfactor", "index-bloat", "mvcc"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-pg-connection-pooling",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "Why does PostgreSQL struggle with thousands of connections and how does PgBouncer help?",
+    "back": "Each Postgres connection is a forked OS process (~5-10MB RAM). 1000 connections = 5-10GB RAM overhead, plus context-switch cost. PgBouncer is a connection pooler that sits between clients and Postgres. Three modes: session (one server connection per client session — safest, least efficient), transaction (server connection held only during a transaction — most common), statement (one connection per statement — breaks transactions, rarely used). Transaction mode lets 1000 app connections share 20-50 real Postgres connections.",
+    "senior_nuance": "Transaction mode breaks prepared statements (they're session-scoped) and advisory locks. Workaround: disable prepared statements in the ORM (e.g., Prisma's pgbouncer=true mode) or use Postgres 14+ PREPARE in explicit transaction blocks. Also: pg_stat_activity shows waiting connections — monitor 'wait_event_type = Client' for connection queue pressure. Supabase PgBouncer uses transaction mode with statement-level prepared statement rewriting.",
+    "quote_to_say": "Postgres connections are processes, not threads — connection pooling is mandatory at scale, not optional.",
+    "tags": [
+      "postgres",
+      "pgbouncer",
+      "connection-pooling",
+      "performance",
+      "scaling"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-locks",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "hard",
+    "front": "A production deploy runs ALTER TABLE ... ADD COLUMN. The site goes down. Why and how do you prevent it?",
+    "back": "ALTER TABLE acquires AccessExclusiveLock — blocks all reads and writes until complete. On a large table with many concurrent connections this lock can queue behind long-running queries, and the lock request itself blocks all subsequent queries (lock queue). Any ALTER TABLE that rewrites the table (adding non-nullable column without default, changing type) takes even longer. Prevention: (1) add nullable column first (instant in Postgres 11+, no rewrite); (2) backfill in batches; (3) add NOT NULL constraint with NOT VALID + VALIDATE CONSTRAINT in separate step; (4) use pg_repack or logical replication for zero-downtime schema changes.",
+    "senior_nuance": "Postgres 11+ added fast ADD COLUMN with DEFAULT for non-volatile defaults (no table rewrite). But CREATE INDEX locks the table for the entire build — use CREATE INDEX CONCURRENTLY (builds without lock, takes longer, must be committed outside a transaction). Always set lock_timeout='2s' in your migration connection to fail fast rather than queue indefinitely.",
+    "quote_to_say": "Every DDL migration on a live table needs a rollback plan and a lock_timeout — I never run ALTER TABLE without both.",
+    "tags": [
+      "postgres",
+      "alter-table",
+      "locks",
+      "migrations",
+      "zero-downtime",
+      "create-index-concurrently"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-pg-replication",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "medium",
+    "front": "What is streaming replication in PostgreSQL and what are the tradeoffs of synchronous vs asynchronous?",
+    "back": "Streaming replication ships WAL (Write-Ahead Log) segments from primary to standbys continuously. Async (default): primary commits without waiting for standby confirmation — minimal latency impact, but failover can lose committed transactions. Sync: primary waits for at least one standby to confirm WAL before ACKing the commit — zero data loss on failover (RPO=0) but adds network RTT to every write. Quorum commit (Postgres 10+): wait for N of M standbys — balances durability and availability.",
+    "senior_nuance": "Logical replication (Postgres 10+) replicates at row level, not WAL level — allows selective table replication, cross-major-version upgrades, and publishing to downstream consumers (like Debezium CDC). Physical streaming replication is simpler and lower latency. Replication lag metric (pg_stat_replication.replay_lag) should be on every ops dashboard. Also: read replicas handle read scaling but must account for replication lag in application routing.",
+    "quote_to_say": "Async replication is the default; I switch to synchronous when RPO=0 is a business requirement, and I always measure the write latency increase.",
+    "tags": [
+      "postgres",
+      "replication",
+      "wal",
+      "streaming",
+      "high-availability",
+      "rpo"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-pg-jsonb",
+    "topic": "backend",
+    "subtopic": "postgres",
+    "difficulty": "easy",
+    "front": "What is the difference between JSON and JSONB in PostgreSQL? When do you choose each?",
+    "back": "JSON stores data as text verbatim (preserves key order and duplicate keys). JSONB stores as binary decomposed format (strips whitespace, last-key-wins on duplicates, key order not preserved). JSONB is faster to query (no re-parse on access), supports GIN indexes for containment and key-exists queries, and supports all JSON operators/functions. JSON is slightly faster to insert (no parse+serialize). In practice: always use JSONB unless you need exact text preservation or insert-heavy with zero querying.",
+    "senior_nuance": "JSONB + GIN enables fast @> containment queries and ? key-exists. But be careful: JSONB columns with deeply nested structures and high cardinality keys are hard to index efficiently. For structured data with a known schema, normalize into proper columns — you get statistics, type safety, and better planner estimates. JSONB is great for semi-structured, schema-flexible data (event metadata, feature flags, external API responses).",
+    "quote_to_say": "JSONB is almost always the right choice — JSON is only for exact-text preservation edge cases.",
+    "tags": ["postgres", "jsonb", "json", "gin", "schema-design"],
+    "mock_eligible": false
+  }
+]

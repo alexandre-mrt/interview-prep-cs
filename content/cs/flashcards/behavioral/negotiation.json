@@ -1,0 +1,98 @@
+[
+  {
+    "id": "bh-negotiation-anchor",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "medium",
+    "front": "Recruiter asks 'What are your salary expectations?' on a first call. What do you say?",
+    "back": "Redirect first. 'I'd love to understand the range for this level first, since total comp varies a lot with equity structure. What range are you working with?' If they insist on a number, give a range on TOTAL comp (base + bonus + equity + signing), anchored at the top of your market research plus ~10%, and frame it as negotiable. Never give base-only — you lose the equity lever.",
+    "senior_nuance": "Giving the first number almost always leaves money on the table. The recruiter's job is to price you as low as you'll accept. Collaborative phrasing, not adversarial. Recruiters respect candidates who know their worth — it correlates with the seniority they're pricing.",
+    "quote_to_say": "I'd love to understand your range first — comp varies a lot by structure.",
+    "tags": ["negotiation", "anchoring", "comp"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-total-comp",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "medium",
+    "front": "Why you should always negotiate on total comp, not base salary.",
+    "back": "Total comp = base + bonus target + equity (vested value per year) + signing. Companies have different lever flexibility: base is most rigid (band-controlled), equity has the widest band at senior levels, signing is the easiest discretionary lever. Anchoring on base leaves you fighting the least flexible number. Asking 'what does total comp look like at this level?' opens all three levers. Always convert offers to annualized total comp over 4 years (accounting for vesting cliff and refresh timing) before comparing.",
+    "senior_nuance": "At senior+, equity often exceeds base in year-over-year value. A 20K base bump is worth 80K over 4 years; a 100K equity grant is worth 100K over 4 years plus potential upside. Don't trade a big equity ask for a small base win.",
+    "quote_to_say": "I evaluate offers on total comp over four years, not base alone.",
+    "tags": ["negotiation", "total-comp", "equity"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-competing-offer",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "medium",
+    "front": "How to frame a competing offer without sounding like you're threatening.",
+    "back": "Mention it once, clearly, then pivot to signal your preference. 'I have another offer at <COMPANY> at <TOTAL COMP> that I need to respond to by <DATE>. Your team is actually my first choice — is there flexibility to close the gap on <SPECIFIC LEVER>?' Rules: (1) only mention if real, (2) give a concrete number or it's not credible, (3) pair with 'first choice' language, (4) ask about one lever (equity or signing), not everything, (5) never say 'I'll take their offer if you don't match' — that's an ultimatum and it kills goodwill.",
+    "senior_nuance": "Brandishing a competing offer multiple times makes you look transactional. Mentioning it once, with warmth, makes you look like a professional with options. Recruiters pattern-match hard on this distinction.",
+    "quote_to_say": "You're my first choice. Is there flexibility on equity to close the gap?",
+    "tags": ["negotiation", "competing-offer", "framing"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-signing",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "easy",
+    "front": "Why asking for a signing bonus is the lowest-risk negotiation move.",
+    "back": "Signing bonuses come from a discretionary pool and don't affect leveling bands. Asking for one is almost never declined outright — it's adjusted. Typical asks at senior: 20-50K, framed as 'to bridge the unvested equity I'm leaving on the table at current employer' or 'to cover the relocation / cliff gap'. Always tie to a concrete number (unvested RSUs, cliff months, moving cost) so the recruiter can justify it internally. No recruiter has ever pulled an offer for asking for signing.",
+    "senior_nuance": "Signing is the kindergarten of negotiation — everyone should ask. If you don't, you're leaving free money on the table. The only rule: give them a reason that makes their internal approval easy.",
+    "quote_to_say": "I'm walking away from <X> in unvested equity. Can we look at a signing bonus to bridge that?",
+    "tags": ["negotiation", "signing", "low-risk"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-refresh",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "hard",
+    "front": "Why equity refresh policy is the most overlooked negotiation item.",
+    "back": "Initial grants vest over 4 years, but comp on year 5 is whatever the company decides to refresh. Without a predictable refresh, your year 5 comp can drop 30-50%. Ask: (1) 'What's the typical refresh grant at this level?' (expect a range), (2) 'Is refresh tied to performance or automatic?' (3) 'Do refresh grants start vesting immediately or have a cliff?' If the company can't answer or the number is small, your offer is front-loaded and your total 4-year picture is worse than it looks. Factor this into comparisons.",
+    "senior_nuance": "Candidates compare year-1 offers and ignore year-5 cliffs. The offer that looks best in year 1 often looks worst by year 5 if there's no refresh strategy. Asking about refresh signals you think long-term, which is itself a senior tell.",
+    "quote_to_say": "What's the typical refresh grant at this level, and when does it kick in?",
+    "tags": ["negotiation", "equity", "refresh"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-timing",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "medium",
+    "front": "When in the process to negotiate (and when not to).",
+    "back": "Never negotiate before you have an offer in writing — you have zero leverage. Never negotiate the level during the offer call — that's a separate earlier conversation, usually after the onsite. Negotiate comp only after you've received the written offer and ideally after you've had 24-48 hours to 'review it with family'. Use the review window to line up competing offers or request one final call with the hiring manager. Once you accept verbally, negotiation is effectively over — all comp movement happens before 'yes'.",
+    "senior_nuance": "The most leverage you'll ever have is the 48 hours between 'we'd like to make you an offer' and 'I accept'. Don't squander it. Also: always ask for the deadline to be extended by a few days if you need it. Recruiters almost always grant a reasonable extension.",
+    "quote_to_say": "Thanks for the offer. I'd like a few days to review and come back with any questions.",
+    "tags": ["negotiation", "timing", "leverage"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-pushback",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "medium",
+    "front": "Phrases to use when the recruiter says 'this is our best offer'.",
+    "back": "'I hear you. Help me understand what flexibility looks like on equity versus signing versus base — is it that the whole envelope is final, or that base specifically is banded?' This is almost never actually the best offer; 'best offer' is a negotiation posture. Also useful: silence. After you state a counter, stop talking. Recruiters are trained to fill silence, and that fills it with movement. Avoid 'can you do better?' — too open. Prefer specific asks on specific levers.",
+    "senior_nuance": "'Help me understand' is the magic phrase. It's non-confrontational, it forces them to explain their constraints, and the explanation often reveals the real lever. You're not pushing, you're learning — but the learning moves the number.",
+    "quote_to_say": "Help me understand where the flexibility is — base, equity, or signing?",
+    "tags": ["negotiation", "pushback", "phrases"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-negotiation-what-not-to-say",
+    "topic": "behavioral",
+    "subtopic": "negotiation",
+    "difficulty": "hard",
+    "front": "Things you should NEVER say during comp negotiation.",
+    "back": "Never: (1) 'My current salary is <X>' — it anchors you to your old comp; deflect with 'I'm focused on what this role is worth'. (2) 'I'll accept if you do X' — ultimatums end the conversation. (3) 'I need <X> to pay my mortgage/rent' — your life cost isn't their pricing model and it sounds desperate. (4) 'The other company offered <X>' without proof — recruiters have seen inflated bluffs and will call it. (5) 'I'm so excited to accept' before negotiating — you just signaled you're in. (6) Badmouthing your current employer — always classy, never bitter.",
+    "senior_nuance": "Your current salary is the single worst anchor you can give. Many US states have made it illegal to ask, but recruiters still try in subtle ways ('what are you making now?', 'what would make this a clear yes?'). Always deflect to market rate and role value.",
+    "quote_to_say": "I'm focused on what this role is worth, not what I'm making now.",
+    "tags": ["negotiation", "mistakes", "anchoring"],
+    "mock_eligible": false
+  }
+]

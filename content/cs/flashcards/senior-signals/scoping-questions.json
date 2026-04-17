@@ -1,0 +1,122 @@
+[
+  {
+    "id": "ss-scoping-failure-mode",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "medium",
+    "front": "Interviewer asks you to design a system. Before drawing boxes, what's the first question to ask?",
+    "back": "Ask what failure looks like. 'What does this system need to do when it fails?' reframes the whole design. If the answer is 'page oncall', you need strong monitoring. If 'return cached', you need graceful degradation. If 'lose the write', you need durability guarantees up front.",
+    "senior_nuance": "Asking about the happy path signals junior; asking about the failure mode signals senior. It also buys thinking time while the interviewer gives you free constraints.",
+    "quote_to_say": "Before we talk about the happy path, what does failure look like here?",
+    "tags": ["scoping", "failure-modes"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-blast-radius",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "easy",
+    "front": "You're asked to add a new write path to a shared database. What's the one-line scoping question that earns senior credit?",
+    "back": "Ask about blast radius. A new write path can lock rows, fill WAL, saturate replication, or break a downstream consumer. Scope the change to: which tables, which indexes, which replicas, which consumers. If the answer is 'everything', you insist on a shadow path before the real cutover.",
+    "senior_nuance": "Blast radius is the single best frame for any change in a shared system. It maps cleanly to rollback plans and SLO budgets.",
+    "quote_to_say": "What's the blast radius if this fails?",
+    "tags": ["scoping", "blast-radius", "shared-systems"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-slo-first",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "medium",
+    "front": "The PM hands you a feature spec. Before estimating, what's the senior question?",
+    "back": "Ask for the SLO and the error budget. 'What latency and availability does this need to hit, and what's our current error budget on the affected service?' If the service is burning budget, the feature ships behind a flag or waits. If budget is healthy, you can take risk. Without the number, estimates are fiction.",
+    "senior_nuance": "Juniors estimate tasks. Seniors estimate against a budget. The budget is the SLO.",
+    "quote_to_say": "SLOs before features. What's the error budget?",
+    "tags": ["scoping", "slo", "error-budget"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-not-optimizing",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "medium",
+    "front": "What question surfaces hidden constraints and prevents over-engineering in the first five minutes?",
+    "back": "Ask what you are not optimizing for. Every design implicitly trades cost, latency, consistency, operability, and dev velocity. Forcing the interviewer to name the deprioritized axis gives you permission to pick the boring answer on that axis and spend complexity where it matters.",
+    "senior_nuance": "This question reframes the session from 'make it perfect' to 'make it right for these constraints'. It also gives you air cover for skipping premature optimizations.",
+    "quote_to_say": "What are we NOT optimizing for?",
+    "tags": ["scoping", "constraints", "tradeoffs"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-read-write-ratio",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "easy",
+    "front": "Before picking a storage engine, what two numbers do you need?",
+    "back": "Read-to-write ratio and p99 latency target. A 1000:1 read-heavy system points at cache + read replicas + denormalized views. A write-heavy system points at LSM engines, partitioning, and async fanout. Without the ratio, every storage choice is a guess dressed up as architecture.",
+    "senior_nuance": "Juniors pick Postgres or DynamoDB by reflex. Seniors pick based on the access pattern. Ask for the ratio even if the interviewer doesn't offer it — they'll invent a plausible number on the spot.",
+    "quote_to_say": "What's the read-to-write ratio, and what's p99?",
+    "tags": ["scoping", "storage", "access-pattern"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-read-your-writes",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "hard",
+    "front": "Asked to design a social feature with replicas and caches. What consistency question do you ask first?",
+    "back": "Ask whether the user must read their own writes. Read-your-writes is the consistency guarantee most often violated silently by caches and read replicas, and it's the one users notice immediately when it breaks. If yes, you route reads after writes to the primary or pin to a session. If no, eventual consistency is fair game.",
+    "senior_nuance": "Users forgive a feed that's a few seconds stale. They do not forgive posting a comment and not seeing it. Read-your-writes is a UX contract, not just a consistency level.",
+    "quote_to_say": "Does the user need to read their own writes?",
+    "tags": ["scoping", "consistency", "read-your-writes"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-happy-path-volume",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "easy",
+    "front": "You're asked to build an endpoint. What volume questions do you ask before touching the API shape?",
+    "back": "Ask: requests per second at steady state, peak-to-average ratio, payload size p50 and p99, and fanout per request. Those four numbers determine whether you can serve the endpoint from one box, need horizontal scale, or need a queue. 100 RPS and 100k RPS are different systems pretending to be the same API.",
+    "senior_nuance": "Peak-to-average is the number interviewers forget to volunteer. A 10:1 ratio means you size for peak; a 2:1 ratio means you can smooth with a queue.",
+    "quote_to_say": "Steady-state RPS, peak-to-average, payload size, fanout. Then I can design.",
+    "tags": ["scoping", "capacity", "rps"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-who-owns-it",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "medium",
+    "front": "Design question touches three services owned by different teams. What do you ask?",
+    "back": "Ask who owns each service and what their oncall rotation looks like. Cross-team designs fail on the seams. Knowing who pages at 3am for each component tells you where to put the retry logic, the circuit breaker, and the dead-letter queue. Ownership is the real system diagram.",
+    "senior_nuance": "Conway's law is not a joke. The system you design must match the org that operates it, or the seams become incident factories.",
+    "quote_to_say": "Who gets paged when this fails?",
+    "tags": ["scoping", "ownership", "oncall"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-rollback-plan",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "medium",
+    "front": "Before committing to a design, what question exposes hidden one-way doors?",
+    "back": "Ask how we roll this back. If rollback requires a data migration, a replay, or manual intervention, the design is a one-way door and deserves extra review. If rollback is a feature-flag flip or a config push, it's a two-way door and you can move fast. Treating every change as reversible-until-proven-otherwise is a senior habit.",
+    "senior_nuance": "Bezos' one-way vs two-way doors framing. The point is not to avoid one-way doors, it's to recognize them and pay the cost of caution only when warranted.",
+    "quote_to_say": "What's the rollback? If it's not a flag, we re-scope.",
+    "tags": ["scoping", "rollback", "reversibility"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-scoping-data-shape",
+    "topic": "senior-signals",
+    "subtopic": "scoping-questions",
+    "difficulty": "hard",
+    "front": "Interviewer jumps to API design. What do you pull them back to?",
+    "back": "Pull back to the entity model and the access patterns. 'Before we lock the API shape, can we walk through the core entities, their relationships, and the top five access patterns?' API shape follows data shape; reversing the order means the first schema migration rewrites half the handlers.",
+    "senior_nuance": "Data outlives code. Entity and access-pattern modeling is where senior engineers spend their early minutes while juniors are already naming endpoints.",
+    "quote_to_say": "Data shape before API shape. What are the access patterns?",
+    "tags": ["scoping", "data-model", "access-pattern"],
+    "mock_eligible": true
+  }
+]

@@ -1,0 +1,48 @@
+[
+  {
+    "id": "mys-deepbook-clob",
+    "topic": "mysten",
+    "subtopic": "deepbook",
+    "difficulty": "medium",
+    "front": "What is DeepBook, and how is it different from an AMM?",
+    "back": "DeepBook is Sui's native Central Limit Order Book (CLOB), not an AMM. Each trading pair has a shared Pool<Base, Quote> object holding the order book and an escrow vault. Matching is synchronous within the transaction: taker orders fill against the book immediately, maker orders sit in a nested crit-bit tree keyed by price then FIFO. DeepBook v3 (2024+) added governance, flash loans, improved account abstraction, and a tighter matching engine. Typical finality is around 390 ms with fees typically under $0.01 per trade.",
+    "senior_nuance": "A CLOB is structurally honest about price discovery (orders are explicit, intent is visible) whereas AMMs embed price discovery in a bonding curve (simpler but vulnerable to impermanent loss and sandwiching). The senior move is acknowledging that neither dominates: CLOBs need liquidity providers willing to post quotes, AMMs need passive liquidity. Sui has DeepBook because its sub-second finality makes a CLOB actually viable onchain.",
+    "quote_to_say": "A CLOB was only viable onchain once consensus got below a second. DeepBook is downstream of Mysticeti.",
+    "tags": ["deepbook", "clob", "amm", "matching-engine"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-deepbook-shared-pool",
+    "topic": "mysten",
+    "subtopic": "deepbook",
+    "difficulty": "hard",
+    "front": "Why is DeepBook's shared Pool object a worst case for Sui's parallel execution, and why does it work anyway?",
+    "back": "Every order on a given trading pair touches the same shared Pool object, so all orders for that pair serialize through Mysticeti consensus. In pure throughput terms this is the opposite of what the object model optimizes for. It works in practice because Mysticeti's commit latency is sub-second and the matching logic inside the Move module is O(log n) on a crit-bit tree, so even though orders serialize on consensus, the actual matching is cheap and the pool is not CPU-bound.",
+    "senior_nuance": "The nuance is that Sui's bottleneck is consensus ordering, not execution, and a well-designed shared-object app puts only the coordination step in consensus. DeepBook doesn't try to parallelize matching; it accepts serial order flow as the cost of correctness and wins on finality latency instead.",
+    "quote_to_say": "DeepBook is a shared-object app that wins on latency, not parallelism. Know the difference before you design for Sui.",
+    "tags": ["deepbook", "shared-object", "consensus", "parallelism"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-deepbook-shared-liquidity",
+    "topic": "mysten",
+    "subtopic": "deepbook",
+    "difficulty": "medium",
+    "front": "What does 'shared liquidity' mean for DeepBook, and why does it matter for the Sui ecosystem?",
+    "back": "Because DeepBook exists at the protocol-primitive layer, any dApp on Sui can source liquidity from the same pool without bridging, wrapping, or spinning up its own LP tokens. A wallet, a lending protocol, an oracle router, or a game can all read and trade against the same book. This is the opposite of EVM DeFi where liquidity fragments across competing DEXes and routing layers exist to patch over it.",
+    "senior_nuance": "The interesting second-order effect is that dApps don't compete for liquidity anymore; they compete on UX and product surface. A lending protocol can build confidently knowing the quote side of liquidations lives in a shared primitive. That's a more productive design equilibrium than 'every dApp ships its own pool.'",
+    "tags": ["deepbook", "liquidity", "ecosystem", "defi"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-deepbook-design-tradeoffs",
+    "topic": "mysten",
+    "subtopic": "deepbook",
+    "difficulty": "hard",
+    "front": "If you were designing DeepBook, what tradeoffs would you push on?",
+    "back": "Order-book structure (crit-bit vs red-black vs segment tree) affects insertion, cancellation, and match complexity; DeepBook uses nested crit-bit for O(log n). Maker-taker fee policy shapes liquidity provision behavior and must resist wash-trade gaming. MEV surface: atomic PTBs mean a single transaction can submit and cancel orders, so anti-sandwich design needs careful thought. Precision: integer math with explicit scale factors, not floats, to avoid rounding drift. Composability: matching hooks for external strategies, while keeping the pool's invariants enforceable in Move.",
+    "senior_nuance": "The failure mode to name is state-size growth on a shared object. If the order book fills with tiny stale orders, every transaction pays the walk cost. Production CLOBs need cancel-on-stale, minimum order sizes, and maker deposit requirements. These are business-logic guardrails that Move can enforce but that someone has to design.",
+    "tags": ["deepbook", "design", "crit-bit", "mev", "state-growth"],
+    "mock_eligible": true
+  }
+]

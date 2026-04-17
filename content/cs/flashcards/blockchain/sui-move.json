@@ -1,0 +1,166 @@
+[
+  {
+    "id": "bc-sui-object-model",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "medium",
+    "front": "Explain Sui's object model to an EVM developer. How is it fundamentally different from Ethereum's account model?",
+    "back": "Ethereum: state is a flat key-value mapping from address to account (nonce, balance, storage root). All state lives in contract storage accessed by address. Sui: state is a set of typed, versioned objects with unique IDs. Each object has an owner (address, another object, shared, or immutable). Objects carry their type at the Move level, not just bytes. Transactions consume and produce objects — inputs are explicit, outputs are new object versions. No implicit global state access. This enables object-level parallelism: transactions touching disjoint objects execute concurrently without contention.",
+    "senior_nuance": "EVM's implicit global state is why Ethereum sequentializes all transactions. Sui's explicit object inputs are why uncontested transactions skip consensus (~400ms saved). The tradeoff is that you must know your inputs upfront — no dynamic address resolution during execution.",
+    "quote_to_say": "Ethereum hides state in contract storage. Sui makes every piece of state an explicit object — that's why it can parallelize.",
+    "tags": ["sui", "object-model", "EVM-comparison", "parallelism"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-abilities",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "medium",
+    "front": "What are Move's four type abilities (key, store, copy, drop)? What combination does a Sui object require?",
+    "back": "key: value can be a top-level object stored in global storage, has a UID field. store: value can be stored inside another struct (nested in global storage). copy: value can be copied (implicitly or with copy keyword). drop: value can be silently discarded without explicit destruction. A Sui object requires key (to have a global ID). Adding store allows the object to be wrapped inside other objects or stored in dynamic fields. Without copy: value is moved, not duplicated — assets cannot be accidentally cloned. Without drop: value must be explicitly destroyed or transferred — prevents silent loss of assets. Coins have key + store. Capabilities often have key only (cannot be stored in arbitrary places).",
+    "senior_nuance": "Removing store from an object type restricts where it can live — it can only be owned directly, not wrapped. This is a security pattern: a capability with only key cannot be hidden in another object to circumvent access checks.",
+    "quote_to_say": "Abilities are the type-system equivalent of access control. key+store = transferable asset. key only = non-wrappable capability.",
+    "tags": ["sui", "move", "abilities", "key", "store", "copy", "drop"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-owned-vs-shared",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "When would you NOT use a shared object in Sui Move, even if it fits the data model?",
+    "back": "Shared objects serialize through consensus (~400-500ms latency). Owned objects use the fast path (<400ms, no consensus). If data is per-user without cross-user coordination, make it owned. Use shared only when you need atomic concurrent writes (order books, shared counters, AMM pools). Pattern: instead of a shared registry, have each user own their own object and use dynamic fields keyed by user address on a shared parent only when global lookup is required. The design question is: does this object ever need to be written by two different users in the same epoch? If no, make it owned.",
+    "senior_nuance": "Sui's differentiator IS object-level parallelism. Every shared object forfeits that — make it deliberate. Mysten's Mysticeti consensus (v2) reduces shared object latency but owned objects remain faster.",
+    "quote_to_say": "Owned objects are the fast path; shared objects are a tax you pay for coordination.",
+    "tags": ["sui", "move", "shared-object", "owned-object", "consensus"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-ptb",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "What are Programmable Transaction Blocks (PTBs) in Sui? What does the 1024-command limit enable?",
+    "back": "PTBs allow composing up to 1024 commands in a single transaction, atomically: call Move functions, transfer objects, split/merge coins, publish packages. Results of one command can be inputs to the next — chaining without deploying an orchestrator contract. Key properties: atomic (all succeed or all revert), gas is paid once, objects are passed by reference or value. The 1024 limit enables: airdrop 1000 NFTs in one tx, multi-step DeFi (swap → provide liquidity → stake) in one tx, batch minting. Unlike Ethereum where composing n actions requires a smart contract intermediary or n separate txs, PTBs are a first-class primitive.",
+    "senior_nuance": "PTBs are the Sui equivalent of EVM multicall, but at protocol level — cheaper and safer (no delegatecall, no storage collision). The constraint: all object inputs must be known at signing time. Dynamic object discovery mid-PTB is not supported.",
+    "quote_to_say": "PTBs make 1024-step atomic transactions a client primitive. No orchestrator contract needed.",
+    "tags": ["sui", "PTB", "programmable-transaction", "atomic", "1024"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-entry-functions",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "easy",
+    "front": "What is the difference between public, public(friend), and entry functions in Sui Move?",
+    "back": "public: callable from any module and from transactions. public(friend): callable only from modules declared as friends of this module — package-internal visibility above module level. entry: callable from transactions (PTBs) but NOT from other Move code. Useful for functions that should only be called by users, not composed by contracts. A function can be both public and entry. entry without public: only PTB-callable, not callable by other modules. Use entry for user-facing operations where you want to prevent on-chain composability (e.g., minting flow that should not be automated by a contract).",
+    "senior_nuance": "The entry restriction is a security boundary. If an attacker can call your entry function via another contract, they can automate attacks. Use entry for operations that require human intent or where composability would create exploits.",
+    "quote_to_say": "entry = users can call it, contracts cannot compose it. It is a deliberate composability wall.",
+    "tags": ["sui", "move", "entry", "public", "visibility"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-sui-dynamic-fields",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "What are dynamic fields in Sui Move? When do you use dynamic_field vs dynamic_object_field?",
+    "back": "Dynamic fields attach arbitrary key-value pairs to an object at runtime — like a heterogeneous map. Keys are any type with copy+drop+store; values can be any type. dynamic_field::add/borrow/remove operate on values stored inline within the parent's storage. dynamic_object_field::add stores objects (key-able types) as child objects that retain their own Object ID and can be fetched independently via the Sui API. When to use which: dynamic_field for primitive values or structs you only access through the parent; dynamic_object_field for Sui objects that need to remain independently addressable (e.g., NFTs in a kiosk that can be directly queried).",
+    "senior_nuance": "A parent with dynamic fields cannot be deleted until all dynamic fields are removed — forgetting this causes move abort on deletion. Wrap deletions in a pattern that clears dynamic fields first.",
+    "quote_to_say": "dynamic_field = embedded value. dynamic_object_field = child with its own ID. Choose based on addressability needs.",
+    "tags": [
+      "sui",
+      "dynamic-fields",
+      "dynamic-object-field",
+      "storage",
+      "move"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-transfer",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "medium",
+    "front": "Compare transfer::transfer, transfer::public_transfer, transfer::share_object, and transfer::freeze_object in Sui.",
+    "back": "transfer::transfer(obj, recipient): moves object to recipient's address; only usable in the module that defines the object type (requires no store ability). transfer::public_transfer(obj, recipient): same but works on any type with store ability — usable from any module. transfer::share_object(obj): makes object shared (accessible by all, sequenced through consensus). transfer::freeze_object(obj): makes object permanently immutable and shared-readable — no further mutations. Once shared or frozen, the mode cannot be changed. Immutable objects are free to read (no consensus) but cannot be used as mutable inputs.",
+    "senior_nuance": "Immutable objects are ideal for on-chain config, package metadata, or price feeds that should never change. They are cheaper to reference than shared objects. freeze_object is a one-way door — use it deliberately.",
+    "quote_to_say": "freeze_object is permanent immutability. share_object is permanent shared mutability. Neither can be reversed.",
+    "tags": ["sui", "transfer", "share-object", "freeze", "ownership"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-sui-mysticeti",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "What is Mysticeti? How does it differ from Narwhal/Bullshark, and what latency improvements does it bring?",
+    "back": "Narwhal/Bullshark: Narwhal is a DAG-based mempool that separates data dissemination from ordering; Bullshark is the consensus protocol that orders the DAG. Mysticeti replaces this with a single DAG-based BFT protocol that pipelines block proposal and certification. Mysticeti v1 (2024): reduced median finality for shared objects from ~3s to ~390ms. Mysticeti v2: further optimizations, sub-400ms median latency claimed for shared objects. Key improvement: block proposers in Mysticeti can reference multiple uncertified blocks as parents, increasing throughput and reducing certification latency. Owned objects were already fast path (~100-200ms) and are unaffected.",
+    "senior_nuance": "Mysticeti is latency-optimized at the cost of some simplicity. The pipeline means blocks can be referenced before certified — validators must track tentative vs committed state carefully. For dApps, the user-facing improvement is real: shared object txs feel as fast as owned on modern infra.",
+    "quote_to_say": "Mysticeti collapsed shared object latency from 3s to under 400ms — the gap between owned and shared objects is closing.",
+    "tags": [
+      "sui",
+      "mysticeti",
+      "consensus",
+      "latency",
+      "narwhal",
+      "bullshark"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-capabilities",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "medium",
+    "front": "What is the capability pattern in Sui Move, and how does it replace role-based access control?",
+    "back": "A capability is a struct (usually with key and no copy/drop) whose mere ownership proves authorization. Functions take the capability as a parameter — if you have it, you are authorized. Example: AdminCap { id: UID } — only the address holding this object can call admin functions. Contrast with Solidity's AccessControl: no on-chain role registry, no mapping to manage. Capabilities can be transferred, split, burned. Hierarchical capabilities: mint a sub-capability with narrower permissions from a parent capability. Non-transferable capabilities: use only key (no store) so they cannot be wrapped or transferred except through the defining module's functions.",
+    "senior_nuance": "Capability objects are visible on-chain — holding an AdminCap is public information via object ownership queries. If you need secret authority, you need a different pattern (e.g., one-time witness or off-chain sig).",
+    "quote_to_say": "In Move, authorization is possession. If you hold the cap, you can call the function — no registry needed.",
+    "tags": ["sui", "capability", "access-control", "move", "ownership"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-one-time-witness",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "What is the One-Time Witness (OTW) pattern in Sui Move and what guarantees does it provide?",
+    "back": "An OTW is a struct whose name exactly matches the module name (all caps), with no fields (or only drop ability), passed as the first argument to the module's init function. The runtime guarantees the OTW is created exactly once — during module publish. No code can create a second instance. This is used to guarantee uniqueness for: coin creation (sui::coin::create_currency requires OTW to prevent duplicate currencies), NFT collection initialization, or any one-time setup. Pattern: module my_token has struct MY_TOKEN has drop {}; init(witness: MY_TOKEN, ctx: &mut TxContext) calls coin::create_currency(witness, ...).",
+    "senior_nuance": "The OTW guarantee is enforced by the Move verifier: the witness type cannot be constructed except in init. This is a stronger guarantee than Solidity's constructor — Move's type system makes one-time setup provably single-execution.",
+    "quote_to_say": "OTW is the Move pattern for provably-once initialization. The type system enforces it — not a flag, not a check.",
+    "tags": [
+      "sui",
+      "move",
+      "one-time-witness",
+      "OTW",
+      "coin",
+      "initialization"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-kiosk",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "hard",
+    "front": "What is Sui Kiosk and how does it solve the royalty enforcement problem that plagued Ethereum NFTs?",
+    "back": "Sui Kiosk (SIP-09) is a protocol-level trading primitive. Objects are placed in a Kiosk (shared object). Transfers can only happen through the Kiosk's transfer policy — a set of programmable rules (royalty payment, KYC check, minimum price). Because transfer is mediated by Move code (not just an approval), rules are enforced at the VM level — not a marketplace opt-in. Contrast with Ethereum: ERC-721's transferFrom is permissionless; royalty (EIP-2981) is a suggestion that marketplaces can ignore. Blur famously bypassed royalties with its opt-out system. Kiosk: buyers must satisfy all TransferRequest rules before the object is released — non-compliance is a compile-time/runtime error.",
+    "senior_nuance": "Kiosk's power comes from Move's type system: TransferRequest<T> must be resolved before the object can be unwrapped. You cannot bypass it unless you have a custom policy that resolves the request — and the policy is created by the collection creator.",
+    "quote_to_say": "Kiosk makes royalties a Move type constraint, not a suggestion. If the rule isn't satisfied, the transfer does not compile.",
+    "tags": ["sui", "kiosk", "royalty", "NFT", "transfer-policy"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sui-gas-coin",
+    "topic": "blockchain",
+    "subtopic": "sui-move",
+    "difficulty": "easy",
+    "front": "How does gas payment work in Sui? Can a user pay gas with a non-SUI token?",
+    "back": "In Sui, gas is paid using SUI Coin objects specified in the transaction's gasPayment field. The runtime deducts gas from those coins. Sponsored transactions: a third party (sponsor) provides the gas coin — the user signs the transaction but the sponsor's coin pays for execution. This enables gasless UX for dApps. Gas budget and price are set at signing; if actual gas exceeds budget the tx aborts. SUI is the only native gas token. Non-SUI tokens cannot pay gas directly, but sponsorship abstracts this: a dApp can sponsor all gas and charge users in another token off-chain.",
+    "senior_nuance": "Sponsored transactions change the security model: the sponsor learns the tx content before execution (they sign the GasData). Do not use sponsored txs for sensitive operations where knowing the tx content before execution is dangerous.",
+    "quote_to_say": "Sui sponsorship = gasless UX at the protocol level. The sponsor pays SUI, the user never sees a gas prompt.",
+    "tags": ["sui", "gas", "sponsorship", "SUI", "gasless"],
+    "mock_eligible": false
+  }
+]

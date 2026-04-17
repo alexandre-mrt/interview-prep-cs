@@ -1,0 +1,76 @@
+# Impact STAR
+
+## Prompt pattern
+"Tell me about the project you're most proud of."
+"Describe your biggest impact in the last year."
+"What's the most important thing you've shipped?"
+
+## STAR structure
+**Situation**: why the problem mattered — to users, to revenue, to the team.
+**Task**: your specific role in driving the outcome.
+**Action**: the decisions and tradeoffs you made — not the activity log.
+**Result**: quantified impact, compared against a baseline, with second-order effects named.
+
+## Senior signals
+- Lead with business impact, not technical cleverness.
+- Quantify with a baseline: "X% faster" is weak; "p99 from 800ms to 120ms, unblocking mobile expansion" is strong.
+- Name the counterfactual: what would have happened if you hadn't done this.
+- Credit collaborators specifically — by role, not just "the team."
+- Mention one thing you'd do differently in hindsight.
+
+## Template 1: Business-critical performance work
+
+**Situation**: <PRODUCT AREA, e.g. checkout flow> had p99 latency of <BEFORE, e.g. 1.4s>, and we had evidence from <DATA SOURCE, e.g. funnel analysis> that <IMPACT, e.g. ~3% of checkout starts were abandoning at the payment step due to timeouts>. At our revenue run rate this was costing <$ AMOUNT / TIME PERIOD>.
+
+**Task**: Own the performance work end-to-end and bring p99 below <TARGET, e.g. 300ms> within <TIMELINE, e.g. one quarter>, without degrading reliability or pausing feature work.
+
+**Action**:
+1. Profiled before touching anything. Flame graph showed <TOP CAUSE, e.g. 60% of time in a single synchronous external call>.
+2. Shipped the cheapest fix first: <FIX 1, e.g. parallelize the external call with the DB fetch> — <OUTCOME 1, e.g. p99 dropped to 700ms> in <TIME, e.g. one week, one PR>.
+3. Added structured latency tracing so I could measure the next bottleneck precisely instead of guessing.
+4. Partnered with <TEAM, e.g. infra team> to add a read-through cache on <SUBSYSTEM>, with explicit invalidation contract to avoid staleness bugs.
+5. Explicitly rejected <ALTERNATIVE, e.g. rewriting the service in a faster language> — would have taken 3 months for 20% of the win I got in 4 weeks.
+
+**Result**: p99 went from <BEFORE> to <AFTER, e.g. 180ms>, an <OUTCOME PERCENT, e.g. 87%> reduction. Abandoned-checkout rate dropped <PERCENT>; estimated <$ IMPACT / YEAR> recovered revenue. Mobile team unblocked — they'd been waiting on <DEPENDENCY> before they could launch a feature gated on sub-300ms latency.
+
+**Hindsight**: I should have added the tracing on day 1 instead of day 5. I wasted a week debugging by intuition before I had the instrumentation.
+
+**Senior quote**: "The big win came from a 30-line PR. I didn't believe it either until I saw the numbers."
+
+## Template 2: Cost / efficiency impact
+
+**Situation**: <INFRASTRUCTURE, e.g. our data pipeline> was costing <$ AMOUNT / MONTH>, up <PERCENT> YoY. Finance had flagged it as the fastest-growing line item in eng spend.
+
+**Task**: Reduce cost by at least <TARGET PERCENT> in <TIMELINE> without degrading <SLO, e.g. daily batch completion time> or blocking the <DEPENDENT USE CASES, e.g. analytics and ML teams>.
+
+**Action**:
+1. Ran a 2-week audit to map cost per job, per team, per storage tier. Discovered <TOP FINDING, e.g. 40% of spend came from 3 jobs that could run on preemptible instances>.
+2. Prioritized by cost impact, not technical interest — the biggest savings came from <UNGLAMOROUS FIX, e.g. right-sizing reserved instances>.
+3. Shipped changes in order of risk: preemptible migration first (easy rollback), then storage tier moves, then query rewrites.
+4. Built a cost dashboard per team so the savings stayed visible and new workloads got costed up front.
+5. Rejected <ALTERNATIVE, e.g. migrating to a different cloud> — would have saved 15% more but taken 9 months and introduced vendor risk.
+
+**Result**: Monthly cost down <OUTCOME PERCENT, e.g. 42%>, or <$ AMOUNT / YEAR> annualized. SLOs held. Dashboard is now used by <N TEAMS> for cost-aware design reviews before launch.
+
+**Hindsight**: I should have negotiated the reserved-instance commitment earlier — it took me a month to get finance approval on the contract, and that was the longest blocker.
+
+**Senior quote**: "The savings weren't clever — they were boring. That's usually where the big numbers are."
+
+## Template 3: Platform / leverage impact
+
+**Situation**: <N> product teams were each maintaining their own <CAPABILITY, e.g. feature-flag system / schema-versioning tool / event-logging library>. Combined effort across teams was ~<N engineer-months/year>, and inconsistencies had caused <IMPACT, e.g. 2 user-facing incidents>.
+
+**Task**: Design and drive adoption of a shared <PLATFORM> that replaced the fragmented solutions, in <TIMELINE>, without forcing a disruptive rip-and-replace.
+
+**Action**:
+1. Talked to <N> engineers across <N TEAMS> first. Wrote down their actual pain points — not the pain points I assumed they had.
+2. Designed the platform with an adapter layer so existing integrations could migrate incrementally, one team per quarter.
+3. Built the first adapter and migrated <REFERENCE TEAM> myself so I could discover the real friction before asking others to do it.
+4. Wrote a migration playbook and ran biweekly office hours; resisted scope creep from teams asking for bespoke features until core adoption stabilized.
+5. Deprecated the old systems only after <THRESHOLD, e.g. 80% adoption>, with a hard sunset date agreed in writing with each remaining team.
+
+**Result**: <N TEAMS> migrated in <TIME>. Combined engineering overhead dropped from <BEFORE> to <AFTER, e.g. 0.5 engineer-months / year>. <SECONDARY, e.g. incidents related to this capability went from 2/year to 0>. Platform is now the default for new services.
+
+**Hindsight**: I should have written the migration playbook before building the first adapter, not after. I had to retrofit it based on what I'd done, instead of using it to guide my own migration.
+
+**Senior quote**: "The platform only mattered because people used it. Adoption was the hard part, not the code."

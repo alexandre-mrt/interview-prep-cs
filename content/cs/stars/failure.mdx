@@ -1,0 +1,81 @@
+# Failure STAR
+
+## Prompt pattern
+"Tell me about your biggest professional failure."
+"Describe a time something you shipped broke."
+"When did a project you led not go well?"
+
+## STAR structure
+**Situation**: what you shipped or decided, and the context.
+**Task**: your specific ownership — make sure it's really yours.
+**Action**: what you did that turned out wrong, and why it seemed right at the time.
+**Result**: concrete business impact, then the durable change you made.
+
+## Senior signals
+- Pick a real failure with measurable impact — not "I cared too much."
+- Distinguish "bad outcome from reasonable decision" vs "bad outcome from bad decision." Name which yours was.
+- Own it without self-flagellating — interviewers want calm accountability, not drama.
+- End with a specific process/guardrail change, not just "I learned to be more careful."
+- Never blame teammates or vendors as the root cause.
+
+## Template 1: A shipped decision that caused an incident
+
+**Situation**: I owned <SYSTEM> serving <SCALE>. We were under pressure to ship <FEATURE> by <DATE>. I made the call to <DECISION, e.g. skip a load test on a schema migration> because <REASONING, e.g. the migration looked backward-compatible and we'd run similar ones before>.
+
+**Task**: The decision was mine. I didn't escalate it because I didn't think it was a risk worth escalating — which is itself part of the failure.
+
+**Action**:
+1. Shipped <CHANGE> on <DATE>.
+2. Within <TIME, e.g. 4 hours>, we saw <SYMPTOM, e.g. query latency on reads jumped 20x>.
+3. Paged on-call; I took incident command since I had the most context.
+4. Mitigated by <ACTION, e.g. rolling back the schema change and replaying the index rebuild off-peak> — total user-visible impact <DURATION>.
+5. Ran the postmortem myself, framed blamelessly, and named my own decision as the root cause in the writeup.
+
+**Result**: <IMPACT, e.g. ~20 minutes of degraded experience for <N USERS>, one missed SLO, one customer-facing apology from support lead>. No revenue hit, but real trust cost.
+
+**The durable change**: I wrote a checklist for schema-touching changes that requires either a load test or a written justification for skipping it, signed by a second senior. That checklist is now team-wide and has caught <N> similar risks since.
+
+**Honest framing**: This was a bad decision, not bad luck. I had the option to run the load test in 2 hours and I chose not to. The lesson was less "run load tests" and more "if I find myself rationalizing a skipped safeguard under deadline pressure, that's the signal to slow down."
+
+**Senior quote**: "The mistake wasn't technical. It was that I let deadline pressure override a safety check I'd normally run."
+
+## Template 2: A project that missed its goal
+
+**Situation**: Led <PROJECT, e.g. search relevance revamp> over <DURATION, e.g. 4 months>. Goal: <METRIC, e.g. improve click-through rate on top queries by 15%>. Team of <TEAM SIZE>.
+
+**Task**: Own the goal end-to-end: scoping, staffing, shipping, measuring.
+
+**Action**:
+1. Scoped the work based on <INITIAL HYPOTHESIS, e.g. a new ranking model would win>.
+2. Built and shipped <WORK> over <DURATION>.
+3. A/B test showed <OUTCOME, e.g. neutral result — no statistically significant lift>.
+4. Rather than declare victory on a vanity metric, reported the neutral result to leadership, including the opportunity cost (<N engineer-months>).
+5. Ran a retro identifying two root causes: <CAUSE 1, e.g. the baseline was already strong> and <CAUSE 2, e.g. I anchored on the model approach and never de-risked with a cheaper heuristic first>.
+
+**Result**: Project didn't hit its goal. Team had spent <N engineer-months> with no user-visible win. I had to sit with the discomfort of reporting that honestly.
+
+**The durable change**: For the next project, I built in a "kill criterion" at week 4 — a cheap experiment that had to beat baseline by a threshold or the approach was scrapped. Used that pattern on <FOLLOW-UP PROJECT>, which we killed at week 5 and redirected to a different approach that shipped successfully.
+
+**Honest framing**: This was a reasonable decision that didn't work out — but the failure-within-the-failure was that I didn't build in an early kill gate. I learned to be suspicious of any plan that's impossible to falsify in the first month.
+
+**Senior quote**: "The project was a null result, and I told leadership that in those exact words. Reporting it as anything else would have been worse than the result itself."
+
+## Template 3: A management / mentoring failure
+
+**Situation**: I was senior IC acting as tech lead for <ENGINEER, e.g. a mid-level engineer on the team>. They were struggling with <AREA, e.g. scoping and shipping independently>. I noticed the signs but didn't address them directly for <DURATION, e.g. 2 months>.
+
+**Task**: As the senior on the team and their closest collaborator, I was the one positioned to give the feedback early. I didn't.
+
+**Action that failed**:
+1. Observed the pattern — missed timelines, scope creep, reluctance to ship.
+2. Rationalized: "They're learning, I don't want to come on too strong, the EM will handle it in reviews."
+3. Started doing work myself to cover — finishing pieces quietly, unblocking without pointing out the pattern.
+4. The review cycle hit and my EM gave them tough feedback that was a surprise to them — because I had hidden the signal.
+
+**Result**: <ENGINEER> lost trust in the feedback process and left the team within <DURATION, e.g. 3 months>. They told me in their exit conversation that the review feedback "came out of nowhere" — which it did, from their perspective.
+
+**The durable change**: I now give feedback within the same week I notice a pattern, even if it's uncomfortable. I treat covering for someone silently as a short-term kindness that's a long-term harm. For the next engineer I mentored, I set up an explicit weekly 1:1 with space for direct feedback, and the feedback landed because it was continuous, not a surprise.
+
+**Honest framing**: This was a bad decision, not a reasonable one. I knew how to give the feedback — I chose comfort over honesty. The cost was someone's career trajectory and a teammate I liked working with.
+
+**Senior quote**: "I thought I was being kind. I was being conflict-averse. Those aren't the same thing."

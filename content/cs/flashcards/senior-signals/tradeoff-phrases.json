@@ -1,0 +1,122 @@
+[
+  {
+    "id": "ss-tradeoff-pacelc",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "Interviewer says 'CAP' when reasoning about a non-partitioned cluster's latency vs consistency. How do you correct without sounding pedantic?",
+    "back": "Name PACELC and move on. 'We're not in a partition here, so the tradeoff is latency versus consistency — that's the ELC branch of PACELC, not CAP.' Then pick the side that matches the SLO: lower latency with staleness, or higher latency with linearizability.",
+    "senior_nuance": "You correct the frame once, briefly, and redirect to the decision. Pedantry without a design move loses the room.",
+    "quote_to_say": "That's a PACELC choice, not a CAP one.",
+    "tags": ["tradeoff", "pacelc", "consistency", "latency"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-idempotency-edge",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "Where should idempotency live — at the client, the edge, or the service?",
+    "back": "At the edge, on the way in. An idempotency key attached at the API gateway or client SDK costs a hash lookup per request. Pushing dedup into the service means every downstream system needs its own semantics, and you're reconciling duplicate writes from accounting later. The cheapest place to kill a duplicate is before it fans out.",
+    "senior_nuance": "Stripe-style idempotency keys are the canonical example. Clients supply the key; the edge stores the first-write-wins mapping for 24h.",
+    "quote_to_say": "Idempotency is free at the edge, expensive at the end.",
+    "tags": ["tradeoff", "idempotency", "edge"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-eventual-consistency-debug",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "When is eventual consistency the wrong answer, even at scale?",
+    "back": "When the system has a human in the debug loop. Eventual consistency turns every incident into a timeline reconstruction: 'the user saw X at T, the replica had Y at T+200ms, the cache had Z until T+2s'. If the domain is money, inventory, or identity, the operational cost of racing states exceeds the latency savings.",
+    "senior_nuance": "Eventual consistency is a UX and ops choice, not just a performance one. You trade steady-state latency for incident-time complexity.",
+    "quote_to_say": "Eventual consistency is fine until someone has to debug a race.",
+    "tags": ["tradeoff", "eventual-consistency", "debuggability"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-complexity-earn",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "easy",
+    "front": "Someone proposes Kafka for a workflow with 50 messages per second and one consumer. How do you push back?",
+    "back": "Name the baseline. A Postgres table with FOR UPDATE SKIP LOCKED or a Redis list handles 50 msg/s with zero new operational surface. Kafka pays off when you need multi-consumer fanout, replayability, or partitioned ordering at scale. For this load, the boring answer wins.",
+    "senior_nuance": "Every new system is an oncall rotation, an upgrade path, and a failure mode. Complexity has to justify itself with numbers or a concrete capability you need today.",
+    "quote_to_say": "Complexity has to earn its way in.",
+    "tags": ["tradeoff", "complexity", "kafka", "baseline"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-boring-baseline",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "easy",
+    "front": "How do you open a storage discussion without anchoring on a hype database?",
+    "back": "Anchor on the boring baseline first. 'A single primary Postgres with read replicas handles this until we have numbers that say otherwise.' Then list the specific metrics that would force a move: write throughput exceeding N, a secondary access pattern that kills the index, or a multi-region requirement. Now the room is debating numbers, not taste.",
+    "senior_nuance": "Postgres scales further than most junior engineers believe. Anchoring on the boring baseline gives you credibility and prevents the conversation from drifting into brand wars.",
+    "quote_to_say": "The boring answer is the baseline.",
+    "tags": ["tradeoff", "baseline", "postgres"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-sync-async",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "A teammate wants to make a user-facing write asynchronous for latency. What's the senior framing?",
+    "back": "Async is a UX contract, not a latency trick. If the user needs to see the result on the next screen, async forces you to invent a polling or optimistic UI. Make writes async only when the user's mental model accepts 'it will happen' — emails, notifications, analytics, search indexing. Never for 'did my payment go through'.",
+    "senior_nuance": "Async shifts complexity from the request path to the consistency story. The latency win is real; the UX cost is often hidden until QA.",
+    "quote_to_say": "Async is a UX contract, not a latency trick.",
+    "tags": ["tradeoff", "async", "ux"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-cache-invalidation",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "hard",
+    "front": "Someone proposes a write-through cache to solve a read-heavy hotspot. What's the senior pushback?",
+    "back": "Write-through moves the hard problem, it doesn't solve it. Now every write pays cache latency, and every failure mode — partial write, cache eviction, replica lag — becomes a correctness bug. Prefer a read-through cache with a short TTL and explicit invalidation on the mutation path. The TTL is your insurance policy against the invalidation bug you will ship.",
+    "senior_nuance": "The two hard problems are naming, cache invalidation, and off-by-one errors. A TTL is a humility feature — it assumes your invalidation will fail.",
+    "quote_to_say": "A TTL is a humility feature for the invalidation bug you'll ship.",
+    "tags": ["tradeoff", "cache", "invalidation", "ttl"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-consistency-per-endpoint",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "hard",
+    "front": "A reviewer asks: 'Is this system consistent or eventually consistent?' How do you reframe?",
+    "back": "Consistency is per-endpoint, not per-system. Reject the global framing: 'Balance reads are strongly consistent, social feed reads are eventually consistent, search is best-effort stale'. Pin each critical endpoint to a named consistency level with a latency budget. That's the real design artifact.",
+    "senior_nuance": "Calling a system 'strongly consistent' is almost always a lie. Real systems have a matrix of endpoints with different levels, tuned to different UX needs.",
+    "quote_to_say": "Consistency is per-endpoint. Let's go through them.",
+    "tags": ["tradeoff", "consistency", "endpoint"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-build-vs-buy",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "Team wants to build an in-house job scheduler instead of using a managed one. How do you frame the call?",
+    "back": "Frame it as a maintenance budget, not a build estimate. 'What's our five-year cost of ownership — oncall, upgrades, scaling, security patches — versus the managed option's bill?' If the differentiator is a feature our workload truly needs and no vendor offers, build. If the differentiator is 'we'd like it tuned', buy.",
+    "senior_nuance": "Build vs buy is answered by the team size you'll have in two years, not the one you have now.",
+    "quote_to_say": "Build when it's a moat, buy when it's a cost center.",
+    "tags": ["tradeoff", "build-vs-buy", "ownership"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-tradeoff-p99-vs-p50",
+    "topic": "senior-signals",
+    "subtopic": "tradeoff-phrases",
+    "difficulty": "medium",
+    "front": "An engineer optimizes p50 latency and the p99 gets worse. What do you say?",
+    "back": "Users live at p99, not p50. Tail latency is what they remember, especially at fanout — a page with 10 backend calls sees its p99 shaped by the worst call. Optimize the long tail: bounded queues, hedged requests, timeouts shorter than retries, and a per-dependency budget. p50 improvements are free wins; p99 regressions are outages in slow motion.",
+    "senior_nuance": "At fanout F, the page's p99 is roughly the backend's p(1 - 0.01/F). Small tail regressions cascade into visible UX problems.",
+    "quote_to_say": "Users live at p99.",
+    "tags": ["tradeoff", "latency", "p99", "tail"],
+    "mock_eligible": true
+  }
+]

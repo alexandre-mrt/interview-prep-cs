@@ -1,0 +1,177 @@
+[
+  {
+    "id": "sd-cap-theorem",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "State the CAP theorem. What does each letter mean?",
+    "back": "In a distributed system, you can guarantee at most two of three: Consistency (every read sees the most recent write), Availability (every request gets a non-error response), Partition tolerance (system continues despite network partitions). Since network partitions are unavoidable in practice, the real choice is CP or AP — you lose either consistency or availability when a partition occurs.",
+    "senior_nuance": "CAP is a binary model and is often misapplied. It describes behavior during a partition only, not steady-state. Most interviewers say 'CAP' when they mean latency vs consistency. The correct follow-up is: 'That's a PACELC choice, not a CAP one.'",
+    "quote_to_say": "That's a PACELC choice, not a CAP one.",
+    "tags": ["cap", "consistency", "availability", "partition-tolerance"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-pacelc",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "What is the PACELC theorem and why is it more useful than CAP for real design decisions?",
+    "back": "PACELC extends CAP: if Partition (P), choose between Availability (A) and Consistency (C); ELse (E), choose between Latency (L) and Consistency (C). Most distributed systems operate without partitions 99.9%+ of the time, so the ELC branch drives real design. DynamoDB is PA/EL (available, low latency, eventually consistent). Spanner is PC/EC (consistent, higher latency). Cassandra is PA/EL by default.",
+    "senior_nuance": "The ELC tradeoff is why you tune read/write quorums in Cassandra. QUORUM gives strong consistency at the cost of latency; ONE gives low latency at the cost of staleness. Neither is wrong — it depends on the SLO.",
+    "quote_to_say": "That's a PACELC choice, not a CAP one.",
+    "tags": ["pacelc", "latency", "consistency", "cassandra", "spanner"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-acid-properties",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "Define ACID. Which property is hardest to achieve in distributed systems, and why?",
+    "back": "Atomicity: all-or-nothing. Consistency: transitions between valid states. Isolation: concurrent transactions don't interfere. Durability: committed writes survive crashes. In distributed systems, Isolation is the hardest — achieving serializable isolation across nodes requires distributed locking or protocols like 2PL + 2PC, which are expensive. Most distributed DBs offer snapshot isolation or read committed by default, not full serializability.",
+    "senior_nuance": "Postgres uses MVCC for isolation, avoiding read locks. Serializable isolation in Postgres uses Serializable Snapshot Isolation (SSI), which tracks read-write conflicts. Google Spanner achieves external consistency (stronger than serializability) using TrueTime, but the latency cost is real.",
+    "tags": ["acid", "isolation", "serializability", "mvcc", "distributed"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-base-model",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "What does BASE mean? When do you choose BASE over ACID?",
+    "back": "BASE: Basically Available, Soft state, Eventually consistent. Choose BASE when: (1) scale requires sharding across many nodes where ACID 2PC becomes a bottleneck, (2) the business domain tolerates eventual consistency (social feed, shopping cart, analytics), (3) availability SLO trumps consistency. DNS is the canonical BASE system — changes propagate eventually, and that's fine for most lookups.",
+    "senior_nuance": "Calling a system 'BASE' is not an excuse for poor design. You still need to reason about what 'eventual' means in terms of seconds or minutes, and what compensating actions exist when a read returns stale data. Define the business invariant before choosing BASE.",
+    "tags": ["base", "eventual-consistency", "availability", "nosql"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-consistency-models",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "Order these consistency models from strongest to weakest: linearizability, sequential consistency, causal consistency, eventual consistency. Give one real-world example of each.",
+    "back": "Strongest to weakest: (1) Linearizability — every op appears instantaneous at some point between invocation and response; Zookeeper reads with sync(), etcd. (2) Sequential consistency — all nodes see operations in the same order, though not necessarily real-time; older Cassandra with QUORUM reads. (3) Causal consistency — causally related ops are seen in order; MongoDB 4.x sessions. (4) Eventual consistency — all replicas converge given no new updates; DynamoDB default, DNS, S3.",
+    "senior_nuance": "Linearizability is composable: two linearizable services combined are linearizable. Sequential consistency is not. This matters for building systems from components. Most real outages come from developers assuming linearizability when the system only provides eventual consistency.",
+    "quote_to_say": "What's the access pattern? That tells me which consistency model we actually need.",
+    "tags": [
+      "linearizability",
+      "sequential-consistency",
+      "causal-consistency",
+      "eventual-consistency"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-strong-eventual-consistency",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "What is Strong Eventual Consistency (SEC) and how do CRDTs achieve it?",
+    "back": "SEC guarantees that replicas that have received the same set of updates will be in identical state, without requiring coordination. CRDTs (Conflict-free Replicated Data Types) achieve this by defining merge operations that are commutative, associative, and idempotent. Examples: G-Counter (grow-only), PN-Counter (positive-negative), LWW-Register (last-write-wins), OR-Set (observed-remove). Riak, Cassandra counters, and Redis CRDT module use CRDTs.",
+    "senior_nuance": "CRDTs eliminate coordination but constrain your data model. You can't have a general-purpose CRDT for arbitrary transactions. The design question is: can you model your business invariant as a CRDT operation? If not, you need coordination — own that tradeoff explicitly.",
+    "tags": ["crdt", "sec", "strong-eventual-consistency", "merge", "riak"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-two-generals",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "What is the Two Generals Problem and what does it imply for distributed systems?",
+    "back": "Two armies need to agree on an attack time by sending messengers across enemy territory (messages can be lost). No finite exchange guarantees both generals attack simultaneously. This proves that 100% reliable consensus over an unreliable channel is impossible. In distributed systems: you cannot guarantee exactly-once delivery, atomic commitment over unreliable networks requires assumptions about failure modes (FLP impossibility), and timeouts are always a heuristic.",
+    "senior_nuance": "FLP impossibility (Fischer-Lynch-Paterson, 1985) proves that no deterministic consensus algorithm can tolerate even one crash failure in an asynchronous system. Practical systems escape FLP by adding randomization (Raft uses randomized timeouts) or partial synchrony assumptions.",
+    "tags": [
+      "two-generals",
+      "flp",
+      "consensus",
+      "impossibility",
+      "exactly-once"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-write-amplification",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "What is write amplification, and where does it appear in LSM-tree vs B-tree storage engines?",
+    "back": "Write amplification = ratio of actual bytes written to storage vs bytes written by the application. B-trees: random writes cause page splits and write-ahead log entries; WA ~2-5x. LSM-trees (RocksDB, Cassandra): all writes are sequential to a memtable + WAL, then compacted into sorted SSTables. Compaction rewrites data multiple times; WA can be 10-30x. LSM wins on write throughput; B-trees win on read latency and space efficiency for update-heavy workloads.",
+    "senior_nuance": "Tuning compaction strategy in RocksDB or Cassandra is a performance lever. Leveled compaction reduces WA and improves read latency at the cost of more I/O during compaction. Tiered compaction maximizes write throughput. Choose based on your read/write ratio and SLO.",
+    "tags": [
+      "write-amplification",
+      "lsm-tree",
+      "b-tree",
+      "compaction",
+      "rocksdb"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-vector-clocks",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "Explain vector clocks. What problem do they solve that Lamport timestamps don't?",
+    "back": "Lamport timestamps establish a partial order: if A happens-before B, then L(A) < L(B). But the converse doesn't hold — L(A) < L(B) doesn't mean A happens-before B. Vector clocks assign each node a counter vector [n1, n2, ...nk]. On send, increment own counter and attach full vector. On receive, take element-wise max, then increment own. Now you can detect concurrent events: neither V(A) <= V(B) nor V(B) <= V(A) means they're concurrent. DynamoDB uses vector clocks to detect conflicts during reconciliation.",
+    "senior_nuance": "Vector clocks grow linearly with node count, which is expensive at scale. Dotted version vectors and interval tree clocks are more space-efficient alternatives. In practice, DynamoDB's implementation caps clock size and prunes old entries, which can cause spurious conflicts.",
+    "tags": [
+      "vector-clocks",
+      "lamport-timestamps",
+      "causality",
+      "conflict-detection",
+      "dynamo"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-read-your-writes",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "Name four session consistency guarantees beyond eventual consistency. When does each matter?",
+    "back": "Read-your-writes: after writing, subsequent reads reflect that write. Monotonic reads: once you read a value, future reads return same or newer. Monotonic writes: writes from one session are applied in order. Writes-follow-reads: if you read X then write Y, Y is applied after X. These matter for user-facing UIs — without read-your-writes, a user submits a form and refreshes to see the old value. Achieved by session affinity (sticky routing) or reading from the leader.",
+    "senior_nuance": "Session guarantees are cheaper than full linearizability. They're often good enough for user-facing products. The failure mode to avoid: load balancer sends the read to a replica that hasn't caught up yet. The fix is either sticky sessions or reading from the primary.",
+    "tags": [
+      "session-consistency",
+      "read-your-writes",
+      "monotonic-reads",
+      "sticky-sessions"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-eventual-vs-strong",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "A product manager asks: 'Can we use eventual consistency for user account balances?' How do you answer?",
+    "back": "No, with explanation. Financial balances require strong consistency: reads must reflect all committed writes before they proceed. Eventual consistency on a balance could allow double-spend (two concurrent reads both see a sufficient balance, both debit succeed). The invariant is: balance >= 0 must hold after every transaction. Enforcing this requires either serializable isolation (single-node Postgres) or distributed coordination (Spanner, CockroachDB, or a serialization layer like a balance service with row-level locking).",
+    "senior_nuance": "The senior move is reframing: 'What's the actual user-visible behavior we need to protect?' For most e-commerce, preventing oversell is the real invariant, not full balance consistency. Sometimes a reservation + async debit pattern achieves the SLO without full ACID across services.",
+    "quote_to_say": "What's the failure mode if two concurrent reads both see a positive balance? That's your answer.",
+    "tags": [
+      "eventual-consistency",
+      "financial",
+      "strong-consistency",
+      "double-spend"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-isolation-levels",
+    "topic": "system-design",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "List SQL isolation levels weakest to strongest. What anomaly does each prevent?",
+    "back": "Read Uncommitted: no protection, dirty reads allowed. Read Committed (Postgres default): prevents dirty reads, allows non-repeatable reads and phantom reads. Repeatable Read (MySQL InnoDB default): prevents dirty + non-repeatable reads, allows phantom reads. Serializable: prevents all anomalies including write skew and phantoms. Anomaly table: dirty read = reading uncommitted data. Non-repeatable read = same row returns different values in one transaction. Phantom read = range query returns different rows. Write skew = two transactions read overlapping sets, each writes based on what it read, invariant broken.",
+    "senior_nuance": "Serializable in Postgres uses SSI (Serializable Snapshot Isolation), not 2PL, so it avoids most deadlocks. MySQL's REPEATABLE READ doesn't prevent all phantoms (gap locks help but aren't perfect). Write skew is the subtle one — classic example: on-call scheduling where two doctors simultaneously check 'is anyone else on call?' both see yes, both go off-call.",
+    "tags": [
+      "isolation-levels",
+      "acid",
+      "serializability",
+      "write-skew",
+      "phantom-read"
+    ],
+    "mock_eligible": true
+  }
+]

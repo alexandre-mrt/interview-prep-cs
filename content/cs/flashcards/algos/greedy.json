@@ -1,0 +1,94 @@
+[
+  {
+    "id": "algos-greedy-correctness",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "How do you prove a greedy algorithm is correct? What two properties must hold?",
+    "back": "Greedy algorithms require: (1) Greedy choice property — a globally optimal solution can be reached by making locally optimal choices at each step. (2) Optimal substructure — an optimal solution to the problem contains optimal solutions to subproblems. Proofs typically use exchange arguments: assume an optimal solution that differs from the greedy choice, then show you can swap the greedy choice in without worsening the solution.",
+    "senior_nuance": "The exchange argument is the standard proof technique: take any optimal solution, show that wherever it deviates from the greedy choice you can substitute the greedy choice without increasing cost, and conclude the greedy solution is at least as good as any optimal. Failing to prove one of the two properties is why greedy fails on problems like 0/1 knapsack (no greedy choice property) or coin change with arbitrary denominations.",
+    "quote_to_say": "Greedy needs a proof. If you can't state it, you can't trust it.",
+    "tags": ["greedy", "correctness", "exchange-argument"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-interval-scheduling",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "Maximize the number of non-overlapping intervals (activity selection problem).",
+    "back": "Sort intervals by end time (not start time). Greedily select each interval whose start time is >= the end time of the previously selected interval. Always select the earliest-ending compatible interval — this leaves the most room for future intervals. Time O(n log n) for sorting plus O(n) for selection.",
+    "senior_nuance": "Sorting by start time is the natural instinct but wrong. The exchange argument for sorting by end time: if an optimal solution does not select the earliest-finishing compatible interval, we can swap it in — the swapped interval ends no later (freeing at least as much space) and the count does not decrease. This greedy is the foundation for interval partitioning and minimum number of meeting rooms.",
+    "quote_to_say": "Sort by end time, not start time — greed should pick the one that finishes soonest.",
+    "tags": ["greedy", "intervals", "activity-selection"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-huffman-coding",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "hard",
+    "front": "Describe Huffman coding. Why is the greedy approach optimal?",
+    "back": "Huffman coding builds an optimal prefix-free code by greedily merging the two lowest-frequency nodes into a parent node (their combined frequency). Use a min-heap: extract the two minimums, create a parent with sum frequency, re-insert. Repeat until one node remains (the root). Frequent characters get shorter codes. Time O(n log n), space O(n).",
+    "senior_nuance": "Huffman's optimality proof uses the exchange argument: in any optimal tree, the two least frequent symbols can be placed at the deepest level as siblings without increasing average code length. The greedy choice (always merge the two smallest) replicates this structure bottom-up. Arithmetic coding achieves better compression than Huffman in practice (approaching entropy) but requires more computation.",
+    "quote_to_say": "Huffman: greedy merging of the two least frequent — proven optimal by exchange argument.",
+    "tags": ["greedy", "huffman", "compression", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-greedy-fails-knapsack",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "When does the greedy 'highest value-to-weight ratio first' strategy fail for the knapsack problem?",
+    "back": "The greedy ratio strategy fails for 0/1 knapsack because items cannot be split. Example: capacity=10, items [(value=10, weight=5), (value=9, weight=6), (value=6, weight=4)]. Greedy ratio picks (10, 5) then (6, 4) = 16. Optimal is (10, 5) + (9, 6) = 19 is infeasible; actually (9,6)+(6,4)=15 is second. The greedy gives a suboptimal solution in general cases where fractional selection is not allowed.",
+    "senior_nuance": "Greedy works for the fractional knapsack (items can be split) because the ratio directly measures marginal value per weight unit and you can always take a partial item to fill exactly. For 0/1 knapsack, the indivisibility creates dependencies between choices — you must use DP. Recognizing this distinction is the key senior insight about greedy applicability.",
+    "tags": ["greedy", "knapsack", "greedy-failure"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-jump-game",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "Determine if you can reach the last index in Jump Game I. What is the greedy approach?",
+    "back": "Track the farthest position reachable so far. At each index i, if i > farthest_reachable, return false (i is unreachable). Otherwise, update farthest_reachable = max(farthest_reachable, i + nums[i]). If farthest_reachable >= n-1 at any point, return true. Time O(n), space O(1). This is strictly faster than the DP O(n^2) approach.",
+    "senior_nuance": "Jump Game II (minimum jumps to reach the end) uses the same greedy window: track the current jump's farthest reach and the next jump's farthest reach. When you exhaust the current jump's range, increment the jump count and extend to the next farthest. This BFS-on-implicit-graph view explains why the greedy is optimal: each 'level' of the BFS corresponds to one jump.",
+    "tags": ["greedy", "array", "jump-game"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-gas-station",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "Find the starting gas station for a circular journey (Gas Station problem) in O(n).",
+    "back": "If sum(gas) < sum(cost), no solution exists. Otherwise, exactly one valid starting station exists. Track the running tank balance; whenever it goes negative, reset the tank to 0 and set start = next station. The greedy insight: if you fail starting at any point in [0, i], you can skip all those starting points because they all lead to failure at i. Time O(n), space O(1).",
+    "senior_nuance": "The uniqueness of the solution (when total gas >= total cost) is a non-obvious invariant. The proof: if a circuit is possible starting at station S, any station before S that is visited after S cannot be a valid start (because the surplus from S is needed to get through those segments). This uniqueness allows the greedy reset to be correct without backtracking.",
+    "tags": ["greedy", "gas-station", "circular"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-meeting-rooms-2",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "medium",
+    "front": "Find the minimum number of meeting rooms required for a set of intervals.",
+    "back": "Sort intervals by start time. Use a min-heap tracking the end times of ongoing meetings. For each new meeting: if the heap top (earliest ending meeting) ends before the new meeting starts, remove it (reuse the room). Always add the new meeting's end time to the heap. The heap size at the end is the minimum rooms needed. Time O(n log n), space O(n).",
+    "senior_nuance": "An equivalent approach: create sorted events for all starts (+1) and ends (-1), sweep through and track the running count. The maximum running count is the answer. This two-pointer/event-based approach has the same complexity but is simpler to reason about and avoids the heap entirely. Both approaches are valid — mention the alternative for completeness.",
+    "quote_to_say": "Meeting rooms: min-heap of end times, or event sweep — both O(n log n).",
+    "tags": ["greedy", "intervals", "heap", "meeting-rooms"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-candy-distribution",
+    "topic": "algos",
+    "subtopic": "greedy",
+    "difficulty": "hard",
+    "front": "Distribute minimum candies so each child with a higher rating than a neighbor gets more candies.",
+    "back": "Two-pass greedy: initialize all candies to 1. Left pass: if rating[i] > rating[i-1], set candy[i] = candy[i-1] + 1. Right pass (right to left): if rating[i] > rating[i+1], set candy[i] = max(candy[i], candy[i+1] + 1). The max() in the right pass preserves the left-pass constraint while satisfying the right-side constraint. Sum all candies. Time O(n), space O(n).",
+    "senior_nuance": "The two-pass approach satisfies left-neighbor constraints in the first pass and right-neighbor constraints in the second. Taking the max in the second pass is the key — simply overwriting would break the first pass's guarantees. This same 'two-direction pass with max merge' pattern solves several other 1D constraint problems (elevation map, stock prices with cooldown in greedy form).",
+    "tags": ["greedy", "array", "two-pass", "hard"],
+    "mock_eligible": true
+  }
+]

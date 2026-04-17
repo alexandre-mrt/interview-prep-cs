@@ -1,0 +1,94 @@
+[
+  {
+    "id": "mys-sui-metrics-endpoint",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "Where does a Sui node expose Prometheus metrics, and how do you scrape them?",
+    "back": "By default, a Sui node exposes Prometheus metrics on port 9184 at /metrics (RPC listens on 9000 separately). A minimal scrape config looks like: a Prometheus job 'sui-node' with a static_configs target of <host>:9184, scrape_interval 15s, and metrics_path /metrics. Mysten's 'sui_for_node_operators.md' and the docs.sui.io operator monitoring page document the canonical setup and link recommended Grafana dashboards.",
+    "senior_nuance": "The practical tip is to keep the scrape interval honest (15s is fine for most metrics) but be mindful that consensus-round metrics can advance faster than that. For any percentile you care about you should be using histograms, not summaries, because you will want to aggregate across validators.",
+    "quote_to_say": "Port 9184 is one of those numbers you should just know going into a Sui validator interview.",
+    "tags": ["observability", "prometheus", "sui", "port-9184"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-block-height-lag-alert",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "Write a PromQL alert for checkpoint/block height lag on a Sui fullnode.",
+    "back": "You want an alert when this node's highest checkpoint lags the network tip by more than N for more than M minutes. The pattern is: `max(sui_fullnode_highest_synced_checkpoint) - on() sui_fullnode_highest_synced_checkpoint{instance=\"$node\"} > 50` for 5m. For a validator, use the equivalent consensus-round or committed-checkpoint metric family and compare to the cluster max via max by() / on() joins. The 'for' clause avoids paging on transient catch-up.",
+    "senior_nuance": "A senior answer notes that 'max across the fleet' can be skewed by a single runaway validator or a misconfigured peer. The more robust alert compares to a published network tip (from a peer set or a central metrics proxy) rather than to your own fleet's max. Also pair with a peer_count check so you don't page on lag that's actually a disconnection.",
+    "tags": ["observability", "promql", "alerting", "checkpoint-lag"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-checkpoint-latency-histogram",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "How do you compute P99 checkpoint creation latency from a Sui histogram metric?",
+    "back": "Aggregate the rate of the histogram buckets first, then apply histogram_quantile. For example: `histogram_quantile(0.99, sum by (le) (rate(sui_checkpoint_creation_duration_seconds_bucket[5m])))`. The le label must be preserved in the sum-by, otherwise histogram_quantile returns NaN. For per-validator breakdowns add 'instance' to the by() clause. The 5m range should be tuned based on your scrape interval and checkpoint cadence.",
+    "senior_nuance": "The common mistake is `histogram_quantile(0.99, rate(X_bucket{instance=\"a\"}[5m]))` on a single instance. That works but doesn't give you the cluster view. The correct pattern is aggregate-then-quantile; it relies on histograms being aggregatable across instances, which is why you prefer histograms to summaries for latency.",
+    "quote_to_say": "Aggregate rate of buckets first, then quantile. Getting that order wrong is the single most common PromQL mistake.",
+    "tags": ["observability", "promql", "histogram", "checkpoint"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-consensus-round-time",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "What metric tells you consensus is progressing, and how do you alert on stalls?",
+    "back": "The consensus round (or Mysticeti round) gauge should advance monotonically. The key alert is 'round not advancing': deriv(consensus_round[5m]) ~= 0 for several minutes signals a stuck consensus. Pair this with a histogram of round duration (P99) to detect slow-but-not-stuck progress. Named metric families in Sui include consensus_* and narwhal_* (Mysticeti v2 metric names may evolve; verify against the node's /metrics endpoint in your local prep).",
+    "senior_nuance": "Stalls come in three flavors and the alert strategy should distinguish them: (1) local stall (this node only) -> probably peer/disk/config, (2) committee-wide stall (all validators stuck on same round) -> consensus-level bug, this is Jan 2026, (3) round advancing but no commits -> ordering path unhealthy. Pre-classifying in Grafana during triage saves 30 minutes when it matters.",
+    "tags": ["observability", "consensus", "round-time", "promql"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-peer-count-gauge",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "Why alert on validator peer count, and what threshold?",
+    "back": "Peer count is a gauge that collapses silently when networking degrades: TLS cert rotation gone wrong, firewall changes, or routing blackholes. Alerting rule shape: `sui_validator_peers_connected < K` for a few minutes, where K is typically 'committee size minus a small slack,' e.g., below 90% of expected peers. An isolated validator cannot participate in quorum and eventually stops advancing, but the failure mode is subtle because metrics like round number may tick for a while on stale state.",
+    "senior_nuance": "Split the gauge into incoming and outgoing peer counts if the node exposes both. Asymmetric drops are often more diagnostic than the total. A validator with all outgoing peers but zero incoming is probably behind a NAT or firewall change on the peer side of the handshake.",
+    "tags": ["observability", "peer-count", "gauge", "networking"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-rpc-error-rate",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "Write a PromQL query for RPC error rate by endpoint on a Sui fullnode.",
+    "back": "If RPC errors are exposed as a counter with status and method labels: `sum by (method) (rate(sui_rpc_requests_total{status=~\"5..\"}[5m])) / sum by (method) (rate(sui_rpc_requests_total[5m]))`. That gives error ratio per method. Alert when that ratio exceeds, say, 1% for more than 5 minutes while the request rate is non-trivial (you don't want to page on a single error out of ten requests).",
+    "senior_nuance": "The RED pattern applies cleanly: Rate (requests/s), Errors (error ratio by method), Duration (latency histogram per method). A senior dashboard shows all three per method, with a global summary at the top. Separate read-only and state-changing methods because the operational signal differs.",
+    "tags": ["observability", "rpc", "red-method", "promql"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-grafana-dashboards",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "Which official Grafana dashboards does Mysten publish for Sui operators?",
+    "back": "Three official dashboards on Grafana Labs: SUI Fullnode Monitor Dashboard (id 18141), Sui Validator Dashboard 1.0 (id 18297), and Sui Validator Metrics Container in Docker and System Monitoring (id 18512). All three are Prometheus-data-source dashboards intended to drop in next to a Sui node scraping on :9184. Mysten also pushes aggregated metrics to a central Sui metrics proxy so the ecosystem has a shared view, which operators opt into by default.",
+    "senior_nuance": "Memorize the dashboard ids. In an operator interview, quoting '18141 for fullnodes, 18297 for validators' demonstrates you actually looked up the stack instead of hand-waving 'I'd use Grafana.' Follow-up question to expect: what would you add that those dashboards don't have?",
+    "quote_to_say": "18141 is the fullnode dashboard, 18297 is the validator dashboard, 18512 is the container systems view. They're the starting floor, not the ceiling.",
+    "tags": ["observability", "grafana", "dashboard-ids", "operator"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-red-use-validator",
+    "topic": "mysten",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "Apply RED and USE to a Sui validator: what goes where?",
+    "back": "RED (services, user-facing): consensus commit rate as Rate, RPC error ratio and consensus-path error counts as Errors, end-to-end transaction finality latency (histogram, P50/P95/P99) as Duration. This is the 'is the network happy?' view. USE (resources, machine-facing): CPU utilization per core, memory saturation (swap usage, oomkills), RocksDB compaction queue length as saturation, disk I/O utilization and disk errors, network bytes in/out and dropped packet counters. This is the 'is the machine happy?' view.",
+    "senior_nuance": "The rule is: alert on RED, debug with USE. When finality P99 regresses (RED alert), the first move is to correlate with RocksDB compaction (USE), CPU saturation (USE), and peer count. If RED is fine and USE is red, it's a latent issue you can fix without paging anyone. If both are red, it's an incident. This triage order is what distinguishes senior operators.",
+    "quote_to_say": "Alert on RED. Debug with USE. Don't alert on USE without a user-facing symptom or you'll drown in noise.",
+    "tags": ["observability", "red", "use", "validator", "triage"],
+    "mock_eligible": true
+  }
+]

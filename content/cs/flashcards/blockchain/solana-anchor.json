@@ -1,0 +1,153 @@
+[
+  {
+    "id": "bc-sol-account-model",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "medium",
+    "front": "Explain Solana's account model. How does it differ from Ethereum and Sui?",
+    "back": "Solana: everything is an account (key-value store keyed by pubkey). Accounts have: lamports (SOL balance), data (arbitrary bytes), owner (program that controls it), executable flag. Programs are accounts with executable=true. State is stored in separate data accounts owned by the program. A program can only write to accounts it owns. Instructions explicitly list all accounts they touch — no dynamic state access. Comparison: Ethereum stores state inside contracts (implicit). Sui uses typed objects with explicit ownership. Solana separates code (program) from data (account) — multiple users share one program, each has their own data account.",
+    "senior_nuance": "Solana's explicit account model enables parallel tx execution: transactions with non-overlapping account sets can run concurrently. This is why Solana can claim high throughput — it is architecturally similar to Sui's object model but at the account level.",
+    "quote_to_say": "In Solana, programs are stateless — all state lives in data accounts the program owns. Instructions are explicit about which accounts they touch.",
+    "tags": ["solana", "account-model", "program", "data-account"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-pda",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "hard",
+    "front": "How are Program Derived Addresses (PDAs) derived? What is the canonical bump and why does it matter?",
+    "back": "PDA derivation: Pubkey::find_program_address(seeds, program_id) hashes seeds + program_id with SHA-256 and checks if the result is NOT on the ed25519 curve (off-curve point = cannot have a private key). It tries nonces 255, 254, ... until it finds one that is off-curve — that nonce is the canonical bump. PDAs have no private key — only the program can sign for them via invoke_signed(seeds + bump). Canonical bump: always use find_program_address rather than create_program_address with a hardcoded bump, to ensure you get the canonical (highest) bump. Storing the canonical bump in the account saves compute on subsequent calls (skip the search).",
+    "senior_nuance": "Bump seed canonicalization is a security check: if you accept any bump, an attacker can craft a PDA with a different bump that collides with a different account. Always validate the stored bump matches the canonical bump on account access.",
+    "quote_to_say": "PDAs are off-curve addresses the program owns. The canonical bump is 255 minus how many tries it took — store it and reuse it.",
+    "tags": ["solana", "PDA", "program-derived-address", "bump", "seeds"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-rent",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "medium",
+    "front": "How does Solana rent work? What is the close account vulnerability?",
+    "back": "Rent: accounts must maintain a minimum lamport balance proportional to their size (~6,960 lamports per byte per 2 years) to remain rent-exempt. Non-exempt accounts are purged by the runtime. Close account vulnerability: if you close an account by zeroing lamports and setting data to empty, an attacker can re-create the account in the same transaction (the account ID is freed). If your program checks account state before the close completes, the attacker can manipulate the in-tx ordering. Safe close pattern (Anchor): zero data, set owner to system program, transfer all lamports to recipient — all in one instruction. Anchor's close constraint handles this atomically. Resurrection attack: attacker sends lamports to keep the account alive after your close, then the garbage collector does not purge it — state is partially cleared but lamports remain.",
+    "senior_nuance": "Anchor's #[account(close = recipient)] macro zeros discriminator bytes before transferring lamports, preventing the resurrection attack from re-using the discriminator. Manual close without zeroing is dangerous.",
+    "quote_to_say": "Closing a Solana account is not deleting it. Zero the data, zero the discriminator, then drain lamports — in that order.",
+    "tags": [
+      "solana",
+      "rent",
+      "close-account",
+      "resurrection-attack",
+      "anchor"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-cpi",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "hard",
+    "front": "What is Cross-Program Invocation (CPI) in Solana? What are the security risks?",
+    "back": "CPI: a program calls another program's instruction during execution using invoke() or invoke_signed(). The callee runs with the caller's privilege context — accounts that were marked signer/writable in the original instruction remain so through CPI. Risks: (1) Privilege escalation: if the callee is not the expected program, it can use the passed signer authority to manipulate accounts. Always verify the callee's program ID. (2) CPI reentrancy: Solana limits CPI depth to 4 but allows patterns similar to reentrancy if state is not updated before calling out. (3) Account confusion: passing the wrong account (same type, different key) — Anchor's constraints (has_one, constraint =) mitigate this. (4) Sysvar injection: caller passes a fake account claiming to be a sysvar.",
+    "senior_nuance": "invoke_signed allows a PDA to sign for itself in a CPI. The seeds must match the PDA derivation — the runtime verifies this. Never pass user-supplied program IDs to CPI without validation.",
+    "quote_to_say": "CPI passes signer authority downstream. Always pin the callee program ID — invoke(user_supplied_program, ...) is a privilege escalation.",
+    "tags": [
+      "solana",
+      "CPI",
+      "cross-program-invocation",
+      "privilege-escalation",
+      "security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-anchor-discriminator",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "medium",
+    "front": "What is an Anchor account discriminator, and what attack does it prevent?",
+    "back": "Anchor prepends 8 bytes to every account's data: sha256('account:<AccountName>')[..8]. On deserialization, Anchor checks this discriminator matches the expected type. This prevents account substitution attacks: an attacker cannot pass an account of type B where type A is expected (even if the data layout matches) because the discriminator differs. Without it, a program might deserialize an attacker-controlled account as a valid state account if the raw byte layout happens to match. The discriminator is set on account initialization and validated on every instruction that reads the account.",
+    "senior_nuance": "Discriminators also gate instruction routing: Anchor instructions have their own discriminator (first 8 bytes of calldata = sha256('global:<instruction_name>')[..8]). A malformed instruction will not match any discriminator and is rejected before any program logic runs.",
+    "quote_to_say": "Anchor discriminators are type-safety enforcement at runtime. Without them, every account deserialization is a trust assumption.",
+    "tags": [
+      "solana",
+      "anchor",
+      "discriminator",
+      "account-substitution",
+      "security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-realloc",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "hard",
+    "front": "What is realloc in Solana Anchor and what are the pitfalls?",
+    "back": "realloc allows resizing an existing account's data at runtime (Anchor: #[account(realloc = new_size, realloc::payer = payer, realloc::zero = false)]). Used for growing dynamic data (e.g., a vec that exceeds initial allocation). Pitfalls: (1) realloc::zero = false leaves old data in the newly allocated bytes — attacker could read garbage data if your program does not initialize. Always use zero = true or explicitly initialize. (2) Shrinking: lamports are refunded but data bytes remain until zeroed; if you later grow, old data can reappear. (3) Max growth: 10KB per instruction — growing by more requires multiple txs. (4) Payer must have enough lamports to cover the rent difference — no automatic error on insufficient balance before Anchor 0.29.",
+    "senior_nuance": "Realloc without zero is a class of information disclosure. A program that grows an account and reads uninitialized bytes as user input is vulnerable to data injection from previous account occupants.",
+    "quote_to_say": "realloc::zero = false is a footgun. Uninitialized bytes in expanded accounts are attacker-controlled.",
+    "tags": [
+      "solana",
+      "anchor",
+      "realloc",
+      "zero",
+      "initialization",
+      "security"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-sol-missing-signer-check",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "medium",
+    "front": "What is the missing signer check vulnerability in native Solana programs?",
+    "back": "Solana passes accounts with is_signer and is_writable flags. A native program must manually check account.is_signer before performing privileged actions. If the check is omitted, any account can be passed as the 'authority' — no signature needed. This is the Solana equivalent of tx.origin authentication bugs. Example: update_admin(ctx) only checks ctx.accounts.admin.key == expected_admin but not ctx.accounts.admin.is_signer — attacker passes the admin pubkey without a signature and updates state. Anchor mitigates with the Signer type: #[account(signer)] enforces is_signer at the framework level.",
+    "senior_nuance": "Anchor's #[account(mut, signer)] is the pattern. In native Rust, always check: if !ctx.accounts.authority.is_signer { return Err(...) }. Missing this check is in the top-3 Solana audit findings.",
+    "quote_to_say": "Solana accounts list is_signer — but you must check it. Anchor enforces this. Native programs must not forget.",
+    "tags": ["solana", "signer-check", "authority", "anchor", "security"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-owner-check",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "medium",
+    "front": "What is the owner check vulnerability in Solana and how does Anchor enforce it?",
+    "back": "Each Solana account has an owner field — the program that controls its data. A data account owned by program A cannot be written by program B. Vulnerability: if a program deserializes an account without checking account.owner == expected_program, an attacker can pass a look-alike account owned by a malicious program. The malicious program can write arbitrary bytes into that account's data, which the target program then misinterprets as valid state. Anchor enforces this: Account<'info, MyStruct> checks that the account owner == the declaring program. For cross-program accounts, use Program<'info, Token> or explicitly check AccountInfo::owner.",
+    "senior_nuance": "Missing owner checks + missing discriminator checks = account confusion attacks. Wormhole ($326M) was fundamentally an account identity check failure — a different account was accepted in place of the expected sysvar.",
+    "quote_to_say": "Account ownership is program-level access control in Solana. Always verify owner, always verify discriminator.",
+    "tags": [
+      "solana",
+      "owner-check",
+      "account-validation",
+      "anchor",
+      "security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-sol-anchor-patterns",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "easy",
+    "front": "What does the Anchor framework provide that raw Solana programs do not?",
+    "back": "Anchor provides: (1) Account type safety with automatic owner, discriminator, and signer validation via #[derive(Accounts)]; (2) Instruction discriminators (first 8 bytes of calldata) preventing instruction confusion; (3) Error handling with typed error enums (error_code! macro); (4) IDL generation (Interface Description Language) for client-side type generation; (5) Anchor's constraint syntax: has_one, constraint =, seeds, bump, init, close; (6) CPI helpers (CpiContext) that ensure correct account ordering for system/token programs. Without Anchor, all validations are manual — a common source of critical bugs in native Rust Solana programs.",
+    "senior_nuance": "Anchor adds 50-200KB to program size due to the framework code. For programs at the 10MB BPF limit, this matters. Some high-performance programs (e.g., Serum DEX) are native Rust for size and performance, accepting the higher audit burden.",
+    "quote_to_say": "Anchor trades program size for correctness guarantees. For most programs, correctness wins.",
+    "tags": ["solana", "anchor", "framework", "validation", "IDL"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-sol-nomad-bug",
+    "topic": "blockchain",
+    "subtopic": "solana-anchor",
+    "difficulty": "hard",
+    "front": "What caused the Nomad bridge exploit ($190M, 2022)? What class of vulnerability is it?",
+    "back": "Nomad is an EVM-to-EVM bridge using an optimistic fraud proof model (similar to optimistic rollups). The vulnerability: during a routine upgrade, the Nomad team initialized the Replica contract with 0x0 as a trusted root. In the message verification logic, a message was considered proven if messages[root] == MessageStatus.Processed or the root was trusted. Because 0x0 was trusted, any message with a zero-byte root field passed verification. An attacker discovered this and broadcast the proof tx — then hundreds of copycat bots replayed variations of the same tx draining different assets. $190M drained in a chaotic free-for-all within hours. Root cause: initialization bug + trusting a zero value that should never be trusted.",
+    "senior_nuance": "The Nomad exploit is noteworthy because it required no technical skill to exploit once the first attacker found the trick — anyone could copy and modify the calldata. Defense: never trust zero/default values in security-critical state; add explicit checks that trusted roots are non-zero and explicitly set.",
+    "quote_to_say": "Nomad shows that initialization bugs in bridges are catastrophic. Zero is a special value — never trust it implicitly.",
+    "tags": ["nomad", "bridge", "initialization-bug", "190M", "security"],
+    "mock_eligible": true
+  }
+]

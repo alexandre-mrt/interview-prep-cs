@@ -1,0 +1,142 @@
+[
+  {
+    "id": "mys-object-model-core",
+    "topic": "mysten",
+    "subtopic": "object-model",
+    "difficulty": "medium",
+    "front": "Explain Sui's object-centric model to an EVM or Solana developer.",
+    "back": "In Sui everything is an object identified by a 32-byte UID. Each object has a unique id, a monotonically increasing version, owner metadata (address, another object, shared, or immutable), and a Move struct body with the 'key' ability whose first field is 'id: UID'. Unlike account models, transactions declare their input objects by id and version upfront, so the scheduler knows exactly what state will be touched before execution.",
+    "senior_nuance": "The interview frame is that the object model is a performance plus security design, not syntax preference. Declaring inputs upfront lets two disjoint transactions execute in parallel (no read/write set discovery at runtime) and lets owned-object transactions skip consensus entirely. The cost is that shared objects become serialization points.",
+    "quote_to_say": "The object model is declarative scheduling; the account model is post-hoc conflict detection.",
+    "tags": ["sui", "object-model", "evm", "parallelism"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-ownership-kinds",
+    "topic": "mysten",
+    "subtopic": "object-model",
+    "difficulty": "medium",
+    "front": "What are the four object ownership kinds in Sui, and what do they imply for execution?",
+    "back": "Address-owned: only a specific address can pass the object as input; mutations go through Sui's broadcast fast path (no consensus). Shared: any transaction can reference it; mutations must go through Mysticeti consensus because concurrent writes need ordering. Immutable (frozen): nobody can mutate; parallel reads only; no consensus. Object-owned (dynamic fields or dynamic object fields): the parent owns child objects and access mirrors the parent.",
+    "senior_nuance": "The common interview trap is claiming 'everything is parallel.' In practice every shared-object interaction (AMMs, DeepBook pools, registries) contends on one object and serializes through consensus. The art is designing Move modules so hot paths stay on owned objects whenever the logic allows.",
+    "quote_to_say": "Shared objects are where the throughput story meets the real world.",
+    "tags": ["sui", "ownership", "shared-objects", "fast-path"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-move-abilities",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "medium",
+    "front": "What are the four Move abilities and what do they guarantee?",
+    "back": "copy: value can be implicitly duplicated; bools and integers have it, resources like coins do not. drop: value can be silently discarded at end of scope; without it, you must explicitly consume (transfer, destructure, or move into another struct) or compilation fails. key: struct can be a top-level object in Sui's object store; requires 'id: UID' as first field. store: struct can live inside another struct that has 'key', i.e., persist in global storage.",
+    "senior_nuance": "The canonical combinations matter: 'key, store' without copy or drop is the linear asset pattern (a coin you cannot accidentally duplicate or leak). 'copy, drop, store' is plain data. 'key' alone is a capability token that must live at the top level and cannot be nested or duplicated. Memorize these three shapes.",
+    "quote_to_say": "Dropping copy and drop is how Move gives you compile-time guarantees that Solidity tries to hand-roll with require statements.",
+    "tags": ["move", "abilities", "key", "store", "drop", "copy"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-move-no-drop-meaning",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "hard",
+    "front": "What does it mean for a struct to lack 'drop', and why is it useful?",
+    "back": "Without 'drop', a value cannot be silently discarded; the compiler forces you to explicitly consume it by transferring, destructuring via 'let T{} = x', or moving it into another struct. This prevents the whole class of 'forgot to do something with this asset' bugs at compile time. The canonical example is Coin<T>: it lacks drop so a function cannot return early and leave a coin on the stack.",
+    "senior_nuance": "The mental model is linear types from academic type theory. Solidity simulates this with require statements and careful state updates; Move enforces it at the type system level. When you compose modules via PTBs, every intermediate Coin must go somewhere explicit, which kills a whole category of integration bugs.",
+    "quote_to_say": "Move's no-drop semantics turns 'did you remember to transfer the coin' from a code review comment into a compile error.",
+    "tags": ["move", "drop", "linear-types", "safety"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-move-key-uid",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "medium",
+    "front": "Why must 'key' structs have 'id: UID' as their first field in Sui Move?",
+    "back": "Sui storage is object-addressed, not account-addressed. Every top-level object needs a unique, immutable address (the UID) that the runtime can extract without reflection. Putting id as the first field lets the execution layer read the UID at a fixed offset without parsing the whole struct. Core Move on Aptos uses (address, type) keying instead and does not need a UID because storage is account-indexed.",
+    "senior_nuance": "This is the cleanest way to explain the Sui Move vs core Move fork to an interviewer: one design change in the storage model forces a specific ability, which forces a specific struct layout. It shows you understand the compiler and runtime are co-designed.",
+    "tags": ["move", "uid", "key-ability", "sui-vs-core-move"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-ptb-definition",
+    "topic": "mysten",
+    "subtopic": "ptb",
+    "difficulty": "medium",
+    "front": "What is a Programmable Transaction Block (PTB) and what can it do?",
+    "back": "A PTB is a transaction of up to 1,024 commands executed atomically. Commands include MoveCall (invoke a public Move function), TransferObjects, SplitCoins, MergeCoins, MakeMoveVec, Publish, and Upgrade. Arguments reference Input(i) (the i-th input object or pure bytes), Result(i) (output of the i-th command), or NestedResult(i, j) (the j-th tuple element of the i-th command's output). One command failure reverts the whole PTB.",
+    "senior_nuance": "PTBs push composition from smart-contract callsite to the client. That changes the threat model: a Move module can no longer assume 'only my module calls this function in this order.' Capability objects accepted as arguments must be robust against arbitrary caller graphs. This is the subtle point most candidates miss.",
+    "quote_to_say": "PTBs move composition out of the contract and into the client. That shifts where the trust surface sits.",
+    "tags": ["ptb", "atomicity", "composition"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-ptb-worked-example",
+    "topic": "mysten",
+    "subtopic": "ptb",
+    "difficulty": "medium",
+    "front": "Sketch a PTB that swaps SUI to USDC on DeepBook and stakes the USDC in one transaction.",
+    "back": "Three commands. 1) SplitCoins(gas_coin, [amount]) produces Result(0) as a Coin<SUI>. 2) MoveCall(deepbook::pool::swap, [pool, Result(0), min_out]) produces Result(1) as a Coin<USDC>. 3) MoveCall(staking::stake, [Result(1), pool_id]) consumes the coin and registers the stake. The whole block is atomic: if the swap slips past min_out or the stake module rejects the coin, nothing commits.",
+    "senior_nuance": "The gas win here is substantial because there is no intermediate signed transaction; Result(0) flows directly into the next call with no mempool round trip. The latency win is that the user sees one finality instead of three. Pointing out both on a whiteboard signals you understand why PTBs exist, not just what they are.",
+    "tags": ["ptb", "deepbook", "swap", "stake"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-entry-vs-public-fun",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "hard",
+    "front": "What is 'entry fun' vs 'public fun' in Sui Move, and when should you use each?",
+    "back": "entry fun is callable as a top-level command of a PTB; parameters must be primitives, objects, or vector<T> of either; it cannot return values (except generics), and effects must be observable as side effects (transfers, events, shared-object mutations). public fun can be called from any Move module and from PTBs via other Move wrappers. Modern Sui prefers public fun with object inputs so other modules can compose; entry is reserved for callsites you specifically want to lock to PTB-only invocation.",
+    "senior_nuance": "The 'entry-only' decision is a deliberate composability limit. If a function takes a sensitive capability, you sometimes want to force PTB invocation so it cannot be wrapped by a third-party Move module. That's a legitimate design choice but an explicit one.",
+    "tags": ["move", "entry-fun", "public-fun", "ptb"],
+    "mock_eligible": false
+  },
+  {
+    "id": "mys-dynamic-fields",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "hard",
+    "front": "What are dynamic fields and dynamic object fields, and when do you use them?",
+    "back": "Dynamic fields attach key-value pairs to a parent object at runtime, where the value is stored as a child object conceptually owned by the parent but with its own UID. Dynamic object fields are the subset where the value has the 'key' ability and is itself a first-class object (so you can transfer or query it independently). Use them when you need flexible schemas (per-user storage, open-ended registries) or when you want to avoid putting unbounded collections inline in a struct.",
+    "senior_nuance": "The production tradeoff is gas: reads of dynamic fields are more expensive than struct-inline reads, and enumeration is not free (you need off-chain indexing). Dynamic object fields add an extra layer because they can be addressed independently, which is a feature for composability and a cost for gas accounting.",
+    "quote_to_say": "Dynamic fields are how you escape fixed struct schemas, but you pay for it in gas and indexer complexity.",
+    "tags": ["move", "dynamic-fields", "storage", "gas"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-package-upgrades",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "hard",
+    "front": "How do package upgrades work on Sui, and what policies are available?",
+    "back": "Packages on Sui are immutable: an 'upgraded' package is a brand new package id linked to the old one via an UpgradeCap object owned by whoever controls the upgrade. Policy choices are 'compatible' (the default, adds and relaxes but does not break existing types), 'additive' (only new modules and functions), 'dep_only' (only dependency bumps), and 'immutable' (freeze forever). Existing objects continue to reference the version they were created under; the Move type system enforces compatibility across versions.",
+    "senior_nuance": "Freezing to 'immutable' after an audit is the standard governance move for high-value contracts. The UpgradeCap is itself an object, so you can hand it to a multisig, a governance module, or destroy it. Destroying the UpgradeCap is the on-chain equivalent of renouncing ownership on an EVM contract but with compile-time guarantees instead of a Solidity convention.",
+    "tags": ["move", "upgrade", "upgrade-cap", "governance"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-move-vs-solidity-bugs",
+    "topic": "mysten",
+    "subtopic": "move",
+    "difficulty": "hard",
+    "front": "Which classes of bugs does Move prevent that Solidity is vulnerable to?",
+    "back": "Reentrancy: Move has no 'external call in the middle of state updates' pattern, and resources cannot be held across call frames in the way Solidity delegatecalls allow. Integer overflow: checked by default in modern Move. 'Forgot to update storage' bugs: linear types force explicit move/consume so you cannot lose an asset silently. Access control is expressed via phantom type parameters and capability objects rather than 'require(msg.sender == owner)' patterns, which are easy to miscode.",
+    "senior_nuance": "Move does not prevent business-logic bugs, rounding errors, oracle manipulation, or MEV sandwiching. The type-system guarantees kill the classical Solidity reentrancy and lost-asset bugs, but they are not a substitute for audit and fuzzing on economic logic. Interviewers probe whether you distinguish 'type safety' from 'economic safety.'",
+    "quote_to_say": "Move kills type-level bugs. Economic bugs still need an auditor.",
+    "tags": ["move", "solidity", "security", "reentrancy"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-shared-vs-owned-tradeoff",
+    "topic": "mysten",
+    "subtopic": "object-model",
+    "difficulty": "hard",
+    "front": "When should a Move module use a shared object vs an owned object?",
+    "back": "Owned: use when exactly one actor mutates the object at a time. You get the broadcast fast path, no consensus round trip, and sub-300 ms confirmation. Shared: use when multiple parties must interact with the same state, like AMMs, order books, registries, governance. Every shared-object interaction serializes through Mysticeti consensus. Hybrid designs split hot paths to owned objects and escalate to a shared object only when coordination is required.",
+    "senior_nuance": "DeepBook is the canonical hybrid: the pool is a shared object (needed for order matching) but most individual orders mutate owned Coin objects on the way in and out. The matching engine is O(log n) so the shared-object hop is cheap in CPU but still serializes in consensus. This is the design pattern to cite for any high-throughput shared-state app.",
+    "quote_to_say": "Keep owned paths owned for as long as possible, then pay for the shared object once when coordination is unavoidable.",
+    "tags": ["object-model", "shared", "owned", "design-pattern"],
+    "mock_eligible": true
+  }
+]

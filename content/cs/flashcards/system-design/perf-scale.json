@@ -1,0 +1,92 @@
+[
+  {
+    "id": "sd-latency-numbers",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "easy",
+    "front": "Give order-of-magnitude latency numbers every engineer should know. What is the key implication for system design?",
+    "back": "L1 cache reference: ~1ns. L2 cache: ~4ns. RAM access: ~100ns. SSD sequential read (1MB): ~1ms. Network round trip same datacenter: ~0.5ms. Network round trip cross-region (US-Europe): ~70ms. HDD seek: ~10ms. Implications: (1) RAM is 1000x faster than SSD, SSD 10x faster than HDD. (2) A cross-region synchronous call adds 70-140ms to every user request — avoid or accept the tradeoff. (3) In-memory computation is fast enough to process millions of items per second. (4) Cache decisions are justified by the 1000x gap between RAM and disk.",
+    "senior_nuance": "These numbers are useful sanity checks in interviews. If you propose a design where a p99 user request makes 5 cross-region calls, that's 350ms minimum latency — the interviewer should catch this. State the latency budget upfront and trace each hop.",
+    "tags": ["latency-numbers", "ram", "ssd", "network", "performance"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-tail-latency",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "medium",
+    "front": "Why does p99 latency matter more than average latency for user-facing services?",
+    "back": "Average latency hides bimodal distributions — fast requests mixed with occasional slow ones. If 1% of requests take 5 seconds, the average might be 100ms (healthy-looking) but 1 in 100 users has a terrible experience. At scale: if a page makes 100 independent service calls, the probability of experiencing at least one p99 tail = 1 - (1-0.01)^100 = 63%. Tail latency compounds across fan-out. Solutions: hedged requests (send duplicate if no response within p99 threshold), reduce fan-out, async loading of non-critical components, set timeout budgets per call.",
+    "senior_nuance": "Jeff Dean's observation: a server handling requests in a shared environment will have GC pauses, network jitter, kernel scheduling delays — these cause the tail. The fix at the fleet level is hedging. The fix at the service level is reducing the work done in the critical path, not tuning GC.",
+    "tags": [
+      "tail-latency",
+      "p99",
+      "hedged-requests",
+      "fan-out",
+      "performance"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-fan-out-amplification",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "medium",
+    "front": "What is write amplification in fan-out architectures? Give a concrete example and mitigation.",
+    "back": "Write amplification: one logical write generates N physical writes across the system. Example: posting a tweet to 1M followers = 1 write to tweet DB + 1M writes to follower feed caches = 1M write amplification. Read amplification (alternative): 1 write, but every read must fan out to all N data sources. Mitigation strategies: (1) Hybrid fan-out — limit fan-out to users with < threshold followers. (2) Lazy loading — don't precompute feeds; build on demand with caching. (3) Batch fan-out — queue celebrity posts and process asynchronously, accepting delivery lag. (4) Delta compression — only write changes, not full state.",
+    "senior_nuance": "Fan-out on write is a push model: low read latency, high write cost. Fan-out on read is a pull model: high read cost, low write cost. The right model depends on your read:write ratio and latency SLO. For social feeds where writes are infrequent (a user posts once, 1000 followers read): fan-out on write wins.",
+    "tags": [
+      "fan-out",
+      "write-amplification",
+      "social-feed",
+      "push-vs-pull",
+      "twitter"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-backpressure-system",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "hard",
+    "front": "A downstream service is overwhelmed. How do you protect it using backpressure, load shedding, and admission control?",
+    "back": "Backpressure: slow consumer signals upstream to slow production. In HTTP: 429 Too Many Requests with Retry-After tells clients to back off. In queues: consumer stops polling, queue depth grows, producer monitors queue depth and throttles. Load shedding: when overloaded, reject excess load rather than queuing it indefinitely. Prefer shedding over queuing — queued requests add latency and exhaust memory. Prioritize: shed low-priority requests first (background jobs, retry traffic, lower-tier users). Admission control: limit requests entering the system based on capacity estimates. Token-bucket at the entry point. Compare current concurrency to max_concurrency; reject if over limit (Google's 'Good, Cheap, Fast — pick 2' applied to traffic).",
+    "senior_nuance": "TCP's backpressure mechanism is a model for distributed systems: receiver window reduces, sender slows. The pattern: feedback loop from consumer to producer, with the consumer controlling throughput. In microservices, this requires explicit signal propagation — HTTP status codes, queue depth metrics, or gRPC flow control.",
+    "tags": [
+      "backpressure",
+      "load-shedding",
+      "admission-control",
+      "rate-limiting",
+      "resilience"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-cdn-architecture",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "medium",
+    "front": "How does a CDN work at a network level? What is anycast routing and how do CDNs use it?",
+    "back": "CDN: global network of PoPs (Points of Presence) geographically near users. When a user requests cdn.example.com, DNS resolves to the nearest PoP's IP using anycast or GeoDNS. Anycast: multiple PoPs advertise the same IP prefix via BGP. Internet routing delivers the user's packets to the topologically nearest PoP. Content: static assets (images, JS, CSS) and cacheable dynamic content cached at the PoP. Cache miss: PoP fetches from origin and caches locally. Protocols: HTTP/2 or HTTP/3 (QUIC) between client and PoP for lower latency; origin connection is long-lived (keep-alive). CDN also terminates TLS at the edge, reducing TLS handshake latency for users.",
+    "senior_nuance": "CDN TLS termination at the edge means the edge PoP decrypts traffic and re-encrypts for origin. This is a trust boundary — CDN has access to plaintext. For highly sensitive data, evaluate whether CDN termination is acceptable or whether end-to-end encryption is required. Most enterprises accept CDN termination with mTLS between CDN and origin.",
+    "tags": ["cdn", "anycast", "bgp", "tls-termination", "edge-caching"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-database-connection-pooling",
+    "topic": "system-design",
+    "subtopic": "perf-scale",
+    "difficulty": "medium",
+    "front": "Why is database connection pooling critical at scale? What happens without it?",
+    "back": "Database connections are expensive: each connection on Postgres consumes ~5-10MB RAM on the DB server and requires a forked backend process. Without pooling: 1000 app instances each opening 10 connections = 10,000 connections, potentially exceeding DB max_connections (default 100-200 on small instances). Connection saturation = new queries cannot start. Pooling: maintain a fixed pool of pre-established connections shared across threads/requests. PgBouncer (Postgres) operates in transaction pooling mode — a connection is held only during an active transaction, allowing 10x+ more app clients per DB connection. RDS Proxy (AWS) provides managed connection pooling.",
+    "senior_nuance": "Transaction-level pooling in PgBouncer breaks prepared statements and SET statements (they persist on the connection). If your ORM uses prepared statements, test carefully. Sessionlevel pooling is safer but less efficient. The right pool size formula: pool_size = (core_count * 2) + effective_spindle_count (HikariCP's recommendation).",
+    "tags": [
+      "connection-pooling",
+      "pgbouncer",
+      "postgres",
+      "rds-proxy",
+      "max-connections"
+    ],
+    "mock_eligible": false
+  }
+]

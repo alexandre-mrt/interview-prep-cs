@@ -1,0 +1,151 @@
+[
+  {
+    "id": "sd-queue-vs-pubsub",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "easy",
+    "front": "Distinguish message queues from pub/sub systems. Give a concrete example of when each is correct.",
+    "back": "Message queue (point-to-point): one producer, one consumer per message. Consumer pops message, removes from queue. Example: SQS for task distribution — each order processing job is consumed by exactly one worker. Pub/sub: one producer, multiple consumers (subscribers) each get their own copy. Example: Kafka topic for 'order placed' event — billing service, warehouse service, and analytics service all receive and process independently. Key distinction: queues give competing consumers (load balancing); pub/sub gives fan-out to independent subscribers.",
+    "senior_nuance": "Kafka blurs the line — it's pub/sub but consumer groups enable competing consumers within a group. Kafka = pub/sub at the topic level, queue at the consumer-group level. Choose Kafka when you need replay, audit log, or multiple independent consumers. Choose SQS when you need simple task distribution with dead-letter queue support.",
+    "tags": ["queue", "pubsub", "kafka", "sqs", "consumer-group"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-delivery-semantics",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "medium",
+    "front": "Define at-most-once, at-least-once, and exactly-once delivery. Which is default in Kafka?",
+    "back": "At-most-once: message may be lost, never duplicated. Achieved by acking before processing. Use for: metrics, telemetry where loss is acceptable. At-least-once: message may be duplicated, never lost. Achieved by acking after processing. Use for: most business events — combine with idempotent consumers. Exactly-once: no loss, no duplicates. Kafka provides exactly-once within a Kafka cluster using idempotent producers (dedup by sequence number) + transactions (atomic multi-partition writes). Default in Kafka: at-least-once (acks=all without transactions).",
+    "senior_nuance": "Exactly-once delivery is a myth; exactly-once processing is a consumer design decision. Kafka transactions do not extend to external sinks — writing to Kafka and a DB atomically still requires the outbox pattern or distributed transactions.",
+    "quote_to_say": "Exactly-once delivery is a myth; exactly-once processing is a design decision.",
+    "tags": [
+      "delivery-semantics",
+      "at-least-once",
+      "exactly-once",
+      "kafka",
+      "idempotency"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-exactly-once-myth",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "hard",
+    "front": "Does exactly-once delivery exist? How do you respond when an interviewer asks you to 'guarantee exactly once'?",
+    "back": "Exactly-once DELIVERY is impossible over unreliable networks (two generals). What people want is exactly-once PROCESSING: at-least-once delivery + idempotent consumers (dedup keys or transactional outbox). Kafka 'exactly-once' is scoped to one Kafka cluster with transactions; it doesn't extend to external sinks.",
+    "senior_nuance": "The senior move is asking what user-visible behavior needs to hold, then placing dedup at the boundary where it matters. Chasing exactly-once end-to-end is a scope trap.",
+    "quote_to_say": "Exactly-once delivery is a myth; exactly-once processing is a consumer design decision.",
+    "tags": ["messaging", "idempotency", "delivery-semantics"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-idempotency",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "medium",
+    "front": "How do you make a payment processing service idempotent? What is an idempotency key?",
+    "back": "Idempotency key: a client-generated unique ID (UUID) attached to the request. Server stores (idempotency_key, result) in a durable store before returning. On retry with the same key, return the stored result without re-processing. Implementation: (1) Client generates idempotency_key = UUID. (2) Server checks DB for existing record with that key. (3) If found, return cached result. (4) If not found, acquire advisory lock on the key, process, store result, release lock. (5) Return result. Edge case: what if the server crashes between processing and storing? Need atomic write or compensation.",
+    "senior_nuance": "Idempotency is free at the edge, expensive at the end. Adding it at the API gateway (dedup by request ID) is cheap. Adding it inside a distributed transaction is expensive. Place idempotency boundaries where duplicate processing has user-visible consequences — typically the payment processor, not every microservice hop.",
+    "quote_to_say": "Idempotency is free at the edge, expensive at the end.",
+    "tags": ["idempotency", "idempotency-key", "payment", "dedup", "retry"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-outbox-pattern",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "hard",
+    "front": "What is the transactional outbox pattern? When is it necessary?",
+    "back": "Problem: service needs to update DB and publish an event atomically. If you write to DB then publish to Kafka, a crash between them means the event is lost. If you publish then write, a crash means duplicate event with no DB update. Outbox pattern: write to a local outbox table in the same DB transaction as the business write. A separate relay process (or CDC via Debezium) reads the outbox table and publishes to Kafka. Guarantees: either both DB write and event happen, or neither does. Eliminates the need for distributed transactions.",
+    "senior_nuance": "The relay introduces eventual consistency: events arrive at consumers with a small delay (milliseconds to seconds). This is usually acceptable. The outbox table grows — you need a cleanup job to delete published rows. CDC-based relay (Debezium reads Postgres WAL) avoids polling and is lower latency than periodic polling.",
+    "tags": [
+      "outbox-pattern",
+      "transactional-outbox",
+      "cdc",
+      "debezium",
+      "atomicity"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-saga-pattern",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "hard",
+    "front": "What is the Saga pattern? Compare choreography-based and orchestration-based sagas.",
+    "back": "Saga: sequence of local transactions where each step publishes an event or message. If a step fails, compensating transactions undo prior steps. Choreography: each service listens for events and decides what to do next. No central coordinator. Pros: loose coupling, simpler infra. Cons: business logic is distributed across services, hard to trace. Orchestration: a saga orchestrator sends commands to services and awaits replies. Business logic centralized in orchestrator. Pros: explicit flow, easier to monitor. Cons: orchestrator is a coupling point, can become a bottleneck. Use choreography for simple 2-3 step flows; orchestration for complex multi-step flows where visibility matters.",
+    "senior_nuance": "Compensating transactions must be idempotent and must account for transactions that already partially succeeded. A compensation that fails makes the system inconsistent. The 'happy path' is easy to design; the compensation logic is where most bugs live. Consider what happens if the compensation itself fails — you need dead letter queues and manual intervention runbooks.",
+    "tags": [
+      "saga",
+      "choreography",
+      "orchestration",
+      "compensating-transaction",
+      "microservices"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-dead-letter-queue",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "medium",
+    "front": "What is a Dead Letter Queue (DLQ)? When should a message be moved to DLQ vs retried?",
+    "back": "DLQ: a separate queue where messages go after failing to be processed N times (maxReceiveCount in SQS). Prevents poison messages from blocking the main queue indefinitely. Decision framework: retry if the failure is transient (network timeout, DB connection error, downstream service unavailable). Move to DLQ if: (1) failure count exceeds threshold (exponential backoff exhausted), (2) the error is non-retryable (malformed message, schema mismatch, business rule violation). DLQ messages need monitoring (alert on DLQ depth > 0) and a reprocessing runbook for when the underlying issue is fixed.",
+    "senior_nuance": "The most common DLQ mistake: moving messages to DLQ but never processing them. DLQ is not a trash bin — it's an exception queue that requires human or automated intervention. Build a DLQ replay mechanism from day one: ability to re-enqueue DLQ messages to the main queue after fixing the bug.",
+    "tags": ["dlq", "dead-letter-queue", "retry", "poison-message", "sqs"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-kafka-partitions",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "medium",
+    "front": "How do Kafka partitions affect throughput, ordering, and consumer parallelism?",
+    "back": "Partition = unit of parallelism in Kafka. Each partition is an ordered, immutable log. Within a partition, ordering is guaranteed. Across partitions, no ordering guarantee. Consumer group: each partition is assigned to exactly one consumer in a group — so max parallelism = number of partitions. Throughput: more partitions = more parallelism = higher throughput, but also more overhead (file handles, replication, leader elections). Ordering: if you need per-entity ordering (e.g., all events for userId X in order), use consistent partitioning by userId as the key.",
+    "senior_nuance": "Too many partitions is a real problem: Kafka overhead per partition includes open file descriptors, replication threads, and end-to-end latency. LinkedIn recommends no more than 4000 partitions per broker, 200,000 per cluster. Start with a partition count based on your throughput target (bytes/sec per partition) and scale up deliberately.",
+    "tags": [
+      "kafka",
+      "partitions",
+      "ordering",
+      "consumer-group",
+      "parallelism"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-backpressure-messaging",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "hard",
+    "front": "How do you apply backpressure in an async messaging system to prevent consumers from being overwhelmed?",
+    "back": "Backpressure: slow consumers signal producers to slow down. In messaging systems: (1) Queue depth monitoring — if queue depth grows beyond threshold, reduce producer rate (throttle API, reject upstream requests). (2) Consumer-controlled fetch — Kafka consumers pull records rather than being pushed, so they control their fetch rate. (3) Prefetch count (RabbitMQ) — set prefetch=1 to prevent one worker from hoarding messages. (4) Circuit breaker on consumer — if consumer's downstream is down, stop consuming (let queue grow, alert). (5) Rate-limited consumer — explicitly process N messages/sec, discard or slow if downstream can't keep up.",
+    "senior_nuance": "Reactive Streams (Project Reactor, Akka Streams) formalizes backpressure via the Publisher/Subscriber demand signaling protocol. In practice, the simplest form of backpressure is: consumer tells the queue to redeliver if processing fails (visibility timeout in SQS). If the consumer is overloaded, messages stay invisible for the timeout period, naturally slowing intake.",
+    "tags": [
+      "backpressure",
+      "kafka",
+      "rabbitmq",
+      "reactive-streams",
+      "consumer"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-message-ordering",
+    "topic": "system-design",
+    "subtopic": "messaging",
+    "difficulty": "medium",
+    "front": "An e-commerce order has events: created, payment_confirmed, shipped, delivered. How do you guarantee they are processed in order?",
+    "back": "Key insight: ordering matters per-order, not globally. Strategy: (1) Kafka: partition by orderId. All events for the same order land on the same partition, processed in order by one consumer. (2) SQS FIFO: message group ID = orderId. Within a group, SQS delivers in order. (3) Database sequencing: include an event_sequence number in the event; consumer checks and rejects out-of-order events (store in pending buffer until gap is filled). Option 1 or 2 is simpler. Option 3 is needed if you can't control the messaging topology.",
+    "senior_nuance": "Out-of-order delivery becomes a problem when events arrive via different paths (e.g., webhooks from payment processor, events from your own service). Sequence numbers with a reorder buffer are the only robust solution in that case. Define your max reorder window (e.g., wait up to 5 seconds for gaps) and what to do on timeout (alert + manual intervention).",
+    "tags": [
+      "message-ordering",
+      "kafka",
+      "sqs-fifo",
+      "event-sequencing",
+      "partitioning"
+    ],
+    "mock_eligible": false
+  }
+]

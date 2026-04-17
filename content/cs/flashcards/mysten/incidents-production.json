@@ -1,0 +1,66 @@
+[
+  {
+    "id": "mys-jan-14-2026-outage",
+    "topic": "mysten",
+    "subtopic": "incidents",
+    "difficulty": "hard",
+    "front": "What happened on Jan 14, 2026 to the Sui mainnet? Walk me through it.",
+    "back": "Sui mainnet halted for roughly 6 hours, the largest incident since launch. Root cause was an edge case in consensus commit processing that caused validators to produce divergent checkpoint candidates, stalling checkpoint certification. Approximately $1B in assets were temporarily frozen. User funds were never at risk: the network preserved safety and lost liveness, consistent with CP behavior under partial synchrony. Fixes shipped afterwards included new deterministic checkpoint consistency checks, fuzz-style testing for consensus edge cases, and improved validator automation. It is the third notable incident in Sui history (prior: Nov 2024 brief halt, Dec 2025 degraded performance).",
+    "senior_nuance": "A senior engineer extracts three things from this: (1) recovery runbooks must be rehearsed, not written and filed; (2) consensus commit paths need adversarial fuzzing beyond unit tests because edge cases emerge only under specific DAG topologies; (3) the 'halt rather than fork' design choice is doing exactly what it was supposed to do, even though it's painful. Don't use the outage to dunk; use it to show you understand why this failure mode is the intended one.",
+    "quote_to_say": "Halting was the correct failure mode. Forking would have been the wrong one, and you don't fix that without a chain reorg.",
+    "tags": [
+      "incident",
+      "outage",
+      "january-2026",
+      "consensus",
+      "safety-liveness"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-jan-14-lessons-runbooks",
+    "topic": "mysten",
+    "subtopic": "incidents",
+    "difficulty": "hard",
+    "front": "What runbook and chaos-testing gaps does the Jan 14, 2026 outage suggest?",
+    "back": "Three concrete gaps are implied by the post-mortem. Runbook: a 6-hour halt suggests the 'decide-and-coordinate-upgrade' loop across 100+ validators was slower than it should be; a stronger runbook has pre-approved rollback binaries and a documented coordinator-election path. Chaos testing: a consensus commit edge case that only trips on specific DAG topologies is exactly the class of bug fuzz and scenario testing should catch; unit tests on the commit rule are insufficient. Automation: validator-side automation needed to be able to roll forward to a patched binary without each operator manually intervening.",
+    "senior_nuance": "In an interview, offer a concrete proposal: a 'consensus edge case fuzzer' that generates DAG topologies with adversarial message orderings and drives the commit rule to fixed points, then asserts checkpoint determinism across replicas. That kind of proactive suggestion is how you turn an outage story into a senior signal.",
+    "tags": ["incident", "runbook", "chaos-testing", "fuzzing", "consensus"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-incident-oncall-playbook",
+    "topic": "mysten",
+    "subtopic": "incidents",
+    "difficulty": "medium",
+    "front": "You're on call. Sui mainnet stops advancing checkpoints. First 10 minutes?",
+    "back": "Check the status page and peer chat first to see if it's network-wide or local. Pull the consensus round metric across multiple validators: are they all stuck on the same round, or only yours? If cluster-wide stuck on same round, you're in a Jan-2026-shaped incident; coordinate with other operators, check logs for divergence or error markers, and post a public status update early. If it's local, triage peer count, disk health, recent config changes, and binary version drift. Communicate often, even if the update is 'still investigating.'",
+    "senior_nuance": "The hardest skill under incident pressure is to resist local debugging until you've confirmed scope. Many incidents waste the first hour on a local issue that was actually a cluster-wide problem. The fix: build the scope check into your muscle memory as step one, before anything else. 'Is this just me, or is this everyone?' is the single most valuable question.",
+    "quote_to_say": "First question on call: is this just me, or is this everyone? Scope dictates playbook.",
+    "tags": ["incident", "on-call", "triage", "runbook"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-incident-history",
+    "topic": "mysten",
+    "subtopic": "incidents",
+    "difficulty": "easy",
+    "front": "What notable Sui mainnet incidents have there been?",
+    "back": "Three incidents are publicly documented per the research record. Nov 2024: a brief halt (duration and root cause not detailed in the research). Dec 2025: a degraded-performance period (not a full halt). Jan 14, 2026: a ~6-hour halt from a consensus commit edge case causing divergent checkpoints, the largest incident since launch. The Jan 2026 post-mortem on status.sui.io is the most detailed public source.",
+    "senior_nuance": "The clean framing is 'three incidents over ~three years of mainnet,' with two qualitatively different failure modes (performance degradation vs full halt). Compared to chain halts on other L1s this is a modest record; compared to mature TradFi uptime it is obviously worse. Don't editorialize; name the facts and let the interviewer probe.",
+    "tags": ["incident", "history", "halt", "degradation"],
+    "mock_eligible": false
+  },
+  {
+    "id": "mys-safety-over-liveness-framing",
+    "topic": "mysten",
+    "subtopic": "incidents",
+    "difficulty": "medium",
+    "front": "Why is 'halt rather than fork' the right failure mode for Sui?",
+    "back": "A permissionless L1 cannot tolerate fork-and-merge because a double-spend committed on both branches cannot be undone: somebody's money becomes fake. Halting preserves the invariant that committed state is globally consistent; the cost is temporary loss of liveness that is recoverable once the root cause is fixed. This is the classical CP choice under the CAP theorem applied under partial synchrony, and it's the only correct design for a BFT L1 holding real assets.",
+    "senior_nuance": "Where this gets interesting is in the recovery playbook. A halt that lasts hours has ecosystem costs: liquidations freeze, arbitrageurs can't rebalance, end users panic. So 'safety over liveness' is not a license to halt casually. The design goal is: halt only on genuine safety-risk edge cases, and invest heavily in automation and runbooks to minimize halt duration. Both halves matter.",
+    "quote_to_say": "Safety over liveness is right. But the duration of the liveness gap is the product, not an afterthought.",
+    "tags": ["safety-liveness", "cap", "design-philosophy", "bft"],
+    "mock_eligible": true
+  }
+]

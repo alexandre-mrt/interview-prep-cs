@@ -282,7 +282,11 @@
     {
       "iter": 1,
       "ts": "2026-04-17T18:45:00Z",
-      "completed": ["T01-scaffold", "T02-content-schema", "T18-seed-basic-cards"],
+      "completed": [
+        "T01-scaffold",
+        "T02-content-schema",
+        "T18-seed-basic-cards"
+      ],
       "notes": "Scaffold + schema + 30 seed cards"
     }
   ],

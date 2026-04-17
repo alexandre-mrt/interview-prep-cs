@@ -1,0 +1,115 @@
+[
+  {
+    "id": "ml-rag-chunking-strategies",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "medium",
+    "front": "Compare fixed-size, recursive character, and semantic chunking strategies. When does each break?",
+    "back": "Fixed-size: split on character count (e.g., every 512 tokens). Simple and deterministic. Breaks sentences and paragraphs mid-idea — high chance of cutting context at semantically critical boundaries. Retrieval recall suffers when the answer spans a boundary. Recursive character: split on paragraph → sentence → word → character hierarchy, trying each delimiter until chunks are within the size limit. Better respects natural language boundaries. Still size-driven, can still fragment long tables or code. Semantic: embed sentences, merge adjacent ones with high cosine similarity into chunks, split at semantic discontinuities. Best boundary quality. Expensive (one embedding call per sentence), non-deterministic chunk sizes, harder to tune. Hybrid: recursive splitting with overlap (e.g., 50-token overlap) is the practical default — overlap ensures boundary content appears in two chunks, improving recall.",
+    "senior_nuance": "Chunk size and overlap are the most impactful RAG hyperparameters and are almost always under-tuned. Evaluate chunking strategies by running end-to-end retrieval recall@k on a golden set, not by visual inspection of chunks.",
+    "tags": ["chunking", "rag", "retrieval", "semantic-chunking"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-rag-embeddings",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "easy",
+    "front": "What is a text embedding in the context of RAG? What properties make an embedding model good for retrieval?",
+    "back": "A text embedding maps a variable-length text to a fixed-size dense vector such that semantically similar texts are geometrically close (by cosine similarity or dot product). For retrieval: (1) Asymmetric retrieval quality — embedding a short query should still find long relevant passages. (2) Domain coverage — a general embedding model may underperform on specialised domains (medical, legal, code). (3) Context window — most embedding models have a 512-token limit; passages longer than this are truncated. (4) Bi-encoder vs cross-encoder — bi-encoders encode query and document independently (fast), cross-encoders encode the pair jointly (slower, more accurate). Use bi-encoder for retrieval, cross-encoder for reranking. Evaluation: MTEB (Massive Text Embedding Benchmark) is the standard leaderboard.",
+    "senior_nuance": "Embedding models fine-tuned on in-domain data almost always outperform general-purpose models. A 10% improvement in retrieval recall is typical for domain-specific fine-tuning. Budget for this before scaling infrastructure.",
+    "tags": ["embeddings", "rag", "bi-encoder", "retrieval"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-rag-vector-dbs",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "medium",
+    "front": "How do approximate nearest-neighbour (ANN) vector databases work? What tradeoffs exist between HNSW and IVF-based indexes?",
+    "back": "Vector databases store embedding vectors and return the k most similar to a query vector. Exact nearest-neighbour is O(n·d) — too slow at scale. ANN algorithms trade recall for speed. HNSW (Hierarchical Navigable Small World): builds a multi-layer graph where each node connects to its approximate nearest neighbours. Query traverses the graph top-down, greedily following closest neighbours. Excellent recall, fast queries, high memory footprint (stores the graph). Best for high-QPS, memory-rich environments. IVF (Inverted File Index): clusters vectors into k centroids at index time, stores each vector with its cluster. Query scans only the n_probe nearest clusters. Lower memory, slightly worse recall, tunable by n_probe. Production default in Faiss. PQ (Product Quantisation): compresses vectors by splitting into sub-vectors, each quantised separately — reduces memory 8-32×, some recall loss. Typically combined with IVF as IVF-PQ.",
+    "senior_nuance": "HNSW recall degrades at very large scales (1B+ vectors) because graph exploration becomes expensive. At that scale, GPU-accelerated flat indexes or distributed IVF-PQ win. Always measure recall@k on a held-out query set before committing to an index type.",
+    "tags": ["vector-db", "hnsw", "ivf", "ann", "rag"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-rag-hybrid-search",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "medium",
+    "front": "What is hybrid search, and why does dense retrieval alone fail for rare terms or exact matches?",
+    "back": "Hybrid search combines dense (embedding-based) and sparse (keyword-based, BM25) retrieval, merging results via Reciprocal Rank Fusion (RRF) or a learned weighted combination. Dense retrieval captures semantic similarity — 'car' matches 'automobile'. But for rare tokens (product codes, API names, abbreviations, medical terms), the training corpus is sparse, embeddings have high variance, and nearest-neighbour recall degrades. BM25 is exact-match by nature — it will always find the document containing 'BRCA1' or 'error code 0x8007045D'. Hybrid search gives dense the semantic range and BM25 the precision on rare tokens. RRF: score = Σ 1/(rank_i + k) across retrievers. Simple, no training required, robust in practice.",
+    "senior_nuance": "In production, the failure mode of pure dense retrieval on rare terms is silent — the system still returns K results, just wrong ones. Instrument retrieval with BM25 recall on a sample of test queries before disabling sparse search.",
+    "quote_to_say": "Dense retrieval is great until someone searches for a product code. BM25 is always there for the exact match.",
+    "tags": ["hybrid-search", "bm25", "dense-retrieval", "rrf", "rag"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-rag-reranking",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "hard",
+    "front": "How do cross-encoder rerankers improve RAG quality? What is their latency cost and how do you make them production-viable?",
+    "back": "A bi-encoder retrieves top-k candidates in milliseconds by comparing pre-computed embeddings. A cross-encoder reranker takes each (query, candidate) pair and scores them jointly using full bidirectional attention — it sees both at once and can model fine-grained relevance. Quality improvement: significant, especially for subtle relevance distinctions. Latency cost: for k=100 retrieved chunks, the reranker runs 100 forward passes, each comparable to an encoder pass. Typically adds 100-500ms. Production strategies: (1) Narrow the reranker candidate list (retrieve 100, rerank top 20 for the LLM context). (2) Use a smaller reranker model (ms-marco-MiniLM-L-6 is fast, good). (3) Batch inference with GPU reranker. (4) Async reranking when latency is not the primary constraint. When to skip: if first-stage recall is already high (>90%), reranking adds little; invest in improving chunking or retrieval instead.",
+    "senior_nuance": "Reranker quality saturates — a great reranker cannot recover relevance from a poor first stage. Always measure first-stage recall before investing in reranking infrastructure. The hierarchy is: chunking → embedding model → retrieval → reranking.",
+    "quote_to_say": "A reranker can't find what the retriever didn't fetch. Fix recall first.",
+    "tags": ["reranking", "cross-encoder", "latency", "rag"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-rag-failure-modes",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "hard",
+    "front": "Your RAG system returns correct documents but the model still hallucinates. Debugging playbook?",
+    "back": "Split pipeline: retrieval, ranking, generation. Check: (1) Did retrieval return relevant chunks? recall@k vs golden set. (2) Were top chunks in context window? Log retrieved IDs vs final context. (3) Did generation read them? Add attribution + check citations exist in context. Common cause: chunks truncated at boundaries. Fix: semantic chunking with overlap, reranker, 'answer only with evidence' prompt. Also check: chunk size vs model context — if chunks are 2048 tokens and you retrieve 10, total context may exceed window and earliest chunks are dropped. Verify with context window utilisation logging.",
+    "senior_nuance": "Most RAG failures look like generation failures but are retrieval failures. Instrument the pipeline before tuning the prompt. A dedicated retrieval eval harness (golden question → expected chunk IDs) is the single highest-leverage investment in a RAG system.",
+    "quote_to_say": "RAG doesn't fix hallucinations, it relocates them.",
+    "tags": ["rag", "debugging", "retrieval", "hallucination"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-rag-evaluation",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "hard",
+    "front": "How do you evaluate a RAG pipeline end-to-end? Name the key metrics at each stage.",
+    "back": "Retrieval stage: recall@k (does the correct chunk appear in top k?), MRR (mean reciprocal rank of the first correct result), NDCG (normalised DCG for graded relevance). Generation stage: faithfulness (is the answer supported by retrieved context?), answer relevance (does it answer the question?), context precision (are retrieved chunks relevant to the question?). End-to-end: exact match (for factoid QA), ROUGE/BERTScore (for open-ended). For faithfulness specifically: NLI-based entailment checker (does each sentence in the answer entail from the context?). Frameworks like RAGAS formalise these metrics. Key: always compare with a no-RAG baseline — if RAG doesn't improve faithfulness vs direct generation, the retrieval is adding noise.",
+    "senior_nuance": "Faithfulness and answer relevance often trade off — a model that refuses to answer anything not in context is faithful but useless. Set business-specific thresholds for each metric and treat them as a dashboard, not a single number.",
+    "tags": ["rag", "evaluation", "recall", "faithfulness", "ragas"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-rag-indexing-drift",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "medium",
+    "front": "What is index drift in RAG, and how do you detect and manage it in production?",
+    "back": "Index drift occurs when the vector index becomes stale relative to the underlying document store — documents are added, updated, or deleted but the embedding index is not updated synchronously. Effects: retrieving outdated information, missing recent documents, returning deleted content. Detection: compare document store row counts and checksums against index entry counts; monitor 'zero-result' retrieval rate for queries expected to hit recent content; run periodic sampling of indexed vs source documents. Management: (1) Incremental indexing pipelines (CDC from DB to embedding queue). (2) Soft deletion — mark embeddings deleted before removing from source. (3) Versioned snapshots for auditable retrieval. (4) Alerting on index lag above threshold (e.g., >30 min). For rapidly changing corpora, full re-indexing is often simpler than incremental patching.",
+    "senior_nuance": "Index drift is a data engineering problem, not an ML problem. The root cause is usually treating the embedding pipeline as a one-time batch job rather than a continuous data product. Own the pipeline SLA.",
+    "tags": ["rag", "index-drift", "production", "data-freshness"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-rag-metadata-filtering",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "medium",
+    "front": "What is metadata filtering in vector search, and when is it essential for RAG correctness?",
+    "back": "Metadata filtering adds structured predicates (e.g., date range, tenant ID, document type) to vector search, evaluated before or alongside ANN retrieval. Pure semantic search ignores these constraints — it will happily return a document from the wrong tenant, wrong date range, or wrong document category if the embedding is close. Essential when: (1) Multi-tenant systems where data isolation is required. (2) Time-sensitive queries ('Q4 2023 earnings' must not return Q3). (3) Permission-scoped retrieval (user should only see docs they have access to). Implementation: pre-filtering (filter first, then ANN — fewer candidates but index still large), post-filtering (ANN first, then filter — can drop below top-k), or filtered index structures (Qdrant, Weaviate support this natively). Pre-filtering degrades recall when the filtered set is small; post-filtering may not return k results.",
+    "senior_nuance": "Metadata filtering is a correctness requirement, not an optimisation. Building a RAG system without it for multi-tenant use cases is a data isolation bug. Design for it from day one — retrofitting filter support into an existing index is painful.",
+    "tags": ["rag", "metadata-filtering", "multi-tenant", "vector-db"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-rag-context-compression",
+    "topic": "ml",
+    "subtopic": "rag",
+    "difficulty": "hard",
+    "front": "What is context compression in RAG, and when does it improve response quality vs just adding more context?",
+    "back": "Context compression extracts only the query-relevant sentences from retrieved chunks before passing them to the generation model. Instead of stuffing 10 full 512-token chunks into the prompt, compress each to the 2-3 most relevant sentences. Techniques: LLMlingua (iterative token pruning), extractive summarisation, sentence-level relevance scoring. Benefits: (1) Fits more documents within context window. (2) Reduces distraction from irrelevant content ('lost in the middle'). (3) Lowers generation cost. When it helps: retrieved chunks have high noise-to-signal ratio; context window is nearly full; queries require synthesising across many sources. When it hurts: compression is itself a lossy step — if the compressor misses a critical sentence, the answer is wrong. Small, high-quality chunks retrieved by a strong reranker often make compression unnecessary.",
+    "senior_nuance": "Context compression adds another failure mode to an already multi-step pipeline. Profile where your system actually fails before adding compression — if retrieval recall is the bottleneck, compression doesn't help.",
+    "tags": ["rag", "context-compression", "prompt-engineering", "llmlingua"],
+    "mock_eligible": false
+  }
+]

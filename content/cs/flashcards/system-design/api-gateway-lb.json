@@ -1,0 +1,161 @@
+[
+  {
+    "id": "sd-l4-vs-l7-lb",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "medium",
+    "front": "Compare L4 and L7 load balancers. When do you need each?",
+    "back": "L4 (transport layer): routes based on IP + TCP/UDP port. Does not inspect packet payload. Extremely fast (kernel-level, DPDK). Cannot do path-based routing, header manipulation, or TLS termination (without SNI). Use for: raw TCP throughput, UDP, database proxies, gaming, very high packet rates. L7 (application layer): reads HTTP headers, URL, cookies. Can do path routing (/api vs /static), sticky sessions, health checks at the HTTP level, TLS termination, rate limiting, authentication. Use for: microservice HTTP/gRPC routing (Nginx, Envoy, ALB, Traefik). Cost: L7 adds latency (~100 microseconds) and CPU overhead per request.",
+    "senior_nuance": "In practice, you often run both: L4 (AWS NLB) for high-throughput UDP/TCP or DB connections, and L7 (ALB/Envoy) for HTTP microservices. For WebSockets, L7 LBs must support connection upgrade and long-lived connections — verify before deploying. Envoy is the de facto L7 in service meshes (Istio, AWS App Mesh).",
+    "tags": ["l4-lb", "l7-lb", "load-balancer", "envoy", "alb", "nlb"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-lb-algorithms",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "easy",
+    "front": "Name four load balancing algorithms and describe when each is appropriate.",
+    "back": "Round-robin: requests distributed evenly in sequence. Good for homogeneous servers and equal request cost. Least connections: route to server with fewest active connections. Good for variable-duration requests (file uploads, slow API calls). Weighted round-robin/least-conn: assign higher weight to servers with more capacity. Good for heterogeneous hardware. IP hash / consistent hash: same client IP always routes to same backend. Good for sticky sessions without a session store. Random with two choices (Power of Two Choices): pick 2 random servers, route to the less loaded. Near-optimal without coordination.",
+    "senior_nuance": "Round-robin fails for request-size-variable workloads — one slow request can sit on a server while it gets more requests. Least connections is better but requires connection tracking. Power of Two Choices scales better than least-connections in highly distributed scenarios because it avoids the coordination needed for global load tracking.",
+    "tags": [
+      "load-balancing",
+      "round-robin",
+      "least-connections",
+      "consistent-hash",
+      "power-of-two"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-rate-limiting-algorithms",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "hard",
+    "front": "Compare token bucket, leaky bucket, fixed window, and sliding window rate limiting. Which is most burst-friendly?",
+    "back": "Fixed window: count requests per window (1 minute). Simple but allows 2x burst at window boundaries (last second of window N + first second of window N+1). Sliding window log: track timestamp of each request, count within rolling window. Accurate but memory-intensive. Sliding window counter: approximate using weighted sum of current and previous window counts. Good tradeoff. Token bucket: bucket holds up to B tokens, refills at R tokens/second. A request consumes one token. Allows bursts up to B. Most burst-friendly. Leaky bucket: requests queue and drain at fixed rate. Smooths bursts to constant output rate. Good for protecting downstream.",
+    "senior_nuance": "Token bucket is the standard for API rate limiting (Stripe, GitHub use it). Leaky bucket is better for protecting a downstream service from traffic spikes. The choice depends on whose interests you protect: token bucket is client-friendly (allows bursts within quota), leaky bucket is server-friendly (smooth load).",
+    "quote_to_say": "Token bucket is burst-friendly for the client; leaky bucket protects the server. Choose based on whose SLO you're optimizing.",
+    "tags": [
+      "rate-limiting",
+      "token-bucket",
+      "leaky-bucket",
+      "sliding-window",
+      "fixed-window"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-circuit-breaker",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "medium",
+    "front": "How does a circuit breaker work? Describe the three states and their transitions.",
+    "back": "Circuit breaker wraps a remote call and monitors for failures. Three states: (1) Closed (normal): requests pass through. Count failures. When failure rate exceeds threshold (e.g., 50% in 10s window), trip to Open. (2) Open (tripped): requests fail immediately without calling downstream. After a cooldown period, transition to Half-Open. (3) Half-Open (probing): allow a limited number of test requests through. If they succeed, close the circuit. If they fail, reopen. Purpose: prevent cascading failures — if service B is down, service A failing fast allows A to serve fallbacks and prevents thread pool exhaustion.",
+    "senior_nuance": "Hystrix (Netflix, now maintenance mode) popularized circuit breakers in Java. Resilience4j is the modern replacement. The tricky part is choosing thresholds: too sensitive = false trips on transient errors. Too lenient = cascade happens before circuit opens. Use a minimum request count threshold (e.g., don't trip on 50% failure if only 2 requests have been made).",
+    "tags": [
+      "circuit-breaker",
+      "hystrix",
+      "resilience4j",
+      "fallback",
+      "cascading-failure"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-retry-with-jitter",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "medium",
+    "front": "Why is exponential backoff + jitter necessary for retries? What is the thundering herd in this context?",
+    "back": "Without jitter: if 1000 requests fail at time T, all retry at T+1s, all retry again at T+2s, etc. Synchronized retries overwhelm the recovering service. Exponential backoff alone doesn't help if all clients start at the same time. Jitter adds randomness: retry after min(cap, base * 2^attempt) * random(0,1). This distributes retry load across time. Full jitter (uniform random between 0 and exponential cap) provides the most even distribution. AWS SDK uses 'equal jitter' (half base + half random). AWS blog recommends full jitter for most cases.",
+    "senior_nuance": "Retry storms can be worse than the original failure. Set a maximum retry count and a maximum total retry duration (timeout budget). Use a retry budget (Envoy): limit the fraction of requests that can be retries at any given time (e.g., retries <= 10% of total requests) to prevent retry amplification.",
+    "tags": [
+      "retry",
+      "exponential-backoff",
+      "jitter",
+      "thundering-herd",
+      "retry-storm"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-api-gateway-responsibilities",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "easy",
+    "front": "What are the responsibilities of an API gateway? What should NOT be in the gateway?",
+    "back": "Should be in gateway: TLS termination, authentication/authorization (JWT validation, OAuth token introspection), rate limiting, request routing, SSL offloading, request/response transformation (header injection, payload shaping), logging and observability (access logs, distributed trace initiation), DDoS protection, WAF (web application firewall). Should NOT be in gateway: business logic, database access, heavy computation. These belong in application services. The gateway is stateless and should be horizontally scalable without coordination.",
+    "senior_nuance": "Putting business logic in the gateway creates a coupling point — changes to business rules require gateway deployments. The gateway should be a dumb pipe for routing and cross-cutting concerns. Use Envoy/Kong/AWS API Gateway for cross-cutting; put everything else in the service itself or a BFF (Backend For Frontend).",
+    "tags": [
+      "api-gateway",
+      "tls-termination",
+      "rate-limiting",
+      "authentication",
+      "bff"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-health-checks",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "medium",
+    "front": "What is the difference between liveness and readiness probes? What is a mistake teams make with liveness probes?",
+    "back": "Liveness probe: is the process alive and not deadlocked? If it fails, Kubernetes restarts the container. Should be simple: check that the HTTP server responds, not that dependencies are up. Readiness probe: is the process ready to serve traffic? If it fails, Kubernetes removes the pod from load balancer rotation but doesn't restart it. Should check: DB connection pool healthy, upstream dependencies reachable, warm-up complete. Common mistake: liveness probe checks DB connectivity. If DB is down, all pods restart in a loop, making the outage worse. Liveness should only check the process itself.",
+    "senior_nuance": "Startup probe (Kubernetes 1.16+) handles slow-starting containers that would otherwise be killed by liveness probes during initialization. Differentiate all three: startup (is initialization complete?), liveness (is the process healthy?), readiness (should traffic be sent?). They have different failure actions and different check intervals.",
+    "tags": [
+      "liveness-probe",
+      "readiness-probe",
+      "kubernetes",
+      "health-check",
+      "startup-probe"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-service-mesh",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "hard",
+    "front": "What is a service mesh? What does it provide that a traditional load balancer does not?",
+    "back": "Service mesh: infrastructure layer for service-to-service communication using sidecar proxies (Envoy). Each service pod gets an Envoy sidecar that intercepts all inbound/outbound traffic. Provides: (1) mTLS between all services (zero-trust networking), (2) traffic shifting (canary deployments, A/B testing by percentage), (3) circuit breaking, retry, timeout policies without code changes, (4) distributed tracing with automatic span propagation, (5) per-service L7 metrics (request rate, error rate, latency by route). Traditional LB: single ingress point, no east-west traffic visibility, no per-service policy. Service mesh handles east-west (service-to-service) traffic; API gateway handles north-south (client-to-cluster).",
+    "senior_nuance": "Service meshes add operational complexity — the sidecar adds ~5ms of latency per hop and the control plane (Istiod) is a new failure domain. Only adopt when you have 10+ services and the cross-cutting concerns (mTLS, tracing) are genuinely painful to implement in code. Start with a single API gateway and centralized observability; add a service mesh when you need per-route traffic policies.",
+    "tags": ["service-mesh", "istio", "envoy", "sidecar", "mtls", "east-west"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-sticky-sessions",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "medium",
+    "front": "What are sticky sessions? What problem do they create at scale and what is the better alternative?",
+    "back": "Sticky sessions: load balancer routes requests from the same client to the same backend server. Used when server-side session state is stored in memory (not shared). Problem at scale: (1) Uneven load distribution if some users are more active. (2) If a server dies, all its users lose session state and must re-authenticate. (3) Limits rolling deployments — draining a sticky server affects active users. Better alternative: externalize session state to Redis or a distributed session store. All servers can serve any user. No affinity needed. Trade: network hop to Redis per request (~1ms) vs. in-memory access.",
+    "senior_nuance": "If you inherit a stateful session architecture and can't refactor immediately, use AWS ALB's built-in sticky sessions with an expiry matching session timeout. Always configure a graceful drain period during deployments to avoid dropping active sessions. But treat stickiness as technical debt — plan the migration to external session store.",
+    "tags": [
+      "sticky-sessions",
+      "session-affinity",
+      "stateless",
+      "redis",
+      "session-store"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-graceful-degradation",
+    "topic": "system-design",
+    "subtopic": "api-gateway-lb",
+    "difficulty": "hard",
+    "front": "What is graceful degradation? Design a fallback strategy for a recommendation service that is down.",
+    "back": "Graceful degradation: serve a reduced quality response rather than an error when a dependency fails. For a recommendation service: Tier 1 (primary): personalized ML recommendations via recommendation service. Tier 2 (fallback): pre-computed popular items from cache (Redis, refreshed every 5 minutes). Tier 3 (static fallback): hardcoded list of top 10 items from CDN. Tier 4 (empty state): show generic 'explore' UI with no items. Circuit breaker on the recommendation service call triggers immediate fallback to Tier 2 without waiting for timeout. Pattern: define fallback tiers in order of quality, implement with feature flags to switch between them independently.",
+    "senior_nuance": "The failure mode of fallbacks: stale popular items may include out-of-stock products, offensive content that was later removed, or regionally unavailable items. Each fallback tier needs its own data freshness SLO and filtering logic. Don't just serve whatever is in cache — validate it's still safe to show.",
+    "tags": [
+      "graceful-degradation",
+      "fallback",
+      "circuit-breaker",
+      "recommendation",
+      "feature-flag"
+    ],
+    "mock_eligible": true
+  }
+]

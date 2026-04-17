@@ -1,0 +1,133 @@
+[
+  {
+    "id": "bc-con-pow-vs-pos",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "easy",
+    "front": "Compare Proof of Work and Proof of Stake on security model, energy, and finality.",
+    "back": "PoW: miners expend real-world energy to propose blocks. Security = cost of 51% attack = hardware + electricity. Probabilistic finality — a chain is 'final' when enough blocks are built on top (6 confirmations for Bitcoin ~ 1 hour). Nakamoto consensus. Energy: massive — Bitcoin ~150 TWh/year. PoS: validators lock up stake (collateral) to propose/attest blocks. Security = cost of attack = buying 33%/51% of staked tokens. Slashing punishes equivocation or safety violations by burning stake. Ethereum PoS: ~99.95% less energy than PoW. Finality: Ethereum Gasper achieves economic finality in ~13-15 minutes (two epochs of 32 slots). PoS is faster to finality and more Sybil-resistant proportional to capital.",
+    "senior_nuance": "PoS has a long-range attack: an attacker who acquires old private keys can rewrite history from a checkpoint. PoW is naturally resistant — you need current hashrate. Ethereum mitigates with weak subjectivity: new nodes must obtain a recent trusted checkpoint.",
+    "quote_to_say": "PoW security is energy. PoS security is slashable capital. Both make attacks expensive — PoS makes them recoverable.",
+    "tags": [
+      "PoW",
+      "PoS",
+      "consensus",
+      "finality",
+      "energy",
+      "51-percent-attack"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-con-bft-safety-liveness",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "hard",
+    "front": "Explain the CAP theorem in the context of blockchain consensus. How do PBFT, Tendermint, and HotStuff differ on safety vs. liveness?",
+    "back": "CAP: a distributed system cannot simultaneously guarantee Consistency (all nodes see the same value), Availability (every request receives a response), and Partition tolerance (network can be split). Blockchain consensus chooses: CP (prioritize safety/consistency) or AP (prioritize availability/liveness). PBFT (Practical BFT): 3-phase (pre-prepare, prepare, commit), tolerates f Byzantine failures with 3f+1 nodes, O(n^2) messages. Deterministic finality — safe under partition, not live if >f nodes offline. Tendermint: PBFT-inspired, used in Cosmos. Two-round voting, proposer rotation, explicit timeout for liveness. Chooses safety: if no quorum, chain halts. HotStuff (Facebook/LibraBFT, now Diem/Aptos): linear message complexity O(n) via leader aggregation (threshold signatures), pipelining, chained voting. Powers Bullshark and Jolteon variants used in DAG-based systems.",
+    "senior_nuance": "Tendermint's safety-first design means Cosmos chains halt if >1/3 validators go offline. This is by design — prefer safety (no forks) over liveness. For mission-critical DeFi, a halted chain is better than a forked one with conflicting state.",
+    "quote_to_say": "Safety vs. liveness is a real tradeoff. Tendermint halts rather than forks. Nakamoto forks and resolves with the longest chain.",
+    "tags": [
+      "BFT",
+      "CAP",
+      "PBFT",
+      "Tendermint",
+      "HotStuff",
+      "safety",
+      "liveness"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-con-dag-consensus",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "hard",
+    "front": "How does DAG-based consensus (Narwhal/Bullshark) differ from linear chain consensus? What are the throughput benefits?",
+    "back": "Linear chain: one block per slot, validators vote on the chain tip. Throughput bottleneck: the proposer must propagate the block before others can vote — network latency serializes block production. DAG (Directed Acyclic Graph): each validator continuously broadcasts batches of transactions (Narwhal workers). Validators collect certificates (quorums of acknowledgment) for each batch. Bullshark uses the DAG as the mempool and interprets committed anchors for ordering — no separate block propagation step. Throughput: because all validators broadcast simultaneously, bandwidth is fully utilized. Narwhal/Bullshark achieved 125K TPS in Sui benchmarks vs ~50-100 TPS for single-leader chains at same hardware. Latency: DAG adds a round of certification before ordering (higher latency than leader-based) but amortizes well at high load.",
+    "senior_nuance": "Mysticeti (Sui's replacement for Narwhal/Bullshark) further reduces latency by allowing validators to reference uncertified blocks, enabling a pipelining effect that cuts finality by ~70%.",
+    "quote_to_say": "DAG consensus separates data dissemination from ordering. Every validator pushes data simultaneously — bandwidth scales with validator count.",
+    "tags": ["DAG", "Narwhal", "Bullshark", "consensus", "throughput", "Sui"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-con-finality",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "medium",
+    "front": "What is the difference between probabilistic finality and deterministic (economic) finality? Give blockchain examples.",
+    "back": "Probabilistic finality (Nakamoto): a block becomes 'final' as more blocks are built on top — probability of reversal decreases exponentially. Bitcoin: 6 confirmations (~1 hour) for high-value transactions. Never truly final in theory. Deterministic/economic finality (BFT-based PoS): once 2/3+ validators attest a checkpoint, it is final — reverting requires slashing >1/3 of stake. Ethereum: checkpoints every 32 slots (~6.4 min), economic finality via Casper FFG. Instant finality (Tendermint/HotStuff): once a round's quorum of commits is received, block is final — same slot. Trade-off: probabilistic is more Sybil-resistant under network partition; deterministic is faster but halts if quorum is unavailable.",
+    "senior_nuance": "Ethereum's fast path (single slot finality in development) would bring 12-second finality — closer to Tendermint. EIP-7251 (increase max effective balance) allows validator consolidation which reduces attestation overhead.",
+    "quote_to_say": "Probabilistic finality converges. Deterministic finality is immediate but halts without quorum. Know which your chain uses.",
+    "tags": [
+      "finality",
+      "probabilistic",
+      "deterministic",
+      "BFT",
+      "Ethereum",
+      "Bitcoin"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-con-validator-economics",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "medium",
+    "front": "What is the nothing-at-stake problem in PoS and how does slashing solve it?",
+    "back": "Nothing-at-stake: in early PoS designs, validators had no cost for voting on multiple forks simultaneously — unlike PoW where hashrate is exclusive. A rational validator would vote on every fork to maximize rewards regardless of which wins. This prevents consensus. Slashing: validators deposit stake into a contract. If they sign two conflicting blocks for the same slot (equivocation) or violate the Casper FFG rules, the protocol destroys a portion of their stake (e.g., Ethereum slashes 1/32 of stake + correlation penalty if many validators slash simultaneously). Slashing transforms the nothing-at-stake problem: misbehavior has a direct financial cost. The correlation penalty (more slashes at once = larger penalty per validator) disincentivizes coordinated attacks.",
+    "senior_nuance": "Ethereum's inactivity leak: if finality is not reached for 4+ epochs (>1/3 validators offline), the stake of inactive validators leaks until their weight drops below 2/3, restoring finality. This sacrifices the inactive validators' stake to restore liveness.",
+    "quote_to_say": "Nothing-at-stake is solved by slashing. Without skin in the game, validators have no reason to converge.",
+    "tags": ["PoS", "nothing-at-stake", "slashing", "Ethereum", "validator"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-con-sybil-resistance",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "easy",
+    "front": "What is a Sybil attack and how do PoW and PoS achieve Sybil resistance?",
+    "back": "Sybil attack: a single entity creates many fake identities (nodes) to gain disproportionate influence in a decentralized network. Without resistance, one entity could control consensus. PoW Sybil resistance: each identity (mining node) must compete for block production proportional to real-world hashrate. Creating N fake nodes does not multiply hashrate — cost scales with physical hardware. PoS Sybil resistance: voting power is proportional to staked tokens. Creating N validators only splits the same stake — no additional influence. Combined with slashing, acquiring voting power requires buying tokens (inflating demand, expensive) and risking them (slashable). Neither system prevents Sybil creation — they make Sybil control economically irrational.",
+    "senior_nuance": "Proof of Personhood (Worldcoin, Proof of Humanity) attempts social Sybil resistance — one human = one vote, identity-verified. Relevant for governance systems where token-based Sybil resistance concentrates power in whales.",
+    "quote_to_say": "Sybil resistance is about making fake identities economically useless. PoW uses energy, PoS uses capital.",
+    "tags": ["sybil", "PoW", "PoS", "consensus", "decentralization"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-con-bls-aggregation",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "hard",
+    "front": "How does BLS signature aggregation enable practical large-scale PoS consensus (e.g., Ethereum)?",
+    "back": "Ethereum has ~1M validators. Aggregating signatures from all validators per block using ECDSA would be O(n) space and verification time — impractical. BLS (Boneh-Lynn-Shacham) signatures support aggregation: N signatures on the same message can be combined into one constant-size signature (48 bytes on BLS12-381). Verifying the aggregate is one pairing check plus N public key aggregation. Ethereum: 512 validators per committee per slot, signatures aggregated into one. Beacon chain uses BLS12-381. Attestations from all committees combined — one aggregate per epoch rather than 1M individual sigs. Without BLS aggregation, Ethereum's PoS at this validator count would be computationally infeasible for nodes.",
+    "senior_nuance": "BLS aggregation requires all signers to use the same message — different messages cannot be aggregated. Ethereum mitigates aggregation grinding attacks with proof of possession (each validator proves they own their key before participating). Rogue key attacks: if validator B sets their key to (B_key - A_key), aggregating with A cancels A's signature. Proof of possession prevents this.",
+    "quote_to_say": "BLS aggregation collapses 512 validator signatures into one. Without it, Ethereum's validator set would be unprocessable.",
+    "tags": [
+      "BLS",
+      "signature-aggregation",
+      "Ethereum",
+      "consensus",
+      "BLS12-381"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-con-longest-chain",
+    "topic": "blockchain",
+    "subtopic": "consensus-variants",
+    "difficulty": "easy",
+    "front": "What is the longest-chain rule (Nakamoto consensus) and what attacks does it fail to prevent that BFT prevents?",
+    "back": "Nakamoto consensus (Bitcoin, early Ethereum): the valid chain is the one with the most cumulative proof of work. Forks resolve naturally — miners extend the heaviest chain. Any valid block can be the chain tip; no finality until buried. Attacks Nakamoto resists: Sybil attacks (hashrate-based), double-spend attacks (require 51% hashrate). Attacks Nakamoto is vulnerable to that BFT prevents: (1) Selfish mining: a miner with >33% hashrate can withhold blocks to gain disproportionate rewards without explicit 51% attack; (2) Long-range reorg: with enough hashrate, deep reorgs are possible (see Ethereum Classic 51% attacks); (3) No finality: exchanges require 6-100 confirmations for safety, adding hours of latency. BFT chains have deterministic finality — once 2/3 quorum commits, the block cannot be reverted without slashing.",
+    "senior_nuance": "Ethereum GHOST (Greedy Heaviest Observed Sub-Tree) modified the longest-chain rule to count uncle blocks in the weight calculation, reducing selfish mining advantage. Post-Merge, Ethereum uses Casper FFG over LMD-GHOST for finality.",
+    "quote_to_say": "Nakamoto consensus is simple and secure under partition. It has no finality — that is a feature and a bug.",
+    "tags": [
+      "Nakamoto",
+      "longest-chain",
+      "PoW",
+      "BFT",
+      "finality",
+      "selfish-mining"
+    ],
+    "mock_eligible": false
+  }
+]

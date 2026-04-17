@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ss-ops-slo-error-budget",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "medium",
+    "front": "A team wants to ship a risky feature. The service is at 99.8% for the month against a 99.9% SLO. What's the senior move?",
+    "back": "The error budget is exhausted. Policy-wise, risky launches pause until budget recovers, or the launch must include an explicit risk carve-out signed off by the SLO owner. The budget is not a vibe — it's a forcing function that moves the conversation from 'should we ship' to 'what's the risk and who approves'.",
+    "senior_nuance": "Error budgets only work if they have teeth. A budget that never stops a launch is decoration.",
+    "quote_to_say": "SLOs before features. What's the error budget?",
+    "tags": ["ops", "slo", "error-budget"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-observability-feature",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "easy",
+    "front": "A teammate plans to add metrics and logs after the feature ships. How do you push back?",
+    "back": "Reframe observability as part of the feature, not a follow-up. The story isn't done until a dashboard shows it working, an alert fires when it doesn't, and a runbook explains what to do. Shipping without observability means the first incident is also your first debugging session.",
+    "senior_nuance": "Observability built after launch is always partial. The fields you wish you'd logged are the ones you didn't think were important on day one.",
+    "quote_to_say": "Observability is a feature, not a phase.",
+    "tags": ["ops", "observability", "metrics"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-labels-not-ids",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "medium",
+    "front": "A PR adds a Prometheus counter labeled by user_id. What do you say in review?",
+    "back": "Reject the label. High-cardinality labels — user_id, order_id, request_id — blow up metric series and break aggregations. Labels are for dimensions you'll group by: region, endpoint, status_code, customer_tier. IDs belong in traces and logs, where cardinality is expected.",
+    "senior_nuance": "A single user_id label can explode a metric from 50 series to 5 million. The cost shows up as slow Grafana and angry monitoring bills.",
+    "quote_to_say": "Labels are for dimensions, not IDs.",
+    "tags": ["ops", "metrics", "cardinality", "prometheus"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-incident-blameless",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "medium",
+    "front": "A postmortem draft says 'Engineer X pushed a bad config and caused the outage'. How do you rewrite?",
+    "back": "Rewrite with systems-level framing. 'The config change passed review and CI, was deployed without a canary, and the regression surfaced only under production traffic.' Name the missing safeguards — canary, staged rollout, schema validation — not the human. Blameful postmortems teach people to hide risk, not fix it.",
+    "senior_nuance": "If one person can take down production, that's a system design bug, not a personal failing.",
+    "quote_to_say": "If one person can break it, the system is the bug.",
+    "tags": ["ops", "incident", "postmortem", "blameless"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-runbook-before-alert",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "medium",
+    "front": "A new alert is proposed. What do you require before it goes live?",
+    "back": "A runbook linked from the alert, with: what the alert means, what to check first, commands to run, and who to escalate to. An alert without a runbook is a 3am mystery. If you can't write the runbook, the alert is either too vague or the underlying failure isn't actionable, and it should be rewritten or deleted.",
+    "senior_nuance": "Every alert has a human cost measured in sleep. Paying that cost for a symptom with no action is pure waste.",
+    "quote_to_say": "No runbook, no alert.",
+    "tags": ["ops", "alerting", "runbook", "oncall"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-golden-signals",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "easy",
+    "front": "Asked to instrument a new service with the bare minimum. What four metrics do you ship on day one?",
+    "back": "The four golden signals: latency (histogram, not average), traffic (RPS by endpoint), errors (rate by status class), saturation (queue depth, CPU, connection pool). These answer 'is it up, is it fast, is it broken, is it full' for almost any service. Everything else is a follow-up.",
+    "senior_nuance": "From Google SRE. Averages hide tails; always use histograms for latency. Saturation is the one teams most often skip, and it's the leading indicator.",
+    "quote_to_say": "Latency, traffic, errors, saturation. That's the floor.",
+    "tags": ["ops", "golden-signals", "observability"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-retry-budget",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "hard",
+    "front": "A service retries failed downstream calls three times with exponential backoff. What's the senior concern?",
+    "back": "Retries amplify outages. Three retries per client across N clients turns a 10% downstream error rate into a 40% effective load spike exactly when the downstream is already struggling. Require a retry budget (cap retries as a fraction of total requests), jittered backoff, and circuit breakers to shed load when the downstream signals pain.",
+    "senior_nuance": "Retry storms are the canonical cascade. The fix is politeness — retries must be bounded globally, not per-call.",
+    "quote_to_say": "Retries without a budget are a cascade waiting to happen.",
+    "tags": ["ops", "retry", "circuit-breaker", "cascade"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-ops-deploy-safety",
+    "topic": "senior-signals",
+    "subtopic": "ops-mindset",
+    "difficulty": "medium",
+    "front": "How do you describe a safe deploy in one sentence?",
+    "back": "Canary a small fraction, watch the golden signals against a baseline window, ramp on green, rollback on red — and the rollback must be faster than the forward roll. If you can't articulate the rollback in one step, the deploy is not safe, it's optimistic.",
+    "senior_nuance": "Rollback time is the SLO of your deploy system. Most teams measure deploy speed and ignore rollback speed, then pay for it during an incident.",
+    "quote_to_say": "Rollback must be faster than roll-forward.",
+    "tags": ["ops", "deploy", "canary", "rollback"],
+    "mock_eligible": true
+  }
+]

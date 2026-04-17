@@ -1,0 +1,173 @@
+[
+  {
+    "id": "algos-bst-properties",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "easy",
+    "front": "State the BST property and the time complexities of search, insert, and delete.",
+    "back": "A BST satisfies: for every node, all left subtree values are less and all right subtree values are greater. Average case: O(log n) for search, insert, delete when the tree is balanced. Worst case: O(n) for a degenerate tree (sorted insertions produce a linked list). In-order traversal of a BST yields a sorted sequence.",
+    "senior_nuance": "Unbalanced BSTs are the silent performance killer in practice. Always ask 'Is the input sorted or nearly sorted?' — if so, naive BST insertion is O(n^2) total. Self-balancing trees (AVL, Red-Black) guarantee O(log n) worst-case but add implementation complexity. Most production use cases defer to library implementations.",
+    "quote_to_say": "A BST on sorted input is just a linked list — verify balance.",
+    "tags": ["bst", "tree", "balance"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-tree-traversals",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "easy",
+    "front": "Describe in-order, pre-order, and post-order traversals and their common uses.",
+    "back": "In-order (left-root-right): yields sorted sequence for BSTs, used to serialize/deserialize trees with structure preserved. Pre-order (root-left-right): used to clone a tree and in expression tree serialization. Post-order (left-right-root): evaluates expression trees and is used for deletion (children must be deleted before parent). All are O(n) time and O(h) space where h is tree height.",
+    "senior_nuance": "Iterative in-order traversal uses an explicit stack; Morris traversal achieves O(n) time and O(1) space by temporarily threading the tree (modifying right pointers to predecessor links, restoring them afterward). Morris traversal is the answer to 'traverse a BST without extra space' in senior interviews.",
+    "quote_to_say": "In-order = sorted output for BST. Pre-order = tree structure.",
+    "tags": ["tree", "traversal", "inorder", "preorder", "postorder"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-lca-bst",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Find the Lowest Common Ancestor (LCA) in a BST versus a general binary tree.",
+    "back": "In a BST: if both p and q are less than root, recurse left; if both are greater, recurse right; otherwise, root is the LCA. O(h) time. For a general binary tree: recursively return non-null from left or right subtrees; if both return non-null, the current node is the LCA. Both approaches are O(n) for general trees. The BST version leverages the ordering property to avoid visiting entire subtrees.",
+    "senior_nuance": "The binary lifting technique pre-processes an LCA table in O(n log n) time/space and answers each query in O(log n). For applications with many LCA queries on a static tree (e.g., competitive programming, genealogy), this preprocessing pays off. Tarjan's offline LCA solves all queries in O(n alpha(n)) using Union-Find.",
+    "tags": ["tree", "lca", "bst", "recursion"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-avl-tree-intuition",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "What is an AVL tree and how does it maintain balance?",
+    "back": "An AVL tree is a self-balancing BST where for every node the height difference between left and right subtrees (balance factor) is at most 1. After each insert or delete, the tree checks balance factors up the ancestor path and performs rotations (single or double) where balance is violated. This guarantees O(log n) height and thus O(log n) for all operations.",
+    "senior_nuance": "AVL trees are more strictly balanced than Red-Black trees (AVL height <= 1.44 log n vs RB height <= 2 log n), so lookups are faster on average. But AVL trees require more rotations on insertions and deletions. This makes Red-Black trees preferred in write-heavy workloads (like Linux kernel's scheduler) while AVL trees are preferred in read-heavy workloads.",
+    "quote_to_say": "AVL: faster reads. Red-Black: faster writes.",
+    "tags": ["avl", "tree", "balance", "rotation"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-red-black-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "hard",
+    "front": "State the properties of a Red-Black tree and why they bound height to O(log n).",
+    "back": "Properties: (1) Every node is red or black. (2) Root is black. (3) Leaves (null nodes) are black. (4) Red nodes have only black children. (5) All paths from a node to its descendant leaves have the same number of black nodes (black-height). These ensure no path is twice as long as any other, bounding height to 2 log(n+1), maintaining O(log n) operations.",
+    "senior_nuance": "RB trees are used in Java's TreeMap, C++ STL's std::map, and the Linux CFS scheduler. Their main advantage over AVL is fewer rotations on insertion/deletion (at most 3 total for RB vs. O(log n) for AVL). Implementation is notoriously complex — in interviews, understanding properties and guarantees matters more than coding a full implementation.",
+    "tags": ["red-black-tree", "tree", "balance", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-segment-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "hard",
+    "front": "What is a segment tree? What are its time complexities for build, range query, and point update?",
+    "back": "A segment tree is a binary tree where each node stores an aggregate (sum, min, max) of a range of the array. Build: O(n). Range query: O(log n) by decomposing into O(log n) non-overlapping segments. Point update: O(log n) by updating the leaf and propagating up. Space: O(n). It supports a wide variety of associative range queries with the same asymptotic complexity.",
+    "senior_nuance": "A lazy propagation segment tree extends to range updates (e.g., add 5 to all elements in [l, r]) in O(log n) by deferring the update to child nodes until they are queried. Without lazy propagation, a range update degenerates to O(n). This is the key extension to know for hard interview problems.",
+    "quote_to_say": "Segment tree: range query in O(log n). Add lazy propagation for range update.",
+    "tags": ["segment-tree", "tree", "range-query", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-fenwick-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "hard",
+    "front": "Describe the Fenwick tree (BIT). How does it achieve O(log n) prefix sum queries and point updates?",
+    "back": "A Fenwick tree stores partial sums indexed by the lowest set bit of the index. For a prefix sum query at index i, sum the values at i, i - (i & -i), etc. For a point update at index i, update i, i + (i & -i), etc. Both operations traverse O(log n) indices. Space is O(n). It is simpler to code than a segment tree but only supports prefix queries, not arbitrary range queries natively.",
+    "senior_nuance": "The Fenwick tree is NOT a general segment tree replacement — it only handles prefix aggregates and requires the operation to have an inverse (e.g., sum yes, min/max no). For range min/max queries, use a sparse table (O(n log n) build, O(1) query) or a segment tree. Choose the right tool based on whether updates are needed.",
+    "tags": ["fenwick-tree", "bit", "prefix-sum", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-diameter-binary-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Find the diameter of a binary tree (longest path between any two nodes) in O(n).",
+    "back": "At each node, the longest path through that node is leftHeight + rightHeight. Perform a DFS that returns the height of each subtree; at each node, compute the candidate diameter (left + right) and update a global maximum. Return max(leftHeight, rightHeight) + 1 as the height for the parent. Single-pass, O(n) time and O(h) space for the recursion stack.",
+    "senior_nuance": "The diameter path does not need to pass through the root. This 'local maximum, global update' pattern — compute the best answer at each node using children's return values, update a running global, return the partial value needed by the parent — recurs across many tree problems (max path sum, vertical order traversal). Recognizing the pattern is the skill.",
+    "tags": ["tree", "dfs", "diameter", "recursion"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-serialize-deserialize-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "hard",
+    "front": "Serialize and deserialize a binary tree. What information do you need to uniquely reconstruct it?",
+    "back": "Pre-order traversal with null markers is sufficient for serialization and deserialization. Serialize by appending node.val and a null marker for absent children. Deserialize by consuming tokens: if null, return null; otherwise create a node, recurse left, recurse right. Pre-order preserves the tree structure because the root always appears first. Time and space O(n).",
+    "senior_nuance": "In-order traversal alone is not sufficient to reconstruct a general binary tree (multiple trees can have the same in-order). Combining in-order and pre-order (without null markers) also works but requires O(n) hashmap lookups for root positions. The null-marker pre-order approach is simpler and self-contained — prefer it unless the problem constrains the format.",
+    "tags": ["tree", "serialization", "preorder", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-level-order-traversal",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "easy",
+    "front": "Perform level-order traversal of a binary tree, returning nodes grouped by level.",
+    "back": "Use a queue initialized with the root. At each level, record the current queue size, process exactly that many nodes (enqueuing their children), and append the level's values to the result. Repeat until the queue is empty. Time O(n), space O(n) (max queue size is the widest level, which can be n/2 for a complete binary tree).",
+    "senior_nuance": "The space bottleneck in BFS on a tree is the bottom level of a complete binary tree, which holds n/2 nodes — O(n) space, not O(log n). This matters for memory-constrained environments. DFS (pre-order with level tracking) visits each node once with O(h) stack space, which is better for balanced trees.",
+    "tags": ["tree", "bfs", "level-order", "queue"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-validate-bst",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Validate whether a binary tree is a valid BST.",
+    "back": "Pass valid range [min, max] bounds down the recursion. At each node, check that min < node.val < max. For the left child, update max = node.val. For the right child, update min = node.val. Initialize with (-infinity, +infinity) at the root. Time O(n), space O(h). Do NOT just check node.val > left.val && node.val < right.val — this fails when a left-subtree node violates the upper bound from an ancestor.",
+    "senior_nuance": "The naive 'check immediate children only' approach is a classic bug. A tree like [5, 4, 6, null, null, 3, 7] appears locally valid but the node 3 violates the BST property inherited from the root. The bounds-passing approach propagates all ancestor constraints down the tree correctly.",
+    "tags": ["bst", "tree", "validation", "recursion"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-trie-structure",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Describe a Trie (prefix tree) and its time complexity for insert and search.",
+    "back": "A Trie is a tree where each edge represents a character. A node at depth d represents the prefix formed by the characters on the path from root to that node. Insert and search are both O(L) where L is the word length — independent of the number of stored words. A boolean isEnd flag at nodes marks complete words. Space is O(A * n * L) where A is alphabet size.",
+    "senior_nuance": "Tries are memory-intensive for sparse character sets. A hashmap-based Trie (children stored as a map) uses less memory than a fixed-size array but has slower constant factors. For autocomplete with prefix ranking, augment nodes with frequency counts or use a compressed Trie (Patricia/Radix tree) to merge single-child chains.",
+    "quote_to_say": "Trie insert/search: O(word length), not O(dictionary size).",
+    "tags": ["trie", "tree", "string", "prefix"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-path-sum-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Find all root-to-leaf paths in a binary tree that sum to a target value.",
+    "back": "Use DFS with backtracking. Maintain the current path and remaining sum. At a leaf node, if remaining == 0, record the path. After returning from a child, pop the last element from the path (backtrack). Time O(n) for traversal; output size can be O(n^2) in the worst case (a completely left-skewed tree with n leaves).",
+    "senior_nuance": "Output complexity matters: for a balanced tree, the number of leaves is O(n) and each path is O(log n), giving O(n log n) output. For a skewed tree, paths can be O(n) each. When analyzing this problem, separate traversal time complexity from output size — they are independent and both matter for the total runtime.",
+    "tags": ["tree", "dfs", "backtracking", "path-sum"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-kth-smallest-bst",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "medium",
+    "front": "Find the k-th smallest element in a BST in O(h + k) time.",
+    "back": "In-order traversal of a BST visits elements in sorted order. Use an iterative in-order traversal (explicit stack): push left nodes until null, pop and decrement k. When k == 0, return the current node's value. This runs in O(h + k) time where h is the height — you stop as soon as the k-th element is found rather than traversing the whole tree.",
+    "senior_nuance": "If k-th smallest is queried frequently and the tree is frequently modified, augmenting each node with a subtree size enables O(h) per query. This is the 'Order Statistic Tree' pattern, available as policy-based data structures in C++ STL. Standard BSTs do not provide this without augmentation.",
+    "tags": ["bst", "tree", "kth-smallest", "inorder"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-max-path-sum-tree",
+    "topic": "algos",
+    "subtopic": "trees",
+    "difficulty": "hard",
+    "front": "Find the maximum path sum in a binary tree where the path can start and end at any node.",
+    "back": "DFS that returns the maximum gain from each subtree (max(left_gain, 0) + node.val or max(right_gain, 0) + node.val). At each node, the candidate full path sum is left_gain + right_gain + node.val (using both branches). Update a global max with this candidate. Return only the single-branch gain to the parent, since a path cannot branch. Time O(n), space O(h).",
+    "senior_nuance": "The key insight is distinguishing between what a subtree contributes to its parent (single branch only) and the best answer passing through it (both branches). Nodes with negative gains are excluded by clamping returns to max(gain, 0). Conflating these two — returning the two-branch sum to the parent — breaks the path definition.",
+    "quote_to_say": "Return single-branch gain; record double-branch locally.",
+    "tags": ["tree", "dfs", "path-sum", "hard", "dp"],
+    "mock_eligible": true
+  }
+]

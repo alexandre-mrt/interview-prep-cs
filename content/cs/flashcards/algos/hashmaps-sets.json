@@ -1,0 +1,116 @@
+[
+  {
+    "id": "algos-hashmap-complexity",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "easy",
+    "front": "What are the average and worst-case time complexities for hashmap operations, and why do they differ?",
+    "back": "Average case: O(1) for get, put, and delete due to direct address computation via the hash function. Worst case: O(n) when all keys hash to the same bucket, creating a single linked list. Java 8+ converts buckets to balanced trees (red-black) at 8+ entries, capping worst-case lookup at O(log n) per bucket.",
+    "senior_nuance": "O(1) is amortized only for put when resizing is considered: a resize rehashes all entries (O(n)) but occurs so infrequently that the amortized cost per insertion remains O(1). In latency-sensitive systems, this jitter matters — consider pre-sizing the map if load is predictable.",
+    "quote_to_say": "O(1) amortized only — a single resize op is O(n).",
+    "tags": ["hashmap", "complexity", "amortized"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-hash-collision-resolution",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "Compare chaining and open addressing for collision resolution.",
+    "back": "Chaining stores colliding entries in a linked list (or tree) at each bucket. It handles high load factors gracefully and deletion is simple. Open addressing probes for the next empty slot (linear, quadratic, or double hashing). It has better cache locality since all data is in the array, but degrades sharply above ~70% load factor and deletion requires tombstone markers.",
+    "senior_nuance": "Linear probing has the best cache performance but suffers from primary clustering. Robin Hood hashing (a variant of open addressing) reduces average probe length by swapping elements when a richer element displaces a poorer one, achieving more uniform probe distributions without separate chaining.",
+    "quote_to_say": "Chaining is safer; open addressing is faster at low load.",
+    "tags": ["hashmap", "collision", "chaining", "open-addressing"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-load-factor",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "What is load factor and what is the default threshold in Java's HashMap?",
+    "back": "Load factor = number of entries / number of buckets. Java's HashMap uses a default initial capacity of 16 and a load factor of 0.75, so it resizes when 12 entries are present. At resize, capacity doubles and all entries are rehashed. A lower load factor means fewer collisions and faster lookups but wastes memory; a higher one saves memory but increases collision probability.",
+    "senior_nuance": "In high-throughput servers, the resize pause can cause latency spikes. Pre-sizing with `new HashMap<>(expectedSize / 0.75 + 1)` avoids mid-operation resizes. This is especially important inside hot loops or request handlers.",
+    "tags": ["hashmap", "java", "load-factor", "resize"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-hashmap-iteration-order",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "Which Java Map implementations guarantee iteration order, and what are the tradeoffs?",
+    "back": "HashMap provides no ordering guarantees — iteration order can change after resizing. LinkedHashMap maintains insertion order via a doubly-linked list through entries (O(1) operations, slightly higher memory). TreeMap maintains sorted key order via a red-black tree (O(log n) operations). Choose based on whether you need predictable iteration, sorted access, or raw speed.",
+    "senior_nuance": "LinkedHashMap in access-order mode (constructor flag) evicts the least-recently-used entry, making it a natural LRU cache backing store with O(1) operations — widely used for this before explicit LRU libraries existed.",
+    "quote_to_say": "LinkedHashMap = HashMap with memory. TreeMap = sorted but slower.",
+    "tags": ["hashmap", "linkedhashmap", "treemap", "java", "lru"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-two-sum-hashmap",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "easy",
+    "front": "Solve Two Sum (return indices, unsorted array) with a hashmap.",
+    "back": "Iterate through the array. At each index i, compute complement = target - A[i]. If complement is in the hashmap, return [hashmap[complement], i]. Otherwise store A[i] -> i in the hashmap. This is O(n) time and O(n) space. The hashmap acts as a lookup for previously seen values.",
+    "senior_nuance": "If the same value appears twice and the answer uses it twice (e.g., target = 6, array has two 3s), the algorithm handles it correctly because you only store an index after checking for the complement — you never match an element with itself unless there are two distinct occurrences.",
+    "tags": ["hashmap", "two-sum", "array"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-group-anagrams",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "Group anagrams from a list of strings. What is the most efficient approach?",
+    "back": "Sort each string to get a canonical key and group strings by key in a hashmap. Time O(n * k log k) where k is the max string length. An O(n * k) alternative uses a 26-element frequency tuple as the key instead of sorting, avoiding the sort step.",
+    "senior_nuance": "Using a sorted string as a hashmap key requires the sort cost per string; using a frequency vector as a tuple key avoids sorting but requires a hashable tuple type. In Python a tuple is hashable; in Java you'd need to convert to a string representation. The tuple approach is strictly better asymptotically for long strings.",
+    "tags": ["hashmap", "string", "anagram"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-lru-cache-design",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "hard",
+    "front": "Design an LRU cache with O(1) get and O(1) put.",
+    "back": "Combine a hashmap (key -> node) with a doubly-linked list (ordered by recency). On get, move the node to the front in O(1). On put, insert at the front; if capacity is exceeded, remove the tail node and its hashmap entry. Both operations are O(1) since the hashmap gives direct node access and the doubly-linked list supports O(1) removal given a node pointer.",
+    "senior_nuance": "The critical insight is that the hashmap stores pointers to list nodes, not just values — this is what makes removal O(1) without searching the list. A singly-linked list would make removal O(n). Java's LinkedHashMap in access-order mode implements exactly this pattern internally.",
+    "quote_to_say": "HashMap gives O(1) access; doubly-linked list gives O(1) eviction.",
+    "tags": ["lru", "hashmap", "linked-list", "design", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-bloom-filter",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "hard",
+    "front": "What is a Bloom filter and when would you use it over a hashset?",
+    "back": "A Bloom filter is a space-efficient probabilistic data structure using a bit array and k independent hash functions. It can report 'definitely not in set' or 'possibly in set' — false positives are possible, false negatives are not. Membership check and insertion are O(k). Use it when memory is constrained and occasional false positives are acceptable, such as pre-filtering expensive database lookups.",
+    "senior_nuance": "Deletion from a classic Bloom filter is impossible because clearing a bit may affect other elements. Counting Bloom filters use integer counters instead of bits to support deletion at the cost of more memory. False positive rate grows with load: choose bit array size as -n*ln(p) / (ln 2)^2 for n elements and target rate p.",
+    "tags": ["bloom-filter", "probabilistic", "hashset", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-frequency-sort",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "Sort an array by element frequency in O(n log n). Describe the approach.",
+    "back": "Count frequencies with a hashmap in O(n). Sort the array using the frequency map as the comparator: sort by frequency descending (then by value for ties). This gives O(n log n) due to the sort. Alternatively, use a bucket sort where bucket[freq] holds elements with that frequency, yielding O(n) overall.",
+    "senior_nuance": "Bucket sort achieves O(n) but requires a bucket array of size n (since max frequency is n). The hashmap + sort is simpler and preferred in interviews for clarity. Ask the interviewer if tie-breaking by value is required — it often changes the comparator logic.",
+    "tags": ["hashmap", "frequency-count", "sorting"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-subarray-sum-k",
+    "topic": "algos",
+    "subtopic": "hashmaps-sets",
+    "difficulty": "medium",
+    "front": "Count the number of subarrays with sum equal to k in O(n).",
+    "back": "Use a hashmap of prefix sum counts. Initialize with {0: 1}. At each index, compute the running prefix sum and check if (prefix - k) exists in the map — if so, add that count to the answer. Then increment the count for the current prefix sum. This finds all subarrays [l, r] where P[r] - P[l-1] == k without nested loops.",
+    "senior_nuance": "This only works for exact sums, not max/min subarray sum equal to k. The {0: 1} initialization handles subarrays starting at index 0. For arrays with only positive numbers, a two-pointer approach also works and uses O(1) space — the hashmap approach is necessary for arrays with negative numbers.",
+    "tags": ["hashmap", "prefix-sum", "array", "subarray"],
+    "mock_eligible": true
+  }
+]

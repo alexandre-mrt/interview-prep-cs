@@ -1,0 +1,110 @@
+[
+  {
+    "id": "be-docker-layers",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "easy",
+    "front": "How do Docker image layers work? How does layer caching affect build times?",
+    "back": "An OCI image is a stack of read-only layers, each representing a filesystem diff from one Dockerfile instruction (RUN, COPY, ADD). Layers are content-addressed (SHA256 of the diff). On container start, a writable layer is added on top via overlay2 filesystem. Layer caching: Docker reuses cached layers if the instruction and its inputs (files, ARG values) have not changed. Cache invalidation is sequential — if layer N changes, all subsequent layers are rebuilt. Optimization: put frequently-changing instructions (COPY src .) after stable ones (RUN apt-get install), and group related RUN commands to minimize layers.",
+    "senior_nuance": "COPY invalidates cache based on file content hash — even timestamp differences don't matter. But ADD with a URL always invalidates cache. Layer sharing: if two images share a base layer, they share disk space and only download once from registry. BuildKit parallelizes independent stages and has smarter caching than legacy builder (--mount=type=cache for package manager caches). For CI: export/import BuildKit cache to/from registry with --cache-from type=registry,ref=...",
+    "quote_to_say": "Layer order is a build performance decision — I always put the most stable dependencies at the top of the Dockerfile.",
+    "tags": ["docker", "oci", "layers", "caching", "buildkit"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-docker-multistage",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "medium",
+    "front": "What is a multi-stage Docker build and what problem does it solve? Give a concrete example.",
+    "back": "Multi-stage build: multiple FROM statements in one Dockerfile. Earlier stages build artifacts; final stage copies only needed files, discarding build tools, source code, and intermediate layers. Example: Stage 1 (builder): FROM golang:1.22 AS builder / COPY . . / RUN go build -o /app. Stage 2 (final): FROM gcr.io/distroless/static / COPY --from=builder /app /app / ENTRYPOINT [\"/app\"]. Result: final image contains only the binary + distroless base (~5MB vs 1GB builder). Eliminates: compiler, build tools, source code, cached packages — all attack surface.",
+    "senior_nuance": "You can target specific stages with --target builder for CI testing while building --target prod for deployment. COPY --from can reference an image directly (--from=nginx:alpine) to pull files from arbitrary images. For Node.js: stage 1 installs devDependencies + builds; stage 2 installs only production deps + copies dist/. Prune node_modules: npm ci --only=production before COPY. BuildKit --mount=type=cache,target=/root/.npm caches npm across builds without baking cache into layers.",
+    "quote_to_say": "Multi-stage is mandatory for compiled languages — shipping a Go binary in a distroless image is the security and size baseline.",
+    "tags": [
+      "docker",
+      "multi-stage",
+      "distroless",
+      "build",
+      "security",
+      "image-size"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-docker-distroless-rootless",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "medium",
+    "front": "What are distroless images and rootless containers? Why do they matter for security?",
+    "back": "Distroless images (Google): no shell, no package manager, no OS utilities — only the application runtime and its dependencies. Reduces attack surface: no shell means no interactive exploit even if the container is compromised. Available for: static binary (no OS deps), Java (JRE only), Python, Node.js. Rootless containers: Docker/Podman running as non-root user on the host. Two layers: (1) container runs as non-root USER (USER 1000:1000 in Dockerfile); (2) Docker daemon itself runs as non-root (rootless Docker). Even without rootless daemon, running container processes as non-root prevents host privilege escalation if namespace escape occurs.",
+    "senior_nuance": "Distroless debugging: use kubectl debug with an ephemeral container that has a shell alongside the distroless container, sharing its filesystem/network namespace. Alpine is a common compromise (3MB shell-included minimal image) — not distroless but small. Never run production containers as root (UID 0) — Kubernetes PodSecurityPolicy (deprecated) or Pod Security Admission can enforce this. SecurityContext: runAsNonRoot: true + readOnlyRootFilesystem: true + allowPrivilegeEscalation: false is the secure baseline.",
+    "quote_to_say": "Distroless + non-root + read-only filesystem is the security trifecta for containers. Every layer of restriction matters.",
+    "tags": [
+      "docker",
+      "distroless",
+      "rootless",
+      "security",
+      "oci",
+      "pod-security"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-docker-buildkit",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "medium",
+    "front": "What features does BuildKit add over the legacy Docker builder? How do you use secret mounts?",
+    "back": "BuildKit (default since Docker 23): parallel stage execution (multi-stage builds parallelize independent stages), garbage collection, better caching (--mount types), SSH agent forwarding, secret mounts. Cache mounts (--mount=type=cache): cache package manager directories across builds without baking into layers. RUN --mount=type=cache,target=/root/.npm npm install. Secret mounts (--mount=type=secret): inject secrets (API keys, SSH keys) into build without leaving them in layers. RUN --mount=type=secret,id=npmtoken npm install (secret never stored in image). Build with: docker build --secret id=npmtoken,src=.npmrc .",
+    "senior_nuance": "Without secret mounts, developers used to ARG NPM_TOKEN which bakes the value into the layer (visible in docker history). Secret mounts ensure the secret exists only in the running RUN process's filesystem, not in any layer. SSH forward: --mount=type=ssh + docker build --ssh default to clone private Git repos without embedding keys. BuildKit frontend syntax: # syntax=docker/dockerfile:1.6 unlocks all mount types in Dockerfile. In CI: use DOCKER_BUILDKIT=1 (legacy toggle) or Docker Compose build.args for compatibility.",
+    "quote_to_say": "Secret mounts are the correct way to use credentials in builds — never ARG a secret, it's forever in the layer history.",
+    "tags": [
+      "docker",
+      "buildkit",
+      "secret-mount",
+      "cache-mount",
+      "build-security"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-docker-signing",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "hard",
+    "front": "How does container image signing work? Explain cosign and supply chain security.",
+    "back": "Container image signing: attach a cryptographic signature to an image digest (SHA256) to prove it was built by a trusted entity and hasn't been tampered with. Cosign (Sigstore project): signs OCI artifacts; signatures stored as OCI artifacts in the same registry (no separate signature store). Signing: cosign sign --key cosign.key image@digest. Verification: cosign verify --key cosign.pub image. Keyless signing (Sigstore/Fulcio): uses OIDC identity (GitHub Actions OIDC) + short-lived certificate — no long-lived private key to manage. Transparency log (Rekor) provides audit trail.",
+    "senior_nuance": "Supply chain security (SLSA framework): Level 3 requires hermetic, reproducible builds with provenance attestation. cosign attest attaches SBOM (Software Bill of Materials) and build provenance to the image. In K8s: Connaisseur or Kyverno policies can enforce cosign verification before allowing image pull — any unsigned or unverified image is rejected at admission. This is the defense against image substitution attacks (pulling a tampered image from a compromised registry). Also: scan images for CVEs in CI (Trivy, Grype) and block on critical findings.",
+    "quote_to_say": "Signing an image is not security theater — it's the verification step that closes the loop between CI build and production deploy.",
+    "tags": [
+      "docker",
+      "cosign",
+      "signing",
+      "supply-chain",
+      "slsa",
+      "sbom",
+      "oci"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-docker-oci-runtime",
+    "topic": "backend",
+    "subtopic": "docker-oci",
+    "difficulty": "hard",
+    "front": "What is the OCI spec? Explain the container runtime stack from Kubernetes to runc.",
+    "back": "OCI (Open Container Initiative): standards for image format and runtime. Stack: Kubernetes -> containerd (high-level runtime, manages image pull, storage, network plugins) -> runc (low-level runtime, calls Linux kernel: namespaces, cgroups, seccomp, capabilities). Docker now uses containerd internally. K8s interfaces: CRI (Container Runtime Interface) — any runtime implementing CRI can be used (containerd, CRI-O). Alternative runtimes: gVisor (runsc) — adds userspace kernel for sandboxing (stronger isolation, higher overhead); Kata Containers — runs containers in lightweight VMs. Each adds security vs performance tradeoffs.",
+    "senior_nuance": "seccomp profiles (syscall allowlisting) reduce the Linux syscall surface available to containers. Docker's default seccomp profile blocks ~44 dangerous syscalls. AppArmor/SELinux provide MAC (Mandatory Access Control) on top. For multi-tenant environments (cloud providers), gVisor or Kata are essential — they prevent escape from container namespace to host kernel. containerd snapshotter: overlayfs (default) vs stargz (lazy image loading, faster cold start by loading image layers on demand). For large images: stargz + image preload dramatically reduces pull time.",
+    "quote_to_say": "Understanding the CRI layer matters when debugging container startup — what K8s sees as a Pod creation is actually a CRI call to containerd calling runc.",
+    "tags": [
+      "docker",
+      "oci",
+      "containerd",
+      "runc",
+      "cri",
+      "gvisor",
+      "security"
+    ],
+    "mock_eligible": false
+  }
+]

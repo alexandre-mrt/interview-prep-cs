@@ -1,0 +1,70 @@
+# Leadership STAR
+
+## Prompt pattern
+"Tell me about a time you led a technical initiative."
+"Describe a project where you had to drive a team toward an outcome."
+"When have you led without formal authority?"
+
+## STAR structure
+**Situation**: team / project / stakes, in one sentence each.
+**Task**: your specific ownership — not the team's scope.
+**Action**: 3-5 concrete steps emphasizing decisions, tradeoffs, and communication (not activities).
+**Result**: quantified outcome (latency, $, users, deploy frequency, MTTR).
+
+## Senior signals
+- Own outcomes, not tasks.
+- Quantify impact: latency, cost, adoption, reliability.
+- Name coordinated people and teams — at least two.
+- Acknowledge what didn't go well + one durable lesson.
+- Always mention a tradeoff you explicitly rejected.
+
+## Template 1: Leading a migration
+
+**Situation**: Running <SYSTEM> at <SCALE, e.g. 5K req/s, 200M rows>, with <PAIN POINT, e.g. weekly p99 spikes, quarterly schema lock>. Team of <TEAM SIZE>; I was <ROLE, e.g. tech lead / senior IC without direct reports>.
+
+**Task**: Migrate <N SERVICES> from <OLD STACK> to <NEW STACK> in <TIMELINE, e.g. 2 quarters> without user-visible downtime, while the feature roadmap kept shipping.
+
+**Action**:
+1. Scoped by <APPROACH, e.g. traffic volume and dependency depth>, split into <N PHASES> with written exit criteria per phase.
+2. Paired with <ENGINEER A> on <HARDEST SUBSYSTEM>; mentored <ENGINEER B> on <SKILL, e.g. observability, schema design> so they could own phase 2.
+3. Ran a shadow deploy for <DURATION, e.g. 10 days>, with an auto-rollback trigger at <METRIC THRESHOLD, e.g. p99 > 300ms or error rate > 0.5%>.
+4. On <UNEXPECTED ISSUE, e.g. write amplification in the new store>, I <DECISION, e.g. paused phase 3 and redesigned the write path> and communicated the delay in writing to <STAKEHOLDERS, e.g. PM + partner team TLs> within 24h.
+5. Explicitly rejected <ALTERNATIVE, e.g. a big-bang cutover> because <REASON, e.g. we had no way to A/B compare and rollback would have taken >1 hour>.
+
+**Result**: Shipped in <TIME>; <METRIC, e.g. p99 latency> improved <OUTCOME PERCENT, e.g. 40%>; zero user-visible incidents during cutover. <ENGINEER B> now owns the new system.
+
+**Senior quote**: "I made the first phase reversible so we'd have the option to bail if the numbers didn't match the model."
+
+## Template 2: Leading a cross-team platform adoption
+
+**Situation**: <PLATFORM, e.g. new auth service / shared schema registry> had been built but adoption was at <ADOPTION PERCENT, e.g. 15%> across <N TEAMS>. Teams were writing their own ad-hoc solutions, which cost <PAIN, e.g. 3 security incidents in 6 months>.
+
+**Task**: Drive adoption to <TARGET, e.g. 80%> across <N TEAMS> in <TIMELINE>, without hierarchical authority over those teams.
+
+**Action**:
+1. Interviewed <N> engineers across <N TEAMS> to understand why adoption stalled. Found two real blockers: <BLOCKER 1, e.g. missing SDK for their stack> and <BLOCKER 2, e.g. 2-week onboarding time>.
+2. Fixed the SDK gap myself (<LOC / PR COUNT>) instead of asking the platform team — made adoption cheaper than non-adoption.
+3. Partnered with <ALLY, e.g. a senior on the highest-traffic team> as the lighthouse integration; their success became the reference.
+4. Wrote a one-page migration playbook and ran office hours weekly for <DURATION>.
+5. Escalated to <DIRECTOR> only for <EDGE CASE, e.g. one team with conflicting priority> — after trying direct influence first.
+
+**Result**: Adoption reached <OUTCOME PERCENT> in <TIME>; <SECONDARY METRIC, e.g. auth-related incidents> dropped <PERCENT>. The playbook became the template for the next platform rollout.
+
+**Senior quote**: "My influence came from making their migration work cheaper than their status quo."
+
+## Template 3: Leading an incident response culture change
+
+**Situation**: Team had <N PAGES / WEEK> on average, with <PERCENT, e.g. 60%> being non-actionable. Burnout was rising and <ENGINEER> had asked to rotate off on-call.
+
+**Task**: Reduce page load and make on-call sustainable, without dropping coverage or SLOs.
+
+**Action**:
+1. Audited <N WEEKS> of pages and categorized root causes. <PERCENT> were tied to <TOP SOURCE, e.g. a single noisy alert on service X>.
+2. Proposed to EM that we carve out <CAPACITY, e.g. 20%> of sprint for reliability work, with a concrete plan for <N WEEKS>.
+3. Led the team through a <FORMAT, e.g. alert-review ritual> every Monday to delete or tune alerts.
+4. Rewrote runbooks for the top <N> most common pages so a rotating engineer could handle them without paging the subject-matter expert.
+5. Rejected <ALTERNATIVE, e.g. hiring more on-call bodies> because the underlying signal quality would have stayed broken.
+
+**Result**: Pages per week dropped from <BEFORE> to <AFTER> in <TIME>; on-call satisfaction score in team retro went from <BEFORE> to <AFTER>. No degradation to SLOs.
+
+**Senior quote**: "The problem wasn't on-call load — it was alert quality. I fixed the upstream first."

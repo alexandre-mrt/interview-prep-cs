@@ -1,0 +1,113 @@
+[
+  {
+    "id": "be-redis-data-types",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "easy",
+    "front": "What are Redis's core data types and what are the primary use cases for each?",
+    "back": "String: counters, cached values, session tokens, feature flags. List: message queues (LPUSH/BRPOP), activity feeds, job queues (though use Streams for production). Set: unique memberships (online users, tags), set operations (union/intersection/diff). Sorted Set (ZSet): leaderboards, time-ordered feeds, rate limiting with sliding window, priority queues. Hash: object storage (user profiles, sessions), field-level TTLs (Redis 7.4+). HyperLogLog: approximate unique count (DAU, distinct IPs) with ~0.81% error. Bitmap: per-user flags at bit level (daily active tracking). Stream: durable, consumer-group message log.",
+    "senior_nuance": "Sorted Sets with ZADD + ZRANGEBYSCORE are the canonical Redis pattern for sliding window rate limiting: add (member=request_id, score=timestamp), ZREMRANGEBYSCORE to prune old entries, ZCARD for current count. Atomic via MULTI/EXEC or Lua. Streams (XADD/XREADGROUP) are the production replacement for List-as-queue — they support consumer groups, message acknowledgement, and replay.",
+    "quote_to_say": "Picking the right Redis data type is the first design decision — the wrong one makes simple operations O(N) instead of O(1).",
+    "tags": ["redis", "data-types", "sorted-set", "stream", "hyperloglog"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-redis-persistence",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "medium",
+    "front": "Explain Redis persistence modes: RDB, AOF, and hybrid. What are the durability and performance tradeoffs?",
+    "back": "RDB (snapshot): forks process and dumps dataset to .rdb file at configured intervals (e.g., every 60s if 1000 keys changed). Fast recovery, small file, but can lose up to interval worth of data. AOF (Append-Only File): logs every write command. Modes: appendfsync always (fsync per write — durable, slow), everysec (fsync per second — 1s data loss risk, default), no (OS decides — fastest, least durable). Hybrid (AOF+RDB): Postgres-style — RDB snapshot as base, AOF replays changes since snapshot. Best startup time + good durability. For cache-only Redis: disable persistence entirely.",
+    "senior_nuance": "AOF rewrite (BGREWRITEAOF) compacts the log — avoid running during peak traffic as it forks and writes heavily. RDB fork on a 10GB dataset can cause noticeable latency spikes (copy-on-write). In cloud deployments (ElastiCache, Upstash) you often get managed persistence with different guarantees — read the SLA. For session stores where losing 1s of data is acceptable, AOF everysec + RDB is the practical choice.",
+    "quote_to_say": "Persistence choice is a durability-vs-latency tradeoff — I always define acceptable data loss before configuring Redis.",
+    "tags": ["redis", "persistence", "rdb", "aof", "durability"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-redis-eviction",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "medium",
+    "front": "What happens when Redis hits maxmemory? Explain the eviction policies and when to use each.",
+    "back": "When maxmemory is reached, Redis applies the configured policy on each write: noeviction (returns error — safe for durability), allkeys-lru (evict least recently used from all keys — best for general cache), volatile-lru (evict LRU only from keys with TTL set), allkeys-lfu (evict least frequently used — better for Zipf-distributed access patterns), volatile-ttl (evict soonest-expiring key), allkeys-random / volatile-random (random eviction — rarely useful). LFU tracks frequency with decay — better than LRU for hot-key patterns where recently accessed != important.",
+    "senior_nuance": "Redis uses an approximated LRU/LFU — it samples maxmemory-samples keys (default 5) and evicts the best candidate. Increasing to 10 gets closer to true LRU. Also: OBJECT FREQ / OBJECT IDLETIME lets you inspect per-key access patterns. For a read-heavy cache with power-law distribution (few keys accessed constantly), allkeys-lfu reduces cache miss rate. Monitor evicted_keys in INFO stats — spikes indicate undersized cache.",
+    "quote_to_say": "I use allkeys-lru for most caches and switch to allkeys-lfu when access patterns are Zipf-heavy — then I monitor evicted_keys to size correctly.",
+    "tags": ["redis", "eviction", "lru", "lfu", "maxmemory", "cache"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-redis-pubsub-vs-streams",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "medium",
+    "front": "When do you use Redis Pub/Sub vs Streams? What are the reliability differences?",
+    "back": "Pub/Sub: fire-and-forget fan-out. Messages are not persisted — if a subscriber disconnects it misses messages. No consumer groups. Use for: real-time notifications where loss is acceptable (chat presence, live dashboard refresh). Streams (XADD/XREADGROUP/XACK): persistent log with consumer groups and message acknowledgement. Consumers can rejoin and read from last-acked position. Use for: job queues, event sourcing, durable fan-out where every consumer must process every message. Streams are the production-grade choice for anything reliability-sensitive.",
+    "senior_nuance": "Pub/Sub has no backpressure — a slow subscriber causes message loss silently. Streams let you XPENDING to see unacked messages and XCLAIM to reassign stalled messages to other consumers. MAXLEN on XADD trims the stream to bound memory. For cross-service eventing, compare Kafka vs Redis Streams: Kafka wins on retention, replication, and throughput; Redis Streams win on simplicity and when your data is already in Redis.",
+    "quote_to_say": "Pub/Sub is for ephemeral fan-out; Streams are for reliable delivery — I always ask if we can afford to drop messages.",
+    "tags": [
+      "redis",
+      "pubsub",
+      "streams",
+      "xreadgroup",
+      "reliability",
+      "consumer-groups"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-redis-cluster",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "hard",
+    "front": "How does Redis Cluster work? What are the limitations clients must handle?",
+    "back": "Redis Cluster shards data across 16384 hash slots. Each master node owns a range of slots; keys are mapped by CRC16(key) % 16384. Multi-key operations (MGET, MSET, transactions, Lua scripts) only work if all keys hash to the same slot — use hash tags {tag} to force co-location. Cluster uses gossip protocol for node discovery and failure detection. Failover: when a master fails, its replica is promoted after quorum agrees (cluster-node-timeout, default 15s). Clients must handle MOVED (redirect to correct node) and ASK (redirect during slot migration) redirections.",
+    "senior_nuance": "Cluster splits the keyspace — pipeline operations spanning multiple slots require multiple round trips. Lua scripts must be atomic within a slot. Hot key problem: a single high-traffic key saturates one shard regardless of cluster size. Mitigation: client-side local cache for hot keys, or key sharding (append random suffix, read from all shards). Also: cluster topology changes (resharding) cause brief ASK redirects — client libraries must handle this transparently (redis-py, ioredis do).",
+    "quote_to_say": "Cluster solves horizontal throughput but you lose multi-key atomicity — I design the keyspace for slot co-location before adding cluster.",
+    "tags": ["redis", "cluster", "hash-slots", "sharding", "moved", "ask"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-redis-lua",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "hard",
+    "front": "Why use Lua scripts in Redis? What atomicity guarantees do they provide?",
+    "back": "Redis executes Lua scripts atomically — no other command runs during script execution. This replaces MULTI/EXEC transactions for complex read-modify-write patterns: check-and-set, conditional increment, distributed lock (Redlock uses Lua). EVAL script numkeys key1 key2 ... arg1 arg2. Scripts are cached by SHA (EVALSHA) for performance. All keys the script accesses must be declared upfront (required for cluster slot routing). Lua has access to redis.call() (raises error on failure) and redis.pcall() (catches errors).",
+    "senior_nuance": "Long-running Lua scripts block all other Redis operations — they are a single-threaded server bottleneck. Set lua-time-limit (default 5000ms) and redis will start allowing admin commands after that and KILL SCRIPT if needed. For distributed locking: acquire with SET key value NX PX ttl, release with Lua (check value == expected, then DEL) — never DEL without checking ownership or you release another client's lock. Redlock uses multiple independent Redis instances for fault-tolerant locking.",
+    "quote_to_say": "Lua gives you atomic multi-step operations — but I keep scripts short and always test under contention.",
+    "tags": ["redis", "lua", "atomicity", "redlock", "distributed-lock"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-redis-pitfalls",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "medium",
+    "front": "Name five common Redis production pitfalls and how to avoid them.",
+    "back": "1. No TTL on cache keys: memory grows unbounded. Fix: always set TTL or use volatile-lru. 2. Large keys (>100KB): slow commands, network overhead. Fix: compress values, split large objects. 3. Blocking commands (KEYS, SMEMBERS on huge sets): pauses server. Fix: use SCAN, SSCAN for iteration. 4. No persistence + no replica: Redis restart = full cache miss storm. Fix: replica + RDB. 5. Thundering herd on cache miss: all requests hit DB simultaneously. Fix: probabilistic early recomputation (fetch slightly before expiry) or mutex (SETNX lock on miss). Bonus: O(N) commands in hot path (LRANGE on huge lists, SORT without LIMIT).",
+    "senior_nuance": "KEYS * is the classic ops incident — it scans the full keyspace with O(N) and blocks. Always use SCAN 0 MATCH pattern COUNT 100 in a cursor loop. For cache stampede: 'PER' (Probabilistic Early Recomputation) algorithm — recompute early with probability proportional to time-to-expire. Alternatively, single-flight pattern in application code: only one goroutine/thread fills the cache while others wait.",
+    "quote_to_say": "Every KEYS call in production is a potential outage — I ban it in code review and use SCAN instead.",
+    "tags": [
+      "redis",
+      "pitfalls",
+      "keys",
+      "scan",
+      "ttl",
+      "thundering-herd",
+      "cache-stampede"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-redis-rate-limiting",
+    "topic": "backend",
+    "subtopic": "redis",
+    "difficulty": "medium",
+    "front": "Implement a sliding window rate limiter in Redis. What are the tradeoffs vs fixed window?",
+    "back": "Fixed window: increment a counter keyed by user+window (e.g., user:123:2024-01-01T14:00). Simple, but allows 2x burst at window boundary (100 req in last second of window + 100 in first second of next). Sliding window with ZSet: ZADD requests <timestamp> <uuid>, ZREMRANGEBYSCORE 0 (now - window), ZCARD to get count. Atomic via Lua or pipeline + MULTI. Memory: O(requests_in_window) per user. Token bucket: leaky bucket smooths bursts. Redis-cell module (CL.THROTTLE) implements GCRA algorithm natively.",
+    "senior_nuance": "ZSet sliding window is accurate but memory-intensive at high QPS — each request is a ZSet member. For 10k req/min limit with 1M users you need to bound ZSet size. Counter-based approximate sliding window (two fixed windows, weighted blend) uses O(1) memory per user. For distributed rate limiting across multiple app servers, Redis is the shared state store — ensure your Lua script handles clock skew between servers.",
+    "quote_to_say": "Fixed window is the footgun — sliding window costs more memory but prevents burst attacks at boundaries.",
+    "tags": ["redis", "rate-limiting", "sliding-window", "sorted-set", "lua"],
+    "mock_eligible": true
+  }
+]

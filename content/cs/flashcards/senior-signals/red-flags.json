@@ -1,0 +1,98 @@
+[
+  {
+    "id": "ss-red-flag-premature-complexity",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "easy",
+    "front": "Red flag: reaching for caching, microservices, or a queue in the first two minutes of system design. Senior move instead?",
+    "back": "Name the baseline — 'A single Postgres behind a REST API will handle this at the stated load. Let's validate that first.' — and introduce complexity only when a specific constraint forces it (p99 budget, write-heavy path, independent scaling of a subsystem).",
+    "senior_nuance": "Seniors default to boring and justify additions with numbers, not vibes. They've been burned by premature microservices.",
+    "quote_to_say": "The boring answer is the baseline. Complexity has to earn its way in.",
+    "tags": ["red-flag", "complexity", "baseline"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-cache-first",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "easy",
+    "front": "Red flag: proposing a cache before the database has been profiled. Correction?",
+    "back": "Profile first. 'Let's look at the query plan and the p99 at baseline. If the bottleneck is a missing index or a bad join, a cache just hides it until scale makes it worse.' Caches are the right answer for read hotspots and expensive computations, not for slow queries that haven't been optimized.",
+    "senior_nuance": "Every cache added before the slow path is understood becomes a correctness risk paid in staleness. Fix the query, then decide if a cache pays.",
+    "quote_to_say": "Profile before caching. Hidden bugs compound.",
+    "tags": ["red-flag", "cache", "profiling"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-no-backpressure",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "medium",
+    "front": "Red flag: an async pipeline with no mention of backpressure. Correction?",
+    "back": "Name the failure mode. 'If producers outrun consumers, what happens? Unbounded queue means memory exhaustion; dropped messages need a DLQ; blocked producers need a clear timeout. Pick one and make it explicit.' A pipeline without a named backpressure strategy is a memory leak with extra steps.",
+    "senior_nuance": "Backpressure is where async systems fail under load. Naming the strategy — drop, block, shed, or store — is a senior reflex.",
+    "quote_to_say": "Every async hop needs a named backpressure strategy.",
+    "tags": ["red-flag", "backpressure", "async"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-no-auth-plan",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "medium",
+    "front": "Red flag: a system design with no mention of auth, tenancy, or authorization. Correction?",
+    "back": "Front-load the auth story. 'Who can call this, at what level of trust, and how do we enforce tenancy on every read and write?' Auth and tenancy touch the data model, the index shape, the cache key, and the log format. Adding them late rewrites all four.",
+    "senior_nuance": "Multi-tenant systems that bolt on tenancy late always leak. The tenant_id must be in the primary key or the partition key, not a filter.",
+    "quote_to_say": "Tenancy is a primary key, not a filter.",
+    "tags": ["red-flag", "auth", "tenancy", "multi-tenant"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-exactly-once",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "medium",
+    "front": "Red flag: a teammate claims the system delivers exactly-once semantics. Correction?",
+    "back": "'There's no exactly-once across a network, only at-least-once plus idempotent consumers, or at-most-once plus explicit loss. Which do we have?' Force them to name the idempotency key, the dedup window, and what happens when it expires. 'Exactly-once' is marketing; idempotent at-least-once is engineering.",
+    "senior_nuance": "Kafka's 'exactly-once' is transactional writes inside Kafka, not end-to-end. The moment you touch an external system, you're back to idempotent consumers.",
+    "quote_to_say": "At-least-once plus idempotent. There's no other option.",
+    "tags": ["red-flag", "exactly-once", "idempotency"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-avg-latency",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "easy",
+    "front": "Red flag: a dashboard showing average latency. Correction?",
+    "back": "Replace averages with histograms. 'Average hides the tail. We need p50, p95, p99, and ideally p999 — and we alert on the tail, not the mean.' A service with 50ms average and 2s p99 looks healthy on the dashboard and terrible to a tenth of users.",
+    "senior_nuance": "Gil Tene's 'how not to measure latency' talk is the canonical reference. Coordinated omission makes naive latency measurements optimistic by an order of magnitude.",
+    "quote_to_say": "Averages lie. Ship histograms.",
+    "tags": ["red-flag", "latency", "histogram"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-unbounded-fanout",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "hard",
+    "front": "Red flag: a handler that fans out to N downstreams where N is user-controlled. Correction?",
+    "back": "Bound the fanout. 'Cap N at the API level, batch the downstream calls, and use a concurrency limiter to keep the tail bounded. An unbounded fanout turns one big user into a denial-of-service for everyone.' The cap is a product choice, not a tech choice — name it in the spec.",
+    "senior_nuance": "Unbounded user-driven fanout is how social systems self-DoS. The celebrity-user edge case is a design input, not an afterthought.",
+    "quote_to_say": "User-controlled fanout needs a cap at the door.",
+    "tags": ["red-flag", "fanout", "rate-limit"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-red-flag-ignoring-clocks",
+    "topic": "senior-signals",
+    "subtopic": "red-flags",
+    "difficulty": "hard",
+    "front": "Red flag: a distributed design that uses wall-clock timestamps to order events. Correction?",
+    "back": "Distrust wall clocks. 'Server clocks skew and jump — NTP corrections, leap seconds, VM migrations. Order events with a logical clock (Lamport, vector, or hybrid logical clock) or a monotonic sequence from a single writer. Use wall-clock only for human-facing display.' The number of bugs rooted in trusting timestamps is endless.",
+    "senior_nuance": "Spanner buys linearizable ordering with TrueTime and commit-wait. For most systems, HLCs or a sharded sequencer are the pragmatic path.",
+    "quote_to_say": "Wall clocks are for humans, not ordering.",
+    "tags": ["red-flag", "clocks", "ordering", "distributed"],
+    "mock_eligible": true
+  }
+]

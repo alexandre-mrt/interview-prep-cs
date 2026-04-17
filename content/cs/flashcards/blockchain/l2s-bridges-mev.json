@@ -1,0 +1,169 @@
+[
+  {
+    "id": "bc-l2-optimistic-vs-zk",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "Compare optimistic rollups and ZK rollups on security model, finality, and developer experience.",
+    "back": "Optimistic rollups (Arbitrum, Optimism): assume txs are valid by default, post tx data to L1. Anyone can submit a fraud proof within a challenge window (7 days) if they detect an invalid state transition. Final withdrawal to L1 takes 7 days unless using a fast liquidity bridge. Security: trusted until proven otherwise. ZK rollups (zkSync, Starknet, Polygon zkEVM): post a validity proof (ZK proof) with each batch. L1 verifies the proof before accepting the state update. Immediate cryptographic finality — no challenge window. Security: mathematically proven. DX: optimistic = run EVM directly (Arbitrum Stylus, Optimism Bedrock), ZK = EVM compatibility varies (zkEVM types 1-4, type 1 is fully equivalent but hardest).",
+    "senior_nuance": "Optimistic rollup fraud proofs are interactive (Arbitrum) or non-interactive (Optimism's Cannon). Interactive proofs can be gamed by delaying — Arbitrum's fraud proof game has time bounds per bisection step. ZK rollup prover centralization is a current weakness — only one prover means liveness dependency.",
+    "quote_to_say": "Optimistic rollups: guilty until proven innocent, 7-day wait. ZK rollups: proven innocent immediately, prover centralization risk.",
+    "tags": [
+      "optimistic-rollup",
+      "ZK-rollup",
+      "fraud-proof",
+      "validity-proof",
+      "L2"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-l2-data-availability",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "What is the data availability (DA) problem? How does EIP-4844 (blobs) change the cost structure for rollups?",
+    "back": "DA problem: for a rollup to be secure, anyone must be able to reconstruct the rollup state from data posted to L1 (to verify proofs or submit fraud proofs). If the sequencer withholds data, users cannot exit safely. Pre-EIP-4844: rollups posted tx data as calldata — permanent, expensive (~16 gas/byte). EIP-4844 (Dencun, March 2024): introduced blob-carrying transactions. Blobs are 128KB chunks of data attached to txs but pruned after ~18 days (not in EVM state). Blobs have their own fee market (blob gas). Cost: ~1-2 orders of magnitude cheaper than calldata for the same data. Rollup costs dropped 80-90% post-Dencun. Future: full danksharding will enable 64+ blobs per block (vs 6 today), further scaling DA.",
+    "senior_nuance": "Blobs solve L2 DA cost but create a new assumption: DA is available for 18 days. For optimistic rollups with 7-day challenge windows, this is sufficient. For fraud proofs that reference old data, 18 days is enough — but long-term archival requires separate DA layers (Celestia, EigenDA).",
+    "quote_to_say": "EIP-4844 blobs cut rollup DA costs by 10-100x. Full danksharding is the endgame — blob throughput scales to 64 blobs per block.",
+    "tags": [
+      "data-availability",
+      "EIP-4844",
+      "blobs",
+      "danksharding",
+      "rollup",
+      "DA"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-l2-bridge-trust",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "What are the trust models for cross-chain bridges? Why are bridges 'the weakest link'?",
+    "back": "Trust models from least to most trusted: (1) Native bridge (rollup canonical bridge): inherits L1 security. Trustless but slow (7-day withdrawal for optimistic). (2) Liquidity bridges (Hop, Across): lock on source, mint/swap on dest using liquidity pools. Trust: bridge operators + economic incentives. Speed: fast. Risk: liquidity fragmentation, smart contract bugs. (3) Multisig bridges (early Ronin, Wormhole): N-of-M multisig validators approve cross-chain messages. Trust: validator set. Risk: key compromise. (4) Light client bridges (IBC): destination chain verifies source chain block headers. Trustless but requires same consensus model. Cost: high on-chain verification. Bridges have lost $2B+: Ronin ($625M), Wormhole ($326M), Nomad ($190M), Harmony Horizon ($100M). Each exploited a different layer.",
+    "senior_nuance": "The fundamental bridge trilemma: cannot have trustless, fast, and capital-efficient simultaneously. Native bridges are trustless but slow. Liquidity bridges are fast but require capital. Light clients are trustless + fast but expensive. Design for your threat model.",
+    "quote_to_say": "Bridges inherit the security of their weakest component — code, keys, or validator set. $2B+ has proven this empirically.",
+    "tags": [
+      "bridge",
+      "cross-chain",
+      "trust-model",
+      "IBC",
+      "light-client",
+      "multisig"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-mev-sandwich",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "Explain MEV sandwich attacks mechanically. How does PBS (Proposer-Builder Separation) change the incentive landscape?",
+    "back": "Sandwich attack: searcher observes a large DEX swap in the mempool. Submits: (1) buy tx before the victim (same block, higher gas) — moves price up; (2) victim's tx executes at worse price; (3) searcher's sell tx after — captures the price difference. The searcher extracts value at the victim's expense. PBS (EIP-3675/MEV-Boost): separates block building (builders who optimize MEV extraction) from block proposal (validators who choose the highest bid). Builders search for MEV, build blocks, bid to validators. Flashbots relay connects them. Consequences: MEV extraction is professionalized, validators earn more, but MEV is not reduced — it is redistributed. Validators capture MEV revenue, builders hold the actual extraction logic.",
+    "senior_nuance": "PBS creates a centralization risk: the top 3-5 builders create >90% of Ethereum blocks (as of 2024). If builders collude or a builder censors txs, the network can be economically censored even if technically censorship-resistant. SUAVE (Flashbots) aims to decentralize block building.",
+    "quote_to_say": "PBS separates who builds blocks from who proposes them. MEV is not eliminated — it is auctioned to the highest-bidding builder.",
+    "tags": [
+      "MEV",
+      "sandwich",
+      "PBS",
+      "proposer-builder-separation",
+      "flashbots"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-mev-flow",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "Describe the full MEV supply chain: searcher → builder → relay → proposer. What is OFAC compliance tension?",
+    "back": "MEV supply chain: (1) Searchers: scan mempool + simulated blocks for profitable opportunities (arb, liquidations, sandwiches). Submit bundles (ordered txs) to builders. (2) Builders: collect bundles from multiple searchers, assemble the most profitable block. Submit block + bid to relays. (3) Relays: trusted intermediaries that validate blocks without revealing contents to proposers before commitment. Flashbots MEV-Boost relay is most used. (4) Proposers (validators): receive block headers + bids via MEV-Boost, sign the highest-bidding block header, relay reveals full block, block is broadcast. OFAC tension: Tornado Cash sanctions. Some relays (Flashbots, BloXroute regulated) filter OFAC-sanctioned txs from blocks. As of late 2023, ~50% of Ethereum blocks were OFAC-compliant — meaning sanctioned txs would eventually land in non-compliant blocks but with delay.",
+    "senior_nuance": "The relay is a trust point: relays must be honest (not leak block contents, not double-reveal). A dishonest relay could cause a validator to sign an invalid block. Multi-relay setups and relay redundancy mitigate single-relay risk.",
+    "quote_to_say": "MEV supply chain is searcher → builder → relay → proposer. The relay is the trust point nobody talks about.",
+    "tags": ["MEV", "searcher", "builder", "relay", "proposer", "OFAC", "PBS"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-mev-frontrun-types",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "medium",
+    "front": "Distinguish front-running, back-running, and sandwich attacks. Which is most harmful to users and why?",
+    "back": "Front-running: attacker submits a tx before the victim's, typically buying before a large buy order to profit from the price increase. Back-running: attacker submits immediately after a victim's tx — e.g., an arbitrage bot watching for price imbalances created by a large swap. Back-running does not harm the victim — it restores price efficiency. Sandwich: combines front-run + back-run around the victim. Most harmful to users. Harm comparison: back-running = benign (arbitrage, competition). Front-running = harmful (victim gets worse execution). Sandwich = most harmful (victim's trade is directly exploited on both sides — price moved against them deliberately).",
+    "senior_nuance": "Liquidations are a form of back-running — bots watch for undercollateralized positions. They are generally healthy for protocol solvency but create gas price spikes during crashes. Priority Gas Auctions (PGA) pre-MEV-Boost caused network congestion during DeFi crashes.",
+    "quote_to_say": "Back-running is healthy arbitrage. Front-running harms users. Sandwich is both — victim is the filling.",
+    "tags": ["MEV", "front-running", "back-running", "sandwich", "arbitrage"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-l2-sequencer-risks",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "What risks does a centralized L2 sequencer introduce, and how are rollups mitigating sequencer centralization?",
+    "back": "Centralized sequencer risks: (1) Liveness: if the sequencer goes down, no transactions are processed. Arbitrum and Optimism have had outages. (2) Censorship: sequencer can exclude specific addresses or contracts. (3) MEV extraction: sequencer has full visibility into pending txs — can front-run users or sell ordering rights. (4) Forced exits: users can force-include txs via L1 inbox (Arbitrum has 24h delay inbox) — but this is slow and costly. Mitigations: (a) Based rollups (Justin Drake): use L1 validators as sequencers directly — inherits L1 censorship resistance. (b) Shared sequencing (Espresso, Astria): decentralized sequencer networks serving multiple rollups. (c) BoLD/Cannon fraud proof decentralization: anyone can challenge, not just whitelisted parties.",
+    "senior_nuance": "Decentralized sequencing reintroduces MEV competition between sequencers — the same problems as L1 mempool. The design space is active: based rollups sacrifice customizability for L1-grade decentralization.",
+    "quote_to_say": "A centralized sequencer is a single point of censorship, liveness failure, and MEV extraction. Decentralized sequencing is unsolved.",
+    "tags": [
+      "L2",
+      "sequencer",
+      "centralization",
+      "censorship",
+      "MEV",
+      "forced-inclusion"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-l2-zkvm",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "hard",
+    "front": "What is a zkVM and what are the main approaches to zkEVM (type 1-4 equivalence)?",
+    "back": "zkVM: a virtual machine whose execution trace can be proven with a ZK proof. zkEVM proves EVM execution. Type classification (Vitalik): Type 1 — fully equivalent to Ethereum (same bytecode, same state tree, same hash functions). Slowest proving. Goal: proven Ethereum itself. Type 2 — EVM equivalent but different state representation (Scroll, Polygon zkEVM). Slightly faster proving. Type 2.5 — Type 2 but uses cheaper hash function for state tree. Type 3 — mostly EVM equivalent, minor incompatibilities for speed. Type 4 — compiles high-level language (Solidity/Vyper) to a ZK-friendly VM (zkSync Era's LLVM pipeline, Starknet's Cairo). Fastest proving, but not EVM bytecode compatible — existing EVM bytecode must be recompiled.",
+    "senior_nuance": "Type 1 zkEVM is the holy grail — it would allow proving Ethereum's mainnet state transitions, enabling full ZK validity proofs for Ethereum itself (the 'Verge' roadmap milestone). Current frontier: Taiko (type 1 design), PSE zkEVM.",
+    "quote_to_say": "zkEVM types 1-4 trade compatibility for proving speed. Type 1 proves Ethereum; Type 4 proves a different VM that compiles Solidity.",
+    "tags": [
+      "zkEVM",
+      "zkVM",
+      "type-1",
+      "type-4",
+      "ZK-rollup",
+      "EVM-equivalence"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-mev-protection",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "medium",
+    "front": "What user-facing tools and protocol designs protect against MEV extraction?",
+    "back": "User tools: (1) Private mempools (Flashbots Protect, MEV Blocker): route txs directly to block builders, bypassing the public mempool. Sandwichers cannot see the tx. (2) Slippage limits + deadlines: trade reverts if price moves beyond tolerance. (3) RFQ-based DEXes (Hashflow, Paraswap): market makers quote off-chain, no on-chain execution discovery — no sandwich surface. Protocol designs: (4) Frequent batch auctions (CoW Protocol): settle all orders at one clearing price — no ordering advantage within a batch. (5) Encrypted mempools (SUAVE, Shutter Network): txs are encrypted until block inclusion — builders cannot front-run what they cannot read. (6) Application-specific sequencing: allow dApps to define their own ordering rules (e.g., FIFO for DEX).",
+    "senior_nuance": "Private mempools do not eliminate MEV — builders can still extract it from the bundle. They prevent searchers from seeing the tx before inclusion. Batch auctions eliminate the ordering problem entirely within a batch but introduce settlement delay.",
+    "quote_to_say": "Private mempool stops sandwichers from seeing your tx. Batch auctions make ordering within a block irrelevant. Both help, neither eliminates MEV.",
+    "tags": [
+      "MEV",
+      "protection",
+      "private-mempool",
+      "flashbots",
+      "batch-auction",
+      "CoW"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-l2-state-channels",
+    "topic": "blockchain",
+    "subtopic": "l2s-bridges-mev",
+    "difficulty": "medium",
+    "front": "How do state channels differ from rollups as L2 scaling solutions? What are their respective limitations?",
+    "back": "State channels: two or more parties lock funds on-chain, exchange signed state updates off-chain, settle the final state. Example: Lightning Network (Bitcoin), payment channels. Advantages: near-zero latency, near-zero fees for high-frequency interactions between fixed parties. Limitations: (1) Requires both parties online for disputes; (2) Capital locked for channel duration; (3) Not general-purpose — each channel is between specific parties; (4) Routing risk in networks (Lightning routing node failure). Rollups: serve all users simultaneously, general-purpose computation, no capital locking per interaction, but every tx is public and has L2 fees. State channels are better for: gaming (chess moves), micropayments between known parties, streaming payments. Rollups are better for: open DeFi, permissionless interactions, large user bases.",
+    "senior_nuance": "State channels have a 'always online' challenge: if a counterparty submits an old state, you must dispute it within the challenge window while online. Watchtowers (third-party dispute monitors) mitigate this but add trust.",
+    "quote_to_say": "State channels are fast and cheap for fixed parties. Rollups are general-purpose. Choose based on whether your counterparty set is open or closed.",
+    "tags": ["state-channels", "rollup", "lightning", "L2", "scaling"],
+    "mock_eligible": false
+  }
+]

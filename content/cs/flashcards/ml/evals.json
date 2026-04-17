@@ -1,0 +1,83 @@
+[
+  {
+    "id": "ml-evals-golden-sets",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "medium",
+    "front": "What makes a good golden evaluation set for LLM systems? What is the effort required and why is it underestimated?",
+    "back": "A golden set is a curated collection of (input, expected output) pairs used to evaluate system quality. Properties of a good golden set: (1) Representative distribution — covers real query types proportionally, including edge cases and failure modes. (2) Diverse difficulty — not all easy queries that mask regression on harder ones. (3) Annotator agreement — multiple annotators with high inter-annotator agreement; low-agreement items signal ambiguous expectations. (4) Staleness tracking — expectations drift as the system evolves; golden sets need to be updated. (5) Sufficient size — large enough to detect regressions at the desired precision (100 items can distinguish 5% differences; for 1% differences you need 10,000+). Effort underestimate: annotating 500 high-quality examples for a complex task typically takes weeks of domain-expert time. Teams routinely allocate a few hours and wonder why their eval doesn't detect real regressions.",
+    "senior_nuance": "Evals are product work. A golden set that doesn't reflect real user intent is worse than no golden set — it provides false confidence. Seed the golden set from production logs, not synthetic examples.",
+    "quote_to_say": "Evals are product work. If your golden set was built in an afternoon, it doesn't reflect your users.",
+    "tags": ["evals", "golden-set", "evaluation", "annotation"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-evals-judge-bias",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "hard",
+    "front": "What is LLM-as-judge and what biases make it unreliable? How do you control for each?",
+    "back": "LLM-as-judge uses a language model to score or compare generated outputs. Common biases: (1) Position bias — the judge prefers the first candidate when presented with a pair, regardless of quality. Fix: swap the order and average. (2) Length bias — longer outputs are rated higher even when they are padded with redundant content. Fix: normalise by length; include length in the rubric. (3) Self-preference — a model prefers outputs in its own style. Fix: use a judge from a different model family than the generator. (4) Sycophancy — the judge agrees with assertions in the input, even false ones. Fix: isolate the evaluation from user-asserted facts. (5) Verbosity bias — same as length bias but at the sentence level; more verbose answers sound more thorough. Calibration: correlate judge scores with human annotations on a sample. A judge correlated at <0.6 with humans is not a reliable proxy.",
+    "senior_nuance": "'Judge-as-LLM' is correlated with, not equal to, human truth. It is a useful scaling tool, not a replacement for human evaluation on critical tasks. Use LLM judges for rapid iteration; use humans for final decisions and calibration.",
+    "quote_to_say": "An LLM judge that prefers longer outputs will push your system toward bloat, not quality.",
+    "tags": ["llm-judge", "evals", "bias", "judge-bias"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-evals-hallucination-detection",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "hard",
+    "front": "Describe three automated approaches to hallucination detection. What are the fundamental limits of each?",
+    "back": "(1) NLI-based: feed (context, claim) pair into a natural language inference model. If the claim is entailed by the context, it's supported; if contradicted or neutral, it's a potential hallucination. Limit: NLI models fail on long-range entailment and complex reasoning chains. (2) Self-consistency: sample multiple outputs from the same model with temperature > 0; if outputs disagree on a factual claim, the claim is uncertain. Limit: the model may be consistently wrong — shared errors in the training data produce consistent hallucinations. (3) Retrieval-based factual grounding: retrieve evidence for each claim from an external corpus; flag claims with no supporting retrieval. Limit: retrieval recall is imperfect; absence of evidence ≠ hallucination. Ensemble approach: combine all three, weight by domain-specific reliability. Limitation that applies to all: detecting hallucination in creative or ambiguous tasks is ill-defined — 'hallucination' requires a ground truth.",
+    "senior_nuance": "Hallucination detection is only as good as the definition of 'hallucination' for your task. Define it precisely: unsupported factual claims? Contradictions with given context? Made-up citations? Each requires a different detector.",
+    "tags": ["hallucination", "evals", "nli", "self-consistency", "detection"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-evals-prompt-regression",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "medium",
+    "front": "What is prompt regression testing, and how do you build a robust test suite for a system that uses prompts?",
+    "back": "Prompt regression testing verifies that changes to prompts (or the underlying model) do not degrade performance on established cases. Build process: (1) Log inputs and outputs from production, sample representative examples, curate expected outputs. (2) Define pass/fail criteria per test: exact match for structured output, LLM-judge score > threshold for open-ended, regex for format checks. (3) Run the full suite on every prompt change before deployment. (4) Track pass rate as a metric in CI. Anti-patterns: testing only happy-path examples; using the same LLM to generate expected outputs and to evaluate; not updating the suite as the system evolves. CI integration: run the suite against the target prompt + model version; gate deployment on suite pass rate > 90% (or whatever threshold fits risk tolerance).",
+    "senior_nuance": "Prompt regression is code review for prompts. A prompt change that passes vibes-check but fails 15% of your test cases is a bug, not an improvement. Treat prompt changes with the same rigor as code changes.",
+    "quote_to_say": "Every prompt change is a code change. Run the test suite.",
+    "tags": ["prompt-regression", "evals", "ci", "testing"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-evals-calibration-evals",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "medium",
+    "front": "How do you measure whether a model's confidence in its answers is calibrated? Why does miscalibration matter for downstream decisions?",
+    "back": "Ask the model to output a confidence score (0-1) or to express uncertainty. Measure: Expected Calibration Error (ECE) — bucket predictions by stated confidence, compute actual accuracy within each bucket, ECE = Σ (|bucket| / N) × |confidence - accuracy|. Reliability diagram: plot stated confidence (x) vs actual accuracy (y); a perfectly calibrated model lies on y=x. Overconfident: curve above y=x; underconfident: below. Miscalibration matters because: (1) Downstream threshold decisions assume probabilities are meaningful. (2) Multi-step pipelines that condition on confidence (e.g., escalate to human if confidence < 0.7) break when the model is overconfident. (3) Risk-weighted decisions (medical triage, financial) require accurate probabilities, not rankings. Fix: temperature scaling on the logits; few-shot examples that demonstrate calibrated uncertainty.",
+    "senior_nuance": "LLMs do not natively produce calibrated confidence scores — their token probabilities reflect training frequency, not epistemic certainty. Verbal confidence elicitation ('rate your confidence 1-10') is even less reliable. Treat model-expressed confidence as a rough signal, not a probability.",
+    "tags": ["calibration", "evals", "ece", "confidence"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-evals-sliced-evaluation",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "hard",
+    "front": "Why is aggregate evaluation accuracy insufficient, and what is sliced evaluation?",
+    "back": "Aggregate accuracy hides disparate performance across subgroups. A model that is 90% accurate overall may be 60% accurate on a minority subgroup — and a change that improves aggregate accuracy may simultaneously degrade the subgroup. This is Simpson's paradox in ML evaluation. Sliced evaluation breaks metrics down by meaningful dimensions: language, user segment, query type, input length, content category, recency of training data coverage. How to implement: define slices a priori (not post-hoc); track per-slice metrics in every evaluation run; set regression thresholds per slice, not just overall; alert when any critical slice degrades even if aggregate improves. Fairness audits are a special case of sliced evaluation across demographic dimensions.",
+    "senior_nuance": "The most important slices to monitor are the ones your business cares most about, not the largest ones. A 5% drop on your highest-value user segment matters more than a 0.1% improvement in aggregate. Define this priority before you write the eval harness.",
+    "quote_to_say": "Aggregate metrics are a summary. Slices are the truth.",
+    "tags": ["sliced-evaluation", "evals", "fairness", "subgroup"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-evals-live-vs-offline",
+    "topic": "ml",
+    "subtopic": "evals",
+    "difficulty": "hard",
+    "front": "When do offline evals mispredict live A/B results? What are the structural causes and how do you close the gap?",
+    "back": "Structural causes of offline-to-online eval mismatch: (1) Static vs dynamic distribution — offline uses historical queries; live traffic shifts, especially after a product change. (2) No user behaviour model — offline eval scores individual outputs; live measures downstream actions (click, conversion, task completion) which are influenced by UI, latency, and context offline can't capture. (3) Annotator proxy — human raters in offline eval are not your actual users; they have different expectations and contexts. (4) Counterfactual gap — offline eval can't model how users would have responded to a better or worse answer; only A/B provides that causal estimate. Closing the gap: (a) Use retrospective labels from production logs as ground truth. (b) Calibrate annotator ratings against actual user actions. (c) Run shadow evaluations using real traffic before A/B. (d) Measure leading indicators (engagement with output) not just final outcomes.",
+    "senior_nuance": "A team that trusts its offline evals unconditionally will ship improvements that don't land. The offline-online eval gap is a calibration problem — measure it explicitly, track it over time, and treat a widening gap as a technical debt signal.",
+    "tags": ["evals", "offline-online-gap", "ab-testing", "calibration"],
+    "mock_eligible": true
+  }
+]

@@ -1,0 +1,144 @@
+[
+  {
+    "id": "ml-tfm-attention-basics",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "easy",
+    "front": "Explain scaled dot-product attention. Why is the scaling factor 1/√d_k needed?",
+    "back": "Attention(Q,K,V) = softmax(QKᵀ / √d_k) · V. Q (queries), K (keys), V (values) are linear projections of the input. The dot product QKᵀ measures pairwise similarity; softmax converts scores to weights that sum to 1; the output is a weighted sum of values. Without the √d_k scaling, dot products grow with d_k because they sum d_k independent terms. Large dot products push softmax into saturation where gradients vanish near zero. Dividing by √d_k keeps the variance of the dot product ~1 regardless of d_k, stabilising training.",
+    "senior_nuance": "The scaling is a variance normalisation trick, not a magic number. Some implementations use temperature parameters in place of it for inference-time control (e.g., adjusting sharpness of attention distributions for structured generation).",
+    "tags": ["attention", "transformer", "softmax", "scaling"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-attention-complexity",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "medium",
+    "front": "Why is standard self-attention O(n²) in both time and memory? What does FlashAttention change and what does it not change?",
+    "back": "For a sequence of length n, computing QKᵀ is an n×n matrix — every token attends to every other token. Both the compute and the memory to store the attention matrix scale as O(n²). FlashAttention does NOT change the O(n²) FLOP count — it still computes every pairwise interaction. What it changes is memory access pattern: it tiles the computation into blocks that fit in fast on-chip SRAM (shared memory on GPU), reading HBM only once per tile. Result: same math, O(n) HBM memory instead of O(n²), significantly faster wall-clock time because memory bandwidth is the actual bottleneck, not FLOPs.",
+    "senior_nuance": "FlashAttention-2 and -3 add further improvements (work partitioning, warp specialisation). The key mental model is: the n² bottleneck is memory bandwidth, not arithmetic. Algorithms that tile attention and avoid materialising the full n×n matrix win in practice.",
+    "quote_to_say": "FlashAttention doesn't save FLOPs. It saves memory bandwidth, which was the real bottleneck.",
+    "tags": ["attention", "flash-attention", "complexity", "memory"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-kv-cache",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "medium",
+    "front": "What is the KV cache in autoregressive decoding? What is its memory cost, and what techniques reduce it?",
+    "back": "During autoregressive generation, each new token needs to attend to all previous tokens' keys and values. Without caching, each step recomputes all K and V projections from scratch — O(n²) total. The KV cache stores K and V tensors for each layer and each previously generated token, reducing each step to O(n) (new token only). Memory cost: 2 × n_layers × seq_len × d_model × bytes_per_element per sequence. For a 70B model with 4096 context, this is tens of GBs. Reduction techniques: (1) Multi-Query Attention (MQA) — share a single K/V head across all query heads. (2) Grouped-Query Attention (GQA) — share K/V across groups of Q heads. (3) Sliding window attention — cache only a local window. (4) KV cache quantisation to INT8/INT4.",
+    "senior_nuance": "KV cache size grows linearly with batch size × sequence length. At long-context inference, it can exceed model weight memory. Capacity planning must account for both weights and cache — they compete for the same GPU VRAM.",
+    "quote_to_say": "Your GPU VRAM at inference is split between model weights and the KV cache. Long contexts eat the cache budget fast.",
+    "tags": ["kv-cache", "inference", "memory", "gqa", "mqa"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-positional-encoding",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "Compare learned absolute, sinusoidal, RoPE, and ALiBi positional encodings. Which generalise best to longer contexts than seen in training?",
+    "back": "Learned absolute: add a learned vector to each position embedding. Simple, fast to train. Hard cutoff at max training length — fails on longer sequences. Sinusoidal: fixed sin/cos at different frequencies. No learned parameters. Also fails at lengths > training max because the attention scores are not monotonically related to distance. RoPE (Rotary Position Embedding): applies a rotation matrix to Q and K such that their dot product depends only on relative position. Integrates naturally into attention, no extra parameters. Generalises somewhat beyond training length (with careful scaling, e.g., YaRN, LongRoPE). ALiBi (Attention with Linear Biases): adds a linear negative bias proportional to token distance directly to attention scores before softmax. No learned parameters, strong length generalisation beyond training without extrapolation tricks. Tradeoff: slightly worse quality on standard tasks vs RoPE.",
+    "senior_nuance": "RoPE is the current industry default (LLaMA, Mistral, Qwen). ALiBi is preferred when the deployment context length is genuinely unknown at training time. Both outperform learned absolute for long-context tasks. 'Context extension' at inference (4× training length) works reliably only with RoPE + interpolation (position IDs scaled down), not with learned absolute.",
+    "tags": ["rope", "alibi", "positional-encoding", "context-length"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-decoding-strategies",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "medium",
+    "front": "Compare greedy, beam search, top-k, and nucleus sampling for LLM decoding. What are the tradeoffs?",
+    "back": "Greedy: always pick the highest-probability next token. Fast, deterministic, but prone to repetition and getting stuck in local optima. Beam search: maintain k candidate sequences ('beams'), expand each, keep top k. Better quality than greedy for translation/summarisation. Expensive (k× memory), still deterministic, tends to produce safe but bland text. Top-k sampling: sample from the k most probable tokens. Filters the long tail. Sensitive to k — varies widely across contexts. Nucleus (top-p) sampling: sample from the smallest set of tokens whose cumulative probability exceeds p. Adapts dynamically to the distribution — on confident predictions the set is small; on uncertain ones it widens. Temperature scales logits before softmax: T<1 sharpens distribution (more deterministic), T>1 flattens it (more creative).",
+    "senior_nuance": "Production systems usually combine nucleus sampling + temperature + repetition penalties. For structured output (JSON, code), constrained decoding (enforcing grammar masks) is more reliable than prompt engineering alone.",
+    "tags": ["decoding", "sampling", "beam-search", "nucleus", "top-k"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-quantisation",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "Explain INT8 and INT4 quantisation for LLM inference. What is the accuracy-memory tradeoff, and what breaks at aggressive quantisation?",
+    "back": "Quantisation maps float32/bfloat16 weights to lower-bit integers, reducing model size and enabling faster integer arithmetic on supported hardware. INT8: ~2× memory reduction vs fp16, minimal quality loss on most tasks, now standard for inference. INT4: ~4× reduction vs fp16, quality degradation begins especially for reasoning and low-resource languages. Key techniques: GPTQ (post-training quantisation using layer-wise Hessian approximation), AWQ (activation-aware, scales weights by importance before rounding), bitsandbytes (mixed precision, 4-bit NF4 format). What breaks: outlier activations in larger models cause large quantisation error — LLM.int8() handles this by keeping outlier dimensions in fp16. Embeddings and LM head often kept in fp16 even in heavily quantised models.",
+    "senior_nuance": "Quantisation error accumulates non-uniformly: some layers (especially early MLP layers) are more sensitive than others. Mixed-precision quantisation (INT8 for sensitive layers, INT4 for the rest) often beats uniform INT4 for the same memory budget.",
+    "quote_to_say": "Quantise weights first. Only touch activations when you've exhausted weight quantisation headroom.",
+    "tags": ["quantisation", "int8", "int4", "gptq", "awq", "inference"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-lora",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "How does LoRA work? How do you choose rank r, and what does rank-too-low vs rank-too-high cost you?",
+    "back": "LoRA (Low-Rank Adaptation) freezes pre-trained weights W and injects trainable low-rank matrices: ΔW = AB where A ∈ ℝ^{d×r}, B ∈ ℝ^{r×k}, rank r << min(d,k). Only A and B are trained, reducing trainable parameters from d×k to r×(d+k). At inference, ΔW is merged into W, adding zero latency. Rank selection: r=8 is a common starting point; r=4 suffices for style/format fine-tuning; r=64-128 for learning new skills. Too-low rank: the adapter capacity is smaller than the target task complexity — underfitting, loss plateaus early. Too-high rank: approaches full fine-tuning, loses the parameter-efficiency benefit, increases risk of catastrophic forgetting. α/r scaling factor (lora_alpha) controls effective learning rate of the adapter — typically set equal to r.",
+    "senior_nuance": "QLoRA combines INT4 base model + LoRA adapters in fp16, enabling fine-tuning of 70B models on a single 48GB GPU. The nf4 quantisation format is designed specifically to minimise LoRA gradient error. When merging adapters, always verify on the target task — quantisation + LoRA can compound errors.",
+    "quote_to_say": "LoRA rank is a capacity knob — start low and increase only when you see underfitting, not the other way around.",
+    "tags": ["lora", "fine-tuning", "low-rank", "qlora", "adapter"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-context-window",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "medium",
+    "front": "What actually limits a model's useful context window in practice, and why does 'it supports 128k tokens' not mean it uses all of them well?",
+    "back": "Formal limit is the positional encoding range and KV cache size. Practical limits: (1) Lost-in-the-middle effect: models attend poorly to information in the middle of long contexts; retrieval accuracy degrades for facts buried in long prompts. (2) Dilution: with many tokens, a critical passage has lower relative attention weight. (3) Training data distribution: models rarely see 128k+ token examples during training; performance on such lengths is extrapolated, not learned. (4) VRAM: KV cache for 128k context at inference is GBs per request, limiting concurrency. Mitigation: structure important information at the start/end of the context, or use RAG to retrieve only the needed chunks.",
+    "senior_nuance": "Needle-in-a-haystack benchmarks measure recall at different positions in a long context. Most 128k models still fail 'needles' at the 50% depth mark. When building systems, treat declared context length as an upper bound, not a reliable performance guarantee.",
+    "tags": ["context-window", "long-context", "kv-cache", "lost-in-middle"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-pretraining-objectives",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "medium",
+    "front": "Compare next-token prediction (CLM), masked language modelling (MLM), and prefix LM objectives. When is each appropriate?",
+    "back": "CLM (Causal LM, autoregressive): predict each token given all previous tokens. Left-to-right attention mask. Natural for generation. Cannot condition on future context in the same pass. Used in decoder-only models (GPT family, LLaMA). MLM (BERT-style): mask 15% of tokens, predict them using bidirectional context. Better at understanding/classification tasks, but not naturally generative. Used in encoder models (BERT, RoBERTa). Prefix LM: split sequence into prefix (full bidirectional attention) and continuation (causal). Bridges the gap — encoder-like understanding for the prompt, decoder-like generation for the output. Used in T5 and some Gemini variants. In practice: decoder-only CLM has won for general-purpose LLMs due to training simplicity and scaling behaviour, with instruction tuning addressing the 'understanding' gap.",
+    "tags": ["pretraining", "clm", "mlm", "prefix-lm", "bert", "gpt"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-tfm-rlhf",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "Describe the RLHF pipeline. What are the failure modes of the reward model, and how does DPO differ?",
+    "back": "RLHF: (1) SFT — fine-tune on high-quality demonstrations. (2) Reward model (RM) — train a value head on human preference pairs (chosen vs rejected). (3) PPO — optimise the SFT model with RL to maximise RM score, with a KL penalty against the SFT model to prevent reward hacking. Reward model failure modes: (1) Reward hacking — the policy finds inputs that score high but are not actually preferred (verbose, sycophantic). (2) Distribution shift — RM trained on SFT outputs, but PPO generates out-of-distribution text. (3) Preference noise — human labellers disagree; RM models the average, not the correct answer. DPO (Direct Preference Optimisation): shows that RLHF with a KL-constrained RL objective can be reduced to a supervised loss directly on the preference pairs, removing the explicit RM and PPO loop. Simpler, more stable, comparable empirical results. Current default for fine-tuning.",
+    "senior_nuance": "DPO still requires high-quality preference data — it just removes the RL loop overhead. Reward hacking doesn't disappear; it just manifests as overfitting to preference data artefacts instead of RM hacking. Both approaches need diverse, challenging preference pairs.",
+    "tags": ["rlhf", "dpo", "reward-model", "ppo", "alignment"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-tfm-moe",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "How do Mixture-of-Experts (MoE) layers work in transformers? What is the load-balancing problem and how is it addressed?",
+    "back": "MoE replaces a dense FFN layer with N expert FFNs and a router that selects top-k experts per token (usually k=1 or 2). Only k/N of the parameters activate per token, so a model can have many parameters (capacity) without proportionally increasing FLOPs per token. Training challenge: naive routing collapses — the router learns to always send tokens to a few popular experts, leaving others unused and wasting capacity. Fix: auxiliary load-balancing loss that penalises unequal expert utilisation, added to the main loss with a small coefficient. Expert capacity buffer: each expert has a max token capacity per batch; overflow tokens are dropped or routed to a second-choice expert. Inference: routing decisions must be made per-token, so MoE models have higher latency for single-stream inference but excellent throughput for parallel batches.",
+    "senior_nuance": "Expert parallelism (sharding experts across GPUs) is the main technique for scaling MoE models. Communication overhead between GPUs for routing decisions is a real cost — it can dominate total time at small batch sizes. MoE wins when batch sizes are large enough to keep all experts busy.",
+    "tags": [
+      "moe",
+      "mixture-of-experts",
+      "routing",
+      "load-balancing",
+      "scaling"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-tfm-speculative-decoding",
+    "topic": "ml",
+    "subtopic": "transformers-llms",
+    "difficulty": "hard",
+    "front": "Explain speculative decoding. When does it help and when does the draft model hurt rather than help?",
+    "back": "Speculative decoding uses a small, fast draft model to generate a candidate sequence of k tokens, then the large target model verifies all k tokens in a single forward pass (because the target model can compute logits for all positions in parallel). Accepted tokens are kept; the first rejected token triggers a correction and a new draft starts. Speedup comes from the target model doing one forward pass per k tokens instead of k passes. Helps when: draft model is fast enough (<<10% of target cost), and the draft acceptance rate is high (>70%), meaning the draft and target distribution are aligned (same family, quantised version, etc.). Hurts when: acceptance rate is low (drift between draft and target), negating the batched verification benefit; or the draft model itself is slow relative to the target.",
+    "senior_nuance": "Speculative decoding maintains exact target model distribution — it's not an approximation. The acceptance-rejection step guarantees the output token distribution equals what the target would have produced alone. This makes it safe for production without quality trade-offs.",
+    "quote_to_say": "Speculative decoding gives you the target model's quality at the draft model's speed — when the two agree.",
+    "tags": ["speculative-decoding", "inference", "latency", "throughput"],
+    "mock_eligible": true
+  }
+]

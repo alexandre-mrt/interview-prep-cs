@@ -1,0 +1,158 @@
+[
+  {
+    "id": "sd-sharding-strategies",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "easy",
+    "front": "Name four sharding strategies. What is the primary failure mode of each?",
+    "back": "Range sharding: keys split into ordered ranges per shard. Failure mode: hot partitions on monotonically increasing keys (e.g., timestamps). Hash sharding: key is hashed to a shard. Failure mode: range queries require scatter-gather across all shards. Directory sharding: a lookup table maps keys to shards. Failure mode: the lookup table becomes a single point of failure and bottleneck. Geo sharding: data pinned to geographic regions. Failure mode: cross-region transactions are expensive.",
+    "senior_nuance": "Timestamp-keyed tables are the most common range-shard mistake. If you insert time-series data into a range-sharded DB, all inserts go to the last shard. The fix: add a hash prefix to distribute writes, at the cost of range queries.",
+    "quote_to_say": "What's the access pattern? That determines whether range or hash sharding wins.",
+    "tags": ["sharding", "range-sharding", "hash-sharding", "hot-partition"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-consistent-hashing",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "medium",
+    "front": "How does consistent hashing work? Why is it used in distributed caches and databases?",
+    "back": "Map both keys and nodes onto a hash ring [0, 2^32). Each key is assigned to the first node clockwise. When a node is added or removed, only keys in the adjacent arc need remapping — O(K/N) keys move instead of O(K) for naive modulo hashing. Used by: Amazon DynamoDB, Apache Cassandra, Memcached clients (ketama), Nginx upstream hashing. The key property: minimal disruption on topology changes.",
+    "senior_nuance": "Consistent hashing alone causes uneven distribution. The fix is virtual nodes (vnodes): each physical node claims multiple positions on the ring (Cassandra uses 256 vnodes by default). This also speeds up rebalancing when a node dies — its load is spread across many nodes instead of one neighbor.",
+    "quote_to_say": "Consistent hashing gives you O(K/N) key movement on topology changes — that's why we use it.",
+    "tags": [
+      "consistent-hashing",
+      "hash-ring",
+      "vnodes",
+      "cassandra",
+      "dynamo"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-vnodes",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "medium",
+    "front": "What are virtual nodes (vnodes) and what problems do they solve?",
+    "back": "Without vnodes, each physical node owns one contiguous arc of the ring. Problems: (1) uneven load distribution if nodes have different capacities, (2) when a node dies all its load moves to one neighbor, causing a cascade. Vnodes: each physical node owns N positions on the ring (Cassandra default: 256). Benefits: better load balancing, failure load spread across all surviving nodes, adding heterogeneous hardware is easier (give a large server more vnodes). Cost: metadata for token assignments grows.",
+    "senior_nuance": "Increasing vnode count improves distribution but increases repair parallelism overhead during streaming. Cassandra 4.0 introduced virtual node improvements to mitigate streaming fan-out. Tune vnode count based on cluster size — smaller clusters need fewer vnodes per node.",
+    "tags": [
+      "vnodes",
+      "virtual-nodes",
+      "consistent-hashing",
+      "load-balancing",
+      "cassandra"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-hot-partition",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "hard",
+    "front": "You see one DynamoDB partition handling 80% of traffic. Walk through your diagnosis and three mitigation options.",
+    "back": "Diagnosis: CloudWatch ProvisionedThroughputExceededException on specific partition key, confirm with partition-level metrics. Root cause: low-cardinality partition key (e.g., status='active') or celebrity/viral item. Mitigations: (1) Write sharding — append random suffix [0-N) to partition key, scatter writes, gather reads with N lookups. (2) Caching — cache hot keys in DAX or ElastiCache, reducing DB hits. (3) Adaptive capacity (DynamoDB auto-redistributes capacity) — short-term fix, not architectural. The real fix is choosing a partition key with high cardinality from the start.",
+    "senior_nuance": "Write sharding trades read simplicity for write scalability. If you shard a key into 10 suffixes, every read must query all 10 partitions and merge — ensure the read pattern can tolerate this. For truly viral items (product launches), pre-warm the cache before traffic hits.",
+    "quote_to_say": "What's the access pattern? A hot partition is usually a symptom of a key design mistake.",
+    "tags": [
+      "hot-partition",
+      "dynamo",
+      "write-sharding",
+      "cardinality",
+      "caching"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-resharding",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "hard",
+    "front": "How do you reshard a live production database without downtime?",
+    "back": "Standard approach: double-write + backfill. (1) Stand up new shards. (2) Enable dual-write: app writes to both old and new shards. (3) Backfill old data into new shards using a background migrator with rate limiting. (4) Once backfill completes and new shards are caught up, switch reads to new shards. (5) Verify via shadow read comparison. (6) Disable writes to old shards. (7) Decommission old shards. Key risk: backfill and dual-write create write amplification — monitor DB load carefully.",
+    "senior_nuance": "The blast radius is the switch-over step. Always implement a feature flag to revert reads back to old shards if the new shards behave unexpectedly. Canary the read switch with 1% traffic before full cutover. Also plan for the case where a write succeeds on old shards but fails on new shards during the dual-write phase.",
+    "tags": [
+      "resharding",
+      "live-migration",
+      "dual-write",
+      "backfill",
+      "zero-downtime"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-partition-key-design",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "medium",
+    "front": "A social app stores posts. How do you choose a partition key for DynamoDB to support both user timelines and global feeds?",
+    "back": "User timelines: partition key = userId, sort key = createdAt (descending). Enables efficient per-user range scans. Global feed: this is the hard part. A single 'global' partition key would be a hot partition. Options: (1) Fan-out writes — on post creation, write to each follower's timeline partition (fan-out on write). (2) Fan-out on read — fetch followed users' latest posts at read time (expensive for large follow graphs). (3) Hybrid — fan-out on write for users with few followers, fan-out on read for celebrities.",
+    "senior_nuance": "Twitter's 2012 architecture used fan-out on write into a Redis timeline cache per user. The problem was celebrity users with millions of followers — writing to 10M timelines on one tweet took seconds. The fix: exclude celebrities from fan-out, inject them at read time. This is the hybrid approach in practice.",
+    "tags": ["partition-key", "dynamo", "fan-out", "social-feed", "timeline"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-scatter-gather",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "medium",
+    "front": "What is the scatter-gather pattern? What is its main latency problem and how do you mitigate it?",
+    "back": "Scatter-gather: fan a query out to all N partitions in parallel, collect and merge results. Used for: full-table scans, cross-shard search, aggregations. Main problem: tail latency — response time is bounded by the slowest shard (p99 of one becomes p99^N of many). With 100 shards each at 1ms p99, the combined p99 can be 100ms+. Mitigations: (1) Hedged requests — if a shard hasn't responded in Xms, send a duplicate to another node. (2) Speculative execution. (3) Reduce shard count via better partitioning. (4) Return partial results if SLO allows.",
+    "senior_nuance": "Hedged requests are the canonical Google SRE fix for tail latency in scatter-gather. The cost is ~2x read load at the hedge threshold. Choose the hedge timeout at the p90, not p99 — this catches the slow tail without doubling load on normal requests.",
+    "tags": [
+      "scatter-gather",
+      "tail-latency",
+      "hedged-requests",
+      "fan-out",
+      "sharding"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-secondary-index-sharded",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "hard",
+    "front": "How do you support secondary index queries in a sharded database? What are the tradeoffs?",
+    "back": "Two approaches: (1) Local secondary index — each shard maintains its own index on a non-partition-key attribute. Queries on that attribute must scatter-gather across all shards, then merge. Write-efficient, read-expensive for global queries. DynamoDB Local Secondary Index works this way. (2) Global secondary index — a separate index structure partitioned by the secondary key, maintained asynchronously. Single-shard reads on secondary key, but index is eventually consistent. DynamoDB GSI is eventually consistent. The tradeoff: write fanout to maintain the GSI vs. scatter-gather reads without one.",
+    "senior_nuance": "GSI consistency lag in DynamoDB can be hundreds of milliseconds. If your query requires the most recent write to be visible immediately, you can't rely on a GSI — you need to query the base table directly or design the primary key to support the access pattern.",
+    "tags": [
+      "secondary-index",
+      "gsi",
+      "lsi",
+      "dynamo",
+      "sharding",
+      "consistency"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-time-series-partitioning",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "medium",
+    "front": "How do you partition time-series data to avoid write hot spots while keeping range queries efficient?",
+    "back": "The core tension: time-ordered writes all go to the most recent partition (hot), but range queries need time-ordered storage. Strategies: (1) Bucketed partition key — compound key of (device_id, day_bucket) distributes writes across N devices. (2) Hash-prefixed key — prepend a hash of the device or source to the timestamp. (3) Time-based table rotation — new table per day/week, application routes to correct table. (4) Purpose-built time-series DBs — InfluxDB, TimescaleDB (Postgres extension), OpenTSDB each solve this with internal chunking.",
+    "senior_nuance": "TimescaleDB uses hypertables with automatic time-based chunking. Queries on recent data hit only recent chunks. Older chunks can be compressed (TimescaleDB native compression achieves 90%+ compression on float data). This is often a better default than rolling your own partitioning on Postgres.",
+    "tags": [
+      "time-series",
+      "partitioning",
+      "hot-partition",
+      "influxdb",
+      "timescaledb"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-rebalancing",
+    "topic": "system-design",
+    "subtopic": "data-partitioning",
+    "difficulty": "hard",
+    "front": "When adding a node to a Cassandra cluster, what happens during rebalancing and what is the blast radius?",
+    "back": "When a new node joins: (1) It picks token positions on the ring (or is assigned vnodes). (2) Existing nodes stream their data to the new node for the token ranges it now owns. (3) During streaming, reads for those ranges are served by both old and new nodes; coordinator handles this. Blast radius: streaming is I/O intensive and can saturate disk and network on source nodes, degrading p99 latency cluster-wide. Mitigation: rate-limit streaming (throttle_inboundmb_per_sec in Cassandra config), add nodes during low-traffic windows, add one node at a time.",
+    "senior_nuance": "Adding too many nodes simultaneously multiplies the streaming fan-out. Add nodes sequentially and monitor nodetool compactionstats and nodetool netstats to track progress. With 256 vnodes, streaming is parallelized across many source nodes but also means each source sends only a small fraction — this is actually favorable vs. single-token mode.",
+    "tags": ["rebalancing", "cassandra", "streaming", "vnodes", "blast-radius"],
+    "mock_eligible": true
+  }
+]

@@ -1,0 +1,235 @@
+[
+  {
+    "id": "sd-url-shortener",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "easy",
+    "front": "Design a URL shortener (bit.ly). Focus on the key technical decisions.",
+    "back": "Core decisions: (1) ID generation — base62 encode a 64-bit ID. Use a distributed ID generator (Snowflake) or DB auto-increment + base62. 7 chars base62 = 62^7 = 3.5 trillion URLs. (2) Storage — key-value store (DynamoDB or Redis) mapping shortCode -> longUrl + metadata. (3) Redirect — 301 (permanent, browser caches, reduces load) vs 302 (temporary, all requests hit server for analytics). Use 302 for analytics. (4) Read-heavy workload — cache popular shortCodes in Redis with TTL. (5) Custom aliases — check uniqueness before write, use DB unique constraint. Scale: 100M writes/day = 1200/sec, 10:1 read ratio = 12000 reads/sec — single Redis cluster handles this.",
+    "senior_nuance": "The 301 vs 302 decision is a product tradeoff, not a technical one. If you need click analytics, you need 302 (or log clicks server-side before redirecting). If you want to reduce load and analytics aren't needed, 301 is correct. Ask the interviewer before assuming.",
+    "quote_to_say": "What's the access pattern? Reads vastly outnumber writes here, so the cache hit ratio is the key metric to design for.",
+    "tags": ["url-shortener", "base62", "redirect", "key-value", "snowflake"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-news-feed",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a Twitter/Instagram news feed. Compare fan-out on write vs fan-out on read.",
+    "back": "Fan-out on write: when user posts, write post reference to all followers' feed caches immediately. O(followers) writes per post. Read is O(1) — just read your pre-built cache. Problem: celebrity with 50M followers = 50M cache writes per tweet (seconds of latency, huge cost). Fan-out on read: store posts on author's timeline only. On feed load, fetch posts from all followed users and merge. Read is O(followed_users) fan-out queries. Problem: reading from 1000 followed accounts = 1000 DB queries per feed load. Hybrid (Twitter's model): fan-out on write for users with < 10K followers. For celebrities, inject their posts at read time. Feed = pre-built cache + live celebrity posts merged at read.",
+    "senior_nuance": "The hybrid boundary (10K followers) is a product calibration, not a fixed number. The key metric is: how long does post delivery take for the 99th percentile follower? Fan-out on write gives predictable low latency for regular users; celebrity injection at read adds latency only for celebrity-follower feeds.",
+    "tags": [
+      "news-feed",
+      "fan-out",
+      "fan-out-on-write",
+      "fan-out-on-read",
+      "social"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-chat-system",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a real-time chat system (WhatsApp scale: 2B users). Focus on message delivery and presence.",
+    "back": "Message delivery: (1) Client connects to chat server via WebSocket (persistent, bidirectional). (2) On send, message stored in DB (Cassandra, partitioned by conversation_id + timestamp). (3) If recipient is online on same server, deliver directly. (4) If on different server, use pub/sub (Redis pub/sub or Kafka) to fan message to the correct server. (5) If offline, store in message inbox; deliver on reconnection. Presence: heartbeat every 5 seconds to presence server; presence state in Redis with TTL. Scale: 2B users, 100M online — partition users across presence servers by userId hash. Failure: if chat server dies, clients reconnect to another server; pending messages fetched from Cassandra.",
+    "senior_nuance": "End-to-end encryption (E2EE) like Signal protocol means the server never holds plaintext. Messages in Cassandra are encrypted client-side; the server is a dumb relay. This simplifies security compliance but complicates features like server-side search and moderation.",
+    "tags": [
+      "chat",
+      "websocket",
+      "presence",
+      "cassandra",
+      "pubsub",
+      "whatsapp"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-rate-limiter-design",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "Design a distributed rate limiter that limits each user to 100 requests/minute across multiple API servers.",
+    "back": "Core: centralized counter in Redis. Key = userId + minute_window. Command: INCR + EXPIRE (or MULTI/EXEC). If count > 100, reject with 429. Script for atomicity: Lua script in Redis that does INCR + check + EXPIRE atomically. Challenge: race condition if INCR and EXPIRE are separate calls — use MULTI/EXEC or Lua. Sliding window: use sorted set in Redis — add each request timestamp as a score, ZREMRANGEBYSCORE to remove old entries, ZCARD to count. More accurate than fixed window. Rate limit headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset. Scale: Redis cluster sharded by userId, each API server calls Redis directly.",
+    "senior_nuance": "Redis single-threaded command execution guarantees atomicity for individual commands (INCR). The multi-step INCR + EXPIRE problem is solved with SET key value EX seconds NX or a Lua script. In practice, Envoy and Kong implement rate limiting at the gateway level using Redis, reducing per-request latency impact compared to application-level implementation.",
+    "tags": [
+      "rate-limiter",
+      "redis",
+      "token-bucket",
+      "sliding-window",
+      "distributed"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-ride-share",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design the driver location tracking and matching subsystem of a ride-sharing app (Uber scale).",
+    "back": "Driver location ingestion: drivers send location every 4 seconds via UDP (fire-and-forget, tolerate loss). Location written to a time-series DB and also to a geospatial index. Geospatial index: use S2 geometry library (Uber) or Redis GEO commands (GEOADD, GEORADIUS) to find drivers within N km of a rider's location. Matching: matching service queries geospatial index for nearby available drivers, ranks by ETA (not distance — compute ETA using road network graph with Dijkstra/routing engine). Supply-demand: store driver availability as a bitfield per geohash cell; rider demand is estimated and used to compute surge pricing. Scalability: shard geospatial index by city/region.",
+    "senior_nuance": "Uber moved from PostGIS to a custom H3 geospatial index for better query performance at scale. The key insight is that accurate ETA requires routing engine (OSRM, Valhalla) input, not just Euclidean distance — two drivers at equal distance may have 3x different ETAs due to traffic. ETA accuracy directly impacts conversion rate.",
+    "tags": [
+      "ride-share",
+      "geospatial",
+      "location-tracking",
+      "matching",
+      "eta",
+      "uber"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-notification-system",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "Design a notification system that sends push, email, and SMS notifications at scale.",
+    "back": "Architecture: (1) Notification service receives events (via API or Kafka). (2) For each notification, look up user preferences (notification settings DB). (3) Fan out to channel-specific workers: push worker (FCM/APNS), email worker (SES/SendGrid), SMS worker (Twilio). (4) Each worker is idempotent and writes notification_id to a dedup store before sending. (5) Rate limiting per user per channel (no more than N notifications/hour). Storage: notifications DB stores all sent notifications for inbox view. Retry: exponential backoff for transient failures, DLQ for undeliverable.",
+    "senior_nuance": "The access pattern for the notification inbox is: fetch N most recent notifications for userId — use DynamoDB with userId as partition key and timestamp as sort key. The hard problem is exactly-once delivery for critical notifications (payment receipt) vs. acceptable loss for marketing — route them through different queues with different reliability guarantees.",
+    "tags": ["notification-system", "push", "email", "sms", "fcm", "kafka"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-search-typeahead",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "Design a search typeahead (autocomplete) for a 500M term search history. How do you make it fast?",
+    "back": "Requirements: return top-k suggestions for a prefix within 100ms. Options: (1) Trie in memory — prefix tree storing all terms and their frequency. O(prefix length) lookup. Works for moderate vocabulary; 500M unique terms would require significant memory. (2) Sorted set in Redis — store (term, frequency) as sorted set scored by frequency; ZRANGEBYLEX for prefix match. Works if prefix is exact match. (3) Elasticsearch prefix query — fuzzy matching, typo tolerance, relevance ranking. More powerful, higher latency (~50ms). (4) Precomputed prefix table — for top 10 prefixes, store top-k results in Redis. O(1) read, cache invalidation on trending changes. Architecture: combine offline aggregation (compute top-k per prefix daily) with Redis cache and Elasticsearch fallback for cold queries.",
+    "senior_nuance": "Typeahead latency is p50-critical — users type multiple characters per second and slow completions feel broken. Pre-computing top-k per prefix for the top 1M most common prefixes covers 95%+ of queries. Elasticsearch handles the long tail. This is the two-tier approach and is production-proven at scale.",
+    "tags": [
+      "typeahead",
+      "autocomplete",
+      "trie",
+      "redis",
+      "elasticsearch",
+      "prefix"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-metrics-system",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a metrics collection and alerting system (Prometheus-scale: 10M time series, 1M writes/sec).",
+    "back": "Collection: Prometheus pull model — scrapes targets every 15s. Pushgateway for batch jobs. Write path: ingestion into local TSDB (Prometheus WAL + chunks). For scale: Thanos/Cortex federate multiple Prometheus instances with object storage (S3) for long-term retention. Storage: time series data is chunked (each chunk = 2 hours, ~120 samples). Compacted into blocks. High cardinality is the killer — a label with millions of unique values (user_id as label) creates millions of series. Query: PromQL for aggregations; remote_read for federated queries. Alerting: AlertManager handles deduplication, grouping, silence, routing to PagerDuty/Slack.",
+    "senior_nuance": "Labels are for dimensions you'll aggregate across, not IDs you'll query by. user_id as a Prometheus label creates one time series per user — at 10M users, this is 10M series, which destroys cardinality budgets. The correct model: store per-user events in logs or a tracing system; metrics are for aggregate rates and latencies.",
+    "quote_to_say": "Labels are for dimensions you'll aggregate across, not IDs you'll query by.",
+    "tags": [
+      "metrics",
+      "prometheus",
+      "thanos",
+      "time-series",
+      "cardinality",
+      "alertmanager"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-distributed-file-storage",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a distributed file storage system like S3. What are the key components?",
+    "back": "Metadata layer: stores (bucket, key, version) -> (chunk_locations, size, checksum, ACL). Must be strongly consistent. Use Zookeeper or a replicated SQL DB. Data layer: file split into chunks (e.g., 64MB). Chunks stored across data nodes. Replication factor 3 (2 in same rack, 1 in different rack). Data path: (1) Client requests upload -> metadata service returns data node list. (2) Client streams directly to primary data node. (3) Primary replicates to secondary nodes (pipeline). (4) On all-confirmed, metadata updated. Durability: erasure coding (Reed-Solomon) instead of 3x replication for cold data — 2x space savings at cost of reconstruction overhead. Consistency: S3 now provides strong read-after-write consistency for new objects.",
+    "senior_nuance": "S3's eventual consistency story evolved: before 2021, new object reads could return 404 right after a successful PUT due to eventual consistency in metadata propagation. AWS fixed this in 2021. For your own design, define the consistency model explicitly: is a successful PUT visible immediately to all readers or only eventually?",
+    "tags": [
+      "distributed-storage",
+      "s3",
+      "erasure-coding",
+      "metadata",
+      "replication"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-payment-system",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a payment processing system. What are the invariants you must never violate?",
+    "back": "Invariants: (1) No double charge — idempotency key on every payment request. (2) No lost payment — every state transition durably persisted before acknowledged. (3) Balance consistency — balance debits and credits must be atomic. Core components: (1) Payment service — receives charge request, generates idempotency key, calls payment processor (Stripe API). (2) Ledger DB — double-entry accounting table: every transaction = debit entry + credit entry, same amount. (3) Reconciliation service — periodically reconciles internal ledger with payment processor statements. Idempotency: each payment attempt stored with (idempotency_key, status, processor_response). On retry, return stored result if exists.",
+    "senior_nuance": "Double-entry accounting is non-negotiable for financial systems — it makes errors self-evident (credits must equal debits in any balanced subset). Use a separate, append-only ledger table. Never update ledger rows — always add compensating entries for reversals. This makes auditing trivial and prevents data corruption.",
+    "tags": [
+      "payment",
+      "idempotency",
+      "ledger",
+      "double-entry",
+      "reconciliation"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-video-streaming",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "Design a video streaming platform (YouTube scale). Focus on the upload and transcoding pipeline.",
+    "back": "Upload: client uploads raw video to S3 (pre-signed URL for direct-to-S3 upload, bypassing app servers). Transcoding pipeline: S3 upload triggers SQS message. Transcoding workers (EC2 or Lambda) pull jobs, transcode to multiple bitrates/resolutions (H.264, H.265, AV1) using FFmpeg. Output stored back to S3 as HLS or DASH chunks (2-10 second segments per quality level). Adaptive bitrate streaming: player fetches a manifest (m3u8/mpd) listing all quality levels. Player selects bitrate based on measured throughput. CDN: video chunks served from CDN edge, reducing origin load. Metadata: video info (title, description, thumbnail) stored in Postgres + Elasticsearch for search.",
+    "senior_nuance": "Transcoding is CPU-bound and long-running (minutes for a long video). Use spot instances for cost efficiency. Design the transcoding job to be resumable — if a spot instance is interrupted, checkpoint progress so it can restart from the last completed chunk, not from scratch.",
+    "tags": [
+      "video-streaming",
+      "transcoding",
+      "hls",
+      "adaptive-bitrate",
+      "ffmpeg",
+      "cdn"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-global-id-generation",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "How do you generate globally unique IDs at scale? Compare auto-increment, UUID, and Snowflake.",
+    "back": "Auto-increment (DB sequence): globally unique, monotonically increasing. Bottleneck: single DB sequence; doesn't scale to multiple write nodes. UUID v4: random, distributed generation, no coordination. 128-bit, globally unique with negligible collision probability. Cons: random, non-sortable, poor index locality in B-trees (causes page fragmentation). UUID v7: time-ordered UUID, sortable by creation time. Snowflake (Twitter): 64-bit ID = 41 bits timestamp (ms since epoch) + 10 bits machine ID + 12 bits sequence. Sortable by time, fits in a 64-bit int, generated locally without coordination. Instagram uses a variant. ULID is another sortable alternative.",
+    "senior_nuance": "UUID v4 in a primary key column causes B-tree fragmentation — inserts are random across the index, not sequential. This causes frequent page splits and poor cache locality. UUID v7 or Snowflake IDs are strongly preferred for high-insert-rate tables. PostgreSQL 17 native UUID generation uses UUIDv7.",
+    "tags": [
+      "id-generation",
+      "snowflake",
+      "uuid",
+      "ulid",
+      "b-tree-fragmentation"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-web-crawler",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "medium",
+    "front": "Design a web crawler. What are the key correctness and politeness constraints?",
+    "back": "Core loop: (1) Fetch URL from frontier queue. (2) Download HTML. (3) Parse, extract new links. (4) Deduplicate URLs. (5) Add new URLs to frontier. Politeness: respect robots.txt (check before crawling any page). Rate limit per domain (e.g., 1 request/second). Honor Crawl-Delay directive. Deduplication: URL fingerprint via SHA-256 stored in a Bloom filter (fast, low memory) with Redis/Cassandra for confirmed dedup. Frontier priority: PageRank or freshness score determines crawl order. Scale: distributed worker pool, partition frontier queue by domain hash. Pitfalls: infinite loops (URL normalization, cycle detection), dynamic URLs generating infinite pages, honeypot traps.",
+    "senior_nuance": "URL deduplication with a Bloom filter has false positives — some valid new URLs may be incorrectly marked as seen. False positive rate is acceptable for crawling (we'll miss some pages) but must be calibrated. The real complexity is URL canonicalization: http vs https, www vs non-www, trailing slashes, session parameters — all must be stripped to the canonical form before deduplication.",
+    "tags": [
+      "web-crawler",
+      "bloom-filter",
+      "robots-txt",
+      "frontier",
+      "deduplication"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-distributed-kv-store",
+    "topic": "system-design",
+    "subtopic": "canonical-designs",
+    "difficulty": "hard",
+    "front": "Design a distributed key-value store like DynamoDB. What are the core design decisions?",
+    "back": "Core decisions: (1) Partitioning: consistent hashing with vnodes. (2) Replication: each key replicated to N nodes (default 3). (3) Consistency: configurable R+W > N for strong, R+W <= N for eventual. (4) Conflict resolution: vector clocks for conflict detection, last-write-wins or application-level merge. (5) Failure detection: gossip protocol for membership. (6) Hinted handoff: writes intended for down node stored on another and replayed on recovery. (7) Anti-entropy: merkle trees to identify diverged replicas and repair them. (8) Storage engine: LSM-tree (RocksDB) for write-heavy workloads. This is the Dynamo paper architecture.",
+    "senior_nuance": "Merkle trees enable efficient anti-entropy: hash each range of keys recursively. To sync two nodes, compare root hashes — if equal, no sync needed. If different, recurse into subtrees to find divergent ranges. O(log N) round trips to identify diverged keys instead of O(N) full comparison. This is also used in blockchain Merkle roots and Git tree hashing.",
+    "tags": [
+      "dynamo",
+      "kv-store",
+      "consistent-hashing",
+      "vector-clocks",
+      "merkle-tree"
+    ],
+    "mock_eligible": true
+  }
+]

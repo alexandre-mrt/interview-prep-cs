@@ -1,0 +1,116 @@
+[
+  {
+    "id": "sd-sql-vs-nosql",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "easy",
+    "front": "When do you choose SQL over NoSQL? What is the wrong reason to choose NoSQL?",
+    "back": "Choose SQL when: (1) data has complex relationships requiring joins, (2) ACID transactions are required, (3) schema is relatively stable, (4) team is SQL-literate, (5) workload is read-heavy with ad-hoc queries. Choose NoSQL when: (1) scale exceeds what a single SQL node can handle and you need horizontal write scaling, (2) data model is document-oriented or key-value with no need for joins, (3) schema needs to be flexible or evolves rapidly. Wrong reason: 'SQL doesn't scale.' Postgres + read replicas + connection pooling handles millions of req/day. Start with Postgres, justify migration with measured numbers.",
+    "senior_nuance": "Start with a single Postgres behind REST. Justify complexity with numbers. The most expensive operational mistake is premature NoSQL adoption — you lose transactions, joins, and decades of tooling. Add Cassandra or DynamoDB only when you have a concrete sharding requirement that Postgres cannot meet.",
+    "quote_to_say": "Start with a single Postgres behind REST. Justify complexity with numbers.",
+    "tags": ["sql", "nosql", "postgres", "database-selection", "tradeoffs"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-document-store",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "easy",
+    "front": "What is a document store? Give two use cases and two anti-patterns.",
+    "back": "Document store: schema-flexible store for JSON/BSON documents. Each document is self-contained. Examples: MongoDB, Firestore, CouchDB. Use cases: (1) Catalogs — product with variable attributes (electronics vs. apparel have different fields). (2) Content management — blog posts with varying metadata and nested structures. Anti-patterns: (1) Heavy relational queries — you need to join documents across collections; document stores have no native join, forcing application-level joins or $lookup (slow). (2) Financial transactions — if atomicity across multiple documents is required, MongoDB multi-document transactions exist but are complex and slow compared to SQL.",
+    "senior_nuance": "MongoDB's flexible schema is a double-edged sword — in practice, undisciplined teams end up with documents that have inconsistent shapes, making queries hard. Apply schema validation in MongoDB (jsonSchema validator) or use Mongoose-style schemas to enforce shape. The flexibility is an operational risk, not a feature, unless actively managed.",
+    "tags": ["document-store", "mongodb", "firestore", "schema-flexibility"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-kv-store-use-cases",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "easy",
+    "front": "Name four access patterns that are ideal for key-value stores. What is a key-value store bad at?",
+    "back": "Ideal for: (1) Session storage — sessionId -> session data, O(1) lookup. (2) Caching — cache expensive query results keyed by parameters. (3) Rate limiting — userId:minute -> request_count, atomic increment. (4) Feature flags — featureName -> {enabled, rollout_percentage}, fast lookup. Bad at: (1) Range queries — no natural ordering in most KV stores. (2) Complex filtering — need secondary indexes not supported natively. (3) Relationships — you can't express foreign keys. (4) Ad-hoc queries — you must know the key ahead of time. Redis and DynamoDB are the primary KV stores; Redis is in-memory with optional persistence, DynamoDB is durable by default.",
+    "senior_nuance": "Redis sorted sets extend the KV model to support range queries by score. This makes Redis suitable for leaderboards, rate limit sliding windows, and priority queues — use cases that naive KV stores can't handle. Know what Redis data structures enable before defaulting to a separate DB.",
+    "tags": ["key-value", "redis", "dynamo", "session", "caching"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-wide-column-store",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "medium",
+    "front": "What is a wide-column store (Cassandra, Bigtable)? How does the data model differ from a relational DB?",
+    "back": "Wide-column store: tables have rows identified by a partition key. Each row can have millions of columns. Columns are grouped into column families. Data is stored sorted by clustering key within a partition. Unlike relational DB: no joins, no foreign keys, no ad-hoc queries — every query must be backed by a table designed for that access pattern. Denormalization is intentional and required. Bigtable (Google): foundation for HBase, used in Maps, Search. Cassandra: open-source, peer-to-peer, no single point of failure. Use for: time-series data (metric_id + timestamp), write-heavy IoT, audit logs.",
+    "senior_nuance": "The data modeling rule in Cassandra: 'one query, one table.' Design your tables around your queries, not around your entities. Changing your access pattern later may require adding a new table and a backfill. This is the opposite of relational design but leads to very predictable, fast queries.",
+    "tags": [
+      "wide-column",
+      "cassandra",
+      "bigtable",
+      "data-modeling",
+      "denormalization"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-graph-database",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "medium",
+    "front": "When is a graph database the right choice? Give a concrete use case and explain why relational fails.",
+    "back": "Graph DB: data modeled as nodes and edges. Optimized for traversing relationships. Examples: Neo4j, Amazon Neptune, TigerGraph. Use case: social network 'friends of friends' query — find all users within 3 hops of userId X. In relational: recursive CTE or multi-join, O(N^3) with large fan-out, slow at depth > 2. In graph DB: index-free adjacency — each node stores pointers to its neighbors directly, so traversal is O(edges traversed), not O(total nodes). Also ideal for: fraud detection (transaction graph traversal), recommendation engines, knowledge graphs.",
+    "senior_nuance": "Graph DBs are operationally complex and most problems don't need them. A social network with 'who do you follow' is fine in Postgres with a follows table and proper indexing up to ~10M users. Only reach for Neo4j when you have multi-hop traversal requirements at scale that CTEs can't handle within SLO.",
+    "tags": [
+      "graph-database",
+      "neo4j",
+      "neptune",
+      "traversal",
+      "social-network"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-newSQL",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "hard",
+    "front": "What is NewSQL? Give two examples and explain how they achieve horizontal scalability without sacrificing ACID.",
+    "back": "NewSQL: distributed databases that provide ACID guarantees and SQL interface with horizontal scalability. Approaches: (1) Google Spanner — global distributed SQL with TrueTime for external consistency. Shards across zones, 2PC for cross-shard transactions, TrueTime enables globally consistent snapshots without locking. (2) CockroachDB — open-source Spanner-inspired, uses Raft for per-range replication, serializable isolation via MVCC + SSI, auto-rebalancing. (3) TiDB — MySQL-compatible, separates compute (TiDB) from storage (TiKV with Raft). All achieve horizontal write scalability via sharding while keeping distributed transactions via Paxos/Raft consensus.",
+    "senior_nuance": "NewSQL is not free — distributed transactions in Spanner have ~10ms latency (minimum, due to TrueTime commit wait), compared to ~1ms for local Postgres. For global consistency, that latency is the price. CockroachDB's cross-region transaction latency is bounded by network RTT between regions. Use NewSQL when you genuinely need multi-region writes with ACID, not as a default.",
+    "tags": [
+      "newsql",
+      "spanner",
+      "cockroachdb",
+      "tidb",
+      "distributed-transactions",
+      "raft"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-tsdb-vs-relational",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "medium",
+    "front": "Why are purpose-built time-series databases (InfluxDB, TimescaleDB) better than Postgres for metrics at scale?",
+    "back": "Time-series data characteristics: high insert rate, data arrives in timestamp order, queries aggregate over time ranges, old data is queried rarely. Problems with vanilla Postgres: (1) Naive insert of timestamped rows creates unordered heap pages after updates, degrading range scan performance. (2) No built-in retention policies — old data must be manually purged. (3) No native compression for float sequences. TimescaleDB fixes this with hypertables (automatic time-based chunking), native float compression (90%+ compression), automatic data tiering, and continuous aggregations. InfluxDB v2+ uses a purpose-built TSM (Time-Structured Merge Tree) engine optimized for monotonically increasing timestamps.",
+    "senior_nuance": "TimescaleDB extends Postgres, so you keep SQL, joins, and existing Postgres tooling. This is often the right choice over InfluxDB for teams that are already on Postgres. InfluxDB is better when you need extreme write throughput (millions/sec) and are willing to learn InfluxQL/Flux.",
+    "tags": ["time-series", "influxdb", "timescaledb", "postgres", "metrics"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-search-engine-store",
+    "topic": "system-design",
+    "subtopic": "storage-choices",
+    "difficulty": "medium",
+    "front": "When do you add Elasticsearch alongside your primary DB? What is its key limitation?",
+    "back": "Add Elasticsearch when: (1) full-text search with relevance scoring is needed (not just SQL LIKE), (2) faceted search with aggregations (product filters: brand + price range + rating), (3) log analytics requiring free-text queries over structured fields. Elasticsearch builds an inverted index over documents — word -> list of document IDs. This enables sub-second full-text search over billions of documents. Key limitation: Elasticsearch is not the source of truth — sync lag from primary DB means Elasticsearch can be slightly stale. Also: no ACID transactions, limited join support. Use Elasticsearch as a read model; write through primary DB and sync via CDC or application-level dual-write.",
+    "senior_nuance": "The operational cost of Elasticsearch is high — cluster management, shard tuning, mapping migrations, JVM heap sizing. Consider Postgres full-text search (tsvector + GIN index) for simpler use cases before adopting Elasticsearch. At < 10M documents with moderate query complexity, Postgres full-text is often sufficient.",
+    "tags": [
+      "elasticsearch",
+      "full-text-search",
+      "inverted-index",
+      "search",
+      "cdc"
+    ],
+    "mock_eligible": false
+  }
+]

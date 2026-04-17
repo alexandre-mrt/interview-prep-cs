@@ -1,0 +1,125 @@
+[
+  {
+    "id": "mys-founders-origin",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "easy",
+    "front": "Who founded Mysten Labs, and what is the Novi/Diem backstory?",
+    "back": "Mysten Labs was founded in 2021 by five engineers who left Meta's Novi/Diem (formerly Libra) project after Diem wound down. Evan Cheng (CEO, LLVM core contributor, ex-Director of Engineering for PL/Runtimes at Meta), Sam Blackshear (CTO, creator of Move), Adeniyi 'Niyi' Abiodun (CPO, ex-Head of Product at Novi), George Danezis (Chief Scientist, UCL professor, co-author of Narwhal/Bullshark/Mysticeti), and Kostas 'Kryptos' Chalkias (Chief Cryptographer, zkLogin and post-quantum work).",
+    "senior_nuance": "The Diem lineage matters beyond name-dropping: Move, BCS serialization, and the Narwhal/Bullshark consensus family all originated at Novi. Sui is Diem's second life with the account model replaced by objects. Referencing this lineage signals you understand the tech isn't arbitrary design.",
+    "quote_to_say": "Sui is what the Diem team shipped once they could reopen the data model question.",
+    "tags": ["mysten", "founders", "diem", "novi", "meta"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-funding-history",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "easy",
+    "front": "Summarize Mysten Labs' funding history.",
+    "back": "Seed was roughly $36M in Dec 2021 led by a16z crypto with Redpoint, Lightspeed, Coinbase Ventures, Samsung NEXT and others. Series B was $300M in Sep 2022 at a ~$2B valuation, led by FTX Ventures (later restructured post-FTX collapse). Total disclosed is around $336M across two rounds from ~44 investors. Mysten bought back FTX's equity and tokens at a significant discount in mid-2023, which tightened the cap table.",
+    "senior_nuance": "The FTX buyback is a subtle positive signal: it removed a problematic investor at a discount rather than letting a fire sale hit the token. If an interviewer asks about financial health, that's the factual point to anchor on rather than speculation.",
+    "tags": ["mysten", "funding", "a16z", "ftx", "valuation"],
+    "mock_eligible": false
+  },
+  {
+    "id": "mys-sui-stack-positioning",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "medium",
+    "front": "What is the 'Sui Stack' and why does Mysten frame itself this way?",
+    "back": "Sui Stack (S2) is Mysten's 2025-2026 positioning: not just an L1, but a full-stack bundle of Sui (execution), Walrus (decentralized blob storage), Seal (threshold encryption with onchain policies), Nautilus (TEE-based verifiable compute), and DeepBook (onchain CLOB). The thesis is that consumer-grade web3 needs storage, privacy, and compute primitives that a bare L1 does not provide, and that integrating them vertically reduces cross-stack trust assumptions.",
+    "senior_nuance": "The framing is a response to the 'modular vs monolithic' narrative: Sui is monolithic for execution but modular for storage/privacy/compute, and they own all the pieces. It also makes 'why Sui over Ethereum' easier to answer because the comparison is a stack versus just a settlement layer.",
+    "quote_to_say": "Treating Sui as just the L1 misses the Stack thesis. The storage, privacy, and compute primitives are first-party, not add-ons.",
+    "tags": ["mysten", "sui-stack", "positioning", "walrus", "seal"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-hq-headcount",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "easy",
+    "front": "Where is Mysten Labs based and what is the approximate headcount?",
+    "back": "HQ is the San Francisco Bay Area (originally Palo Alto, now SF-adjacent) with a remote-friendly culture. Headcount was around 203 in Jan 2026 per Tracxn, subject to verification for the current month. There is a secondary cryptography/research cluster in London centered on George Danezis. Glassdoor reviews consistently describe the company as remote-friendly with an SF hub.",
+    "senior_nuance": "The London presence matters for cryptography roles: Danezis's UCL lab is effectively Mysten's research pipeline. If you're interviewing for a crypto or research-adjacent role, familiarity with the UCL InfoSec group is a soft signal.",
+    "tags": ["mysten", "hq", "headcount", "remote", "london"],
+    "mock_eligible": false
+  },
+  {
+    "id": "mys-product-lineup",
+    "topic": "mysten",
+    "subtopic": "products",
+    "difficulty": "easy",
+    "front": "List Mysten's flagship products at a glance.",
+    "back": "Sui: the L1 itself (object-centric, Mysticeti consensus, Move). Walrus: decentralized blob storage with Red Stuff erasure coding and Sui as the control plane. Seal: threshold encryption with onchain access policies (mainnet Jan 2026). Nautilus: verifiable offchain compute via AWS Nitro Enclaves. DeepBook: native onchain CLOB. SuiNS: naming service. Kiosk: NFT marketplace primitive with enforceable royalties.",
+    "senior_nuance": "The interview move is to describe these as one integrated stack, not a list. Seal stores ciphertext on Walrus, Nautilus attestations land on Sui, DeepBook is a Sui shared object. The integration is the product.",
+    "tags": [
+      "mysten",
+      "products",
+      "sui",
+      "walrus",
+      "seal",
+      "nautilus",
+      "deepbook"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-2026-roadmap",
+    "topic": "mysten",
+    "subtopic": "roadmap",
+    "difficulty": "medium",
+    "front": "What are the named 2026 roadmap items for Sui and Mysten?",
+    "back": "Publicly named items include: a native trust-minimized ETH bridge; Remora, a horizontal scaling or sharding-adjacent design; expanded SuiNS for wallet onboarding; zkLogin hardening; and a privacy stack (Seal plus on-chain encryption primitives, outlined by Niyi Abiodun as 'full privacy while remaining compliant'). Gaming is publicly framed as a 'delivery year' with EVE Frontier (CCP Games) and Xociety as flagship Sui-native titles.",
+    "senior_nuance": "Remora is the most interesting roadmap item for a systems interviewer. The object model makes sharding more natural than on account-based chains because you can partition by object ID, but cross-shard PTBs still need atomic 2PC-style coordination. If you bring up Remora, have an opinion on how cross-shard atomicity should be handled.",
+    "quote_to_say": "Remora looks like the place the object model finally pays for itself on scaling, not just on parallel execution.",
+    "tags": ["mysten", "roadmap", "remora", "sharding", "privacy", "bridge"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-positioning-vs-peers",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "medium",
+    "front": "How does Mysten position Sui vs Ethereum, Solana, and Aptos?",
+    "back": "Vs Ethereum: Sui is an alternative L1 (not an L2), optimizing throughput, parallelism, and UX (zkLogin) over EVM compatibility; a native ETH bridge is on the 2026 roadmap. Vs Solana: the closest peer on 'monolithic L1 for performance,' but differentiates via the object model and Move's safety versus Solana's account model plus unrestricted Rust. Vs Aptos: the other Move chain (also ex-Diem) uses core Move with an account/resource model closer to original Diem and Bullshark-based consensus.",
+    "senior_nuance": "Do not bash competitors. Mysten's culture document explicitly values respectful criticism of ideas, not people or other chains. The right framing is 'different bets on the same tradeoff surface' not 'we're better.' That phrasing alone will score points over someone who dunks on Solana.",
+    "quote_to_say": "Sui and Solana made different bets on the same tradeoff surface. The object model is a design choice, not a scoreboard.",
+    "tags": ["mysten", "positioning", "ethereum", "solana", "aptos"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-recent-news-summary",
+    "topic": "mysten",
+    "subtopic": "news",
+    "difficulty": "medium",
+    "front": "What are the last six months of notable Mysten/Sui news (Oct 2025 - Apr 2026)?",
+    "back": "Mysticeti v2 shipped Nov 6, 2025 (merges validation into consensus, ~25-35% latency reduction). Seal mainnet launched Jan 2026 (onchain-policy-gated threshold encryption). Nautilus framework published (AWS Nitro TEE verifiable compute). A Jan 14, 2026 mainnet halt (~6h) caused by a consensus commit edge case. Public privacy roadmap outlined by Niyi Abiodun. Alibaba Cloud APAC partnership announced. EVE Frontier and Xociety launches on Sui.",
+    "senior_nuance": "If an interviewer asks 'anything you've been following?' pick Mysticeti v2 or the Jan 14 outage, not product launches. Both show you track engineering reality rather than marketing. Bringing up the outage is a senior move because it demonstrates you care about production behavior.",
+    "tags": ["mysten", "news", "mysticeti-v2", "seal", "outage"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-github-where-to-read",
+    "topic": "mysten",
+    "subtopic": "company",
+    "difficulty": "easy",
+    "front": "What are the key Mysten GitHub repos worth reading before an interview?",
+    "back": "MystenLabs/sui is the monorepo (Rust, 2M+ LOC, active PR velocity with public review). MystenLabs/narwhal is the historical Narwhal implementation. MystenLabs/seal is the threshold encryption product. MystenLabs/nautilus is the TEE framework. MystenLabs/fastcrypto is the cryptography library used across the stack. MystenLabs/walrus is the storage network. MystenLabs/move is their Move fork with Sui-specific abilities and object semantics.",
+    "senior_nuance": "Do not claim you read all of them. Pick one module in sui (say, the consensus crate or an execution crate) and have a concrete opinion. Saying 'I spent an hour reading the consensus commit path and here's what surprised me' is infinitely stronger than 'I read the monorepo.'",
+    "tags": ["mysten", "github", "monorepo", "fastcrypto", "narwhal"],
+    "mock_eligible": false
+  },
+  {
+    "id": "mys-culture-reading-list",
+    "topic": "mysten",
+    "subtopic": "culture",
+    "difficulty": "easy",
+    "front": "What should you pre-read before a Mysten interview loop?",
+    "back": "At minimum: Sui docs landing page, 'How Sui Works' and 'Life of a transaction,' the Mysticeti paper abstract plus the commit rule section, the DAG-BFT blog post from Decentralized Thoughts, the Move abilities page, PTB documentation, a zkLogin explainer, the 2025 Sui Stack retrospective, a Walrus intro plus Red Stuff overview, and the Jan 14 2026 post-mortem. Mysten recruiters explicitly cite Evan Cheng's Web Summit 2022 CEO talk as recommended pre-reading.",
+    "senior_nuance": "The real signal is that you have an opinion on one thing from this list. Walking in with 'I read the Mysticeti paper and the commit rule section made me wonder about X' will outperform reciting facts. Interviewers will probe depth on whatever you claim to have read.",
+    "quote_to_say": "I read the Mysticeti commit rule and it made me think about what v2's merged validation gives up for the latency win.",
+    "tags": ["mysten", "culture", "prep", "papers"],
+    "mock_eligible": false
+  }
+]

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "algos-heap-properties",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "easy",
+    "front": "State the heap property and the time complexities of insert, extract-min, and heapify.",
+    "back": "A min-heap satisfies: every parent value is <= its children. Insert (sift up): O(log n). Extract-min (sift down): O(log n). Build heap from array via heapify: O(n) — not O(n log n) — because most nodes are near the bottom and sift short distances. Peek at minimum: O(1). The array representation stores node i's children at 2i+1 and 2i+2 (0-indexed).",
+    "senior_nuance": "The O(n) heapify proof uses the fact that nodes at depth d must sift down at most (height - d) levels, and summing over all levels gives a convergent geometric series. This is non-obvious and worth stating in an interview — it's what separates O(n) heapify from the naive O(n log n) of inserting elements one by one.",
+    "quote_to_say": "Heapify is O(n), not O(n log n) — geometric series convergence.",
+    "tags": ["heap", "priority-queue", "heapify", "complexity"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-kth-largest-element",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "medium",
+    "front": "Find the k-th largest element in an unsorted array. Compare heap and quickselect approaches.",
+    "back": "Heap approach: maintain a min-heap of size k. For each element, push it; if heap size exceeds k, pop the minimum. The heap top is the k-th largest. Time O(n log k), space O(k). Quickselect: partition around a pivot; if the pivot ends at index n-k, it's the answer; recurse into the relevant partition. Average O(n), worst case O(n^2), space O(1).",
+    "senior_nuance": "Quickselect with a random pivot achieves O(n) expected time and is the preferred algorithm for single queries on large arrays. However, its O(n^2) worst case is a concern for adversarial inputs. Introselect (used in C++ std::nth_element) combines quickselect with median-of-medians fallback to guarantee O(n) worst case. In streaming contexts, the heap is the only option.",
+    "quote_to_say": "Streaming k-th largest: min-heap of size k. Static array: quickselect.",
+    "tags": ["heap", "quickselect", "kth-largest"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-merge-k-sorted-lists",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "hard",
+    "front": "Merge k sorted linked lists. What is the optimal algorithm and its complexity?",
+    "back": "Use a min-heap of size k initialized with each list's head. Repeatedly extract the minimum node, add it to the result, and push that list's next node (if any) into the heap. Total time O(N log k) where N is total nodes and k is the number of lists, since each of the N nodes is pushed and popped once from a heap of size at most k.",
+    "senior_nuance": "Divide-and-conquer merging (merge lists pairwise, reducing to k/2 lists per round) also achieves O(N log k) — the same asymptotic bound. The heap approach has better constant factors for large k because it avoids repeated comparisons of already-merged portions. For k=2 (two lists), both degenerate to the standard merge, which is O(N).",
+    "quote_to_say": "k sorted lists: min-heap of size k, O(N log k) total.",
+    "tags": ["heap", "linked-list", "merge", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-median-stream",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "hard",
+    "front": "Find the median of a data stream in O(log n) insert and O(1) find-median.",
+    "back": "Maintain two heaps: a max-heap for the lower half and a min-heap for the upper half. On each insert: push to the max-heap, then move its top to the min-heap, then rebalance so sizes differ by at most 1. The median is the max-heap top (odd total) or average of both tops (even total). Insert is O(log n); find-median is O(1).",
+    "senior_nuance": "The rebalancing step ensures the max-heap always has the lower half and its maximum is the lower median. Without the push-then-transfer step, a new element that belongs in the upper half could corrupt the max-heap invariant. An alternative using an order-statistic tree gives O(log n) insert and O(log n) median but is more complex to implement.",
+    "quote_to_say": "Two heaps for median stream: max-heap below, min-heap above.",
+    "tags": ["heap", "median", "stream", "design", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-top-k-frequent",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "medium",
+    "front": "Find the top k frequent elements in an array. What is the most efficient approach?",
+    "back": "Count frequencies with a hashmap in O(n). Use a min-heap of size k on (frequency, element) pairs. Iterate through the hashmap; push each pair and pop if heap size exceeds k. Final heap contains the k most frequent elements. Total time O(n log k). Alternatively, bucket sort by frequency: O(n) time using an array of size n where bucket[freq] holds elements.",
+    "senior_nuance": "The bucket sort approach is O(n) and uses O(n) space, which is strictly better asymptotically than the heap approach O(n log k). However, bucket sort requires knowing the maximum possible frequency (bounded by n), while the heap approach generalizes to any comparable score. In interviews, proposing both and comparing is the senior signal.",
+    "tags": ["heap", "hashmap", "frequency-count", "top-k"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-task-scheduler",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "medium",
+    "front": "Given CPU tasks and a cooldown period n, find the minimum time to finish all tasks.",
+    "back": "The formula-based approach: sort task frequencies, the answer is max(total_tasks, (max_freq - 1) * (n + 1) + count_of_tasks_with_max_freq). Intuition: arrange tasks in rounds of (n+1) with the most frequent task anchoring each round. If there are enough variety of tasks, no idle time is needed. Heap-based simulation also works in O(T log T) but the formula is O(T).",
+    "senior_nuance": "The mathematical formula is O(T) and works because idle slots are determined entirely by the most frequent task and the cooldown. The simulation approach (greedy: always pick the most frequent available task using a max-heap) is more generalizable to variants where the cooldown varies per task type, but the formula is elegant for the standard version.",
+    "tags": ["heap", "greedy", "scheduling"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-heap-sort",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "medium",
+    "front": "Describe heap sort. What are its time and space complexities, and why is it rarely used in practice?",
+    "back": "Heap sort: (1) Build a max-heap from the array in O(n). (2) Repeatedly swap the root (maximum) with the last element and sift down the new root, reducing heap size by 1. Total time O(n log n), space O(1) in-place. It is comparison-optimal and in-place, yet rarely used in practice because its cache access patterns are poor (sift-down accesses distant array indices), making it 2-5x slower than quicksort on real hardware.",
+    "senior_nuance": "Big-O is the ceiling; cache behavior is the floor. Heapsort's O(n log n) worst-case guarantee beats quicksort's O(n^2) worst case, but quicksort's sequential memory access pattern makes it faster on modern CPUs with caches. Introsort (used in GCC's std::sort) uses quicksort by default and falls back to heapsort only when recursion depth exceeds 2 log n, getting the best of both.",
+    "quote_to_say": "Big-O is the ceiling; cache behavior is the floor.",
+    "tags": ["heap", "sorting", "cache", "introsort"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-k-closest-points",
+    "topic": "algos",
+    "subtopic": "heaps-priority",
+    "difficulty": "medium",
+    "front": "Find the k closest points to the origin from a list of points.",
+    "back": "Use a max-heap of size k keyed by squared Euclidean distance (avoid sqrt for comparison). For each point, push it; if heap size exceeds k, pop the farthest. Remaining heap elements are the k closest. Time O(n log k), space O(k). Quickselect achieves O(n) average by partitioning on distance without sorting, but does not maintain a sorted result.",
+    "senior_nuance": "Using squared distance avoids the floating-point sqrt operation, which is important for correctness with exact integer comparisons and also faster. This is the same optimization as comparing distances^2 when sorting by proximity — a minor but professional-grade detail that signals attention to practical efficiency.",
+    "tags": ["heap", "geometry", "kth-closest", "quickselect"],
+    "mock_eligible": false
+  }
+]

@@ -1,0 +1,72 @@
+[
+  {
+    "id": "mys-zklogin-flow",
+    "topic": "mysten",
+    "subtopic": "zklogin",
+    "difficulty": "hard",
+    "front": "Walk through the zkLogin flow end-to-end.",
+    "back": "1) User signs in via OAuth (Google, Facebook, Apple, Twitch) and obtains a JWT. 2) Client generates an ephemeral keypair with a short expiry and embeds its public key in the OAuth nonce so the JWT commits to it. 3) Sui address is derived as H(iss, aud, sub, salt) where salt is kept off the OAuth provider. 4) Client generates a Groth16 proof over a circom circuit proving the JWT was signed by the known OAuth public key, sub matches the address, and the ephemeral pubkey is embedded in the nonce, without revealing sub or the full JWT. 5) Transaction is sent with the ephemeral signature plus the zk proof plus epoch bounds. 6) Validators verify the Groth16 proof using the trusted-setup verifying key and accept the tx.",
+    "senior_nuance": "The salt is a per-user value kept out-of-band so the OAuth provider cannot grind addresses from their own user base. That's what makes zkLogin 'two-factor': you need a recent OAuth login AND the salt. If OAuth is compromised without the salt, addresses are unreachable. If the salt leaks but OAuth is unavailable, still no signing.",
+    "quote_to_say": "zkLogin's two-factor model is subtler than people give it credit for: the provider can't grind addresses because they don't have the salt.",
+    "tags": ["zklogin", "oauth", "groth16", "salt"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-zklogin-groth16-choice",
+    "topic": "mysten",
+    "subtopic": "zklogin",
+    "difficulty": "hard",
+    "front": "Why did Sui pick Groth16 over PLONK for zkLogin?",
+    "back": "Groth16 has the smallest proof size (~128 bytes) and the cheapest verifier (a few ms), at the cost of per-circuit trusted setup (Phase 1 universal plus Phase 2 per-circuit). PLONK has a universal setup (Phase 1 only) and more flexibility for circuit updates, but larger proofs and slightly more expensive verify. Sui picked Groth16 because the zkLogin circuit is fixed (JWT parse plus commitment checks) and verification runs on every validator for every login transaction: optimize for verify.",
+    "senior_nuance": "The tradeoff crystallizes the 'verifier-bound vs prover-bound' axis of zk choice. When the verifier is cheap and runs many times, Groth16 wins. When the circuit changes often or the prover is constrained, PLONK or Halo2 win. Naming this axis is the senior signal.",
+    "tags": ["zklogin", "groth16", "plonk", "trusted-setup"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-zklogin-ceremony",
+    "topic": "mysten",
+    "subtopic": "zklogin",
+    "difficulty": "medium",
+    "front": "What was the zkLogin CRS ceremony, and why does soundness only need one honest contributor?",
+    "back": "Sui ran a multi-party trusted setup (Phase 2 of Groth16) to generate the per-circuit CRS for zkLogin. It received 111 contributions (82 browser, 29 Docker). Each contributor adds randomness to the setup and destroys their toxic waste. Groth16's setup requires only one honest contributor for soundness: as long as at least one person actually discarded their secret randomness, no proof can be forged even if every other contributor was malicious.",
+    "senior_nuance": "The 'one honest contributor' property is why MPC trusted setups are considered acceptable in practice. You don't need to trust any specific participant; you need the set to have at least one good actor, and you don't need to know which. This is different from a single-party setup where you must trust the operator.",
+    "tags": ["zklogin", "ceremony", "trusted-setup", "crs"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-seal-architecture",
+    "topic": "mysten",
+    "subtopic": "seal",
+    "difficulty": "hard",
+    "front": "What is Seal and how does it gate decryption?",
+    "back": "Seal (mainnet Jan 2026) is Mysten's decentralized secrets management layer. A quorum of key-server nodes hold shares of per-policy master keys. Apps encrypt with Seal's public keys and store ciphertext anywhere (commonly Walrus). An onchain Move policy decides who can request decryption: when a caller satisfies the policy at the smart-contract level, they can request and reconstruct the decryption key from the threshold of key servers. Ciphertext is portable; access control lives in Move.",
+    "senior_nuance": "The architectural win is that access control becomes expressible in the same language as the rest of your app. You don't wire up a separate IAM system or an off-chain access broker. If your business logic already lives in Move, your decryption policy lives right next to it. The tradeoff is trust in the threshold of key servers: Seal's security is capped by the honesty of that quorum.",
+    "quote_to_say": "Seal makes decryption a Move policy. Access control speaks the same language as your app.",
+    "tags": ["seal", "threshold", "encryption", "key-servers"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-nautilus-tee",
+    "topic": "mysten",
+    "subtopic": "nautilus",
+    "difficulty": "hard",
+    "front": "What is Nautilus and what does it let Sui apps do?",
+    "back": "Nautilus is Mysten's framework for verifiable offchain computation using AWS Nitro Enclaves (TEE). A Sui smart contract can receive signed attestations from an enclave proving that a given computation ran in an approved and measured environment. Combined with Seal, you get 'compute over encrypted data with onchain verifiability' without rolling your own MPC or FHE. Attestations include the enclave measurement (PCR values) and the computation output signed by the AWS Nitro attestation root.",
+    "senior_nuance": "A senior answer names the trust root: Nautilus leans on Amazon's Nitro root of trust. That's a deliberate choice over MPC or FHE, which are more decentralized but orders of magnitude more expensive. Mysten has said they don't want the whole stack locked into a single TEE vendor, so expect either enclave diversity or eventual MPC options down the road.",
+    "quote_to_say": "Nautilus is a pragmatic TEE bet: AWS Nitro for speed today, with room to add vendors or swap to MPC later.",
+    "tags": ["nautilus", "tee", "nitro", "attestation"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-seal-nautilus-walrus-combo",
+    "topic": "mysten",
+    "subtopic": "privacy",
+    "difficulty": "hard",
+    "front": "How do Seal, Nautilus, and Walrus compose into a privacy stack?",
+    "back": "Walrus stores the ciphertext (cheap, durable, decentralized). Seal gates the decryption key via onchain Move policy enforced by a threshold of key servers. Nautilus runs the actual computation over the decrypted data inside an attested enclave, returning a signed result to a Sui smart contract. The user never exposes plaintext outside the enclave, the policy is enforced in Move, and the storage substrate is independent of the compute substrate.",
+    "senior_nuance": "This is the clean 'Sui Stack' demonstration: four products compose into a property (private compute with onchain verifiability) that no single one of them provides. If an interviewer asks how you'd build confidential DeFi on Sui, this is the exact shape. Anticipate questions on failure modes: what if Nautilus attestation fails, what if a key server is offline, what if Walrus recovery is running.",
+    "quote_to_say": "The stack thesis only matters if the products compose. Seal plus Nautilus plus Walrus is the proof point.",
+    "tags": ["seal", "nautilus", "walrus", "privacy-stack"],
+    "mock_eligible": true
+  }
+]

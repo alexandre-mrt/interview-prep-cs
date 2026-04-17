@@ -1,0 +1,60 @@
+[
+  {
+    "id": "mys-walrus-overview",
+    "topic": "mysten",
+    "subtopic": "walrus",
+    "difficulty": "medium",
+    "front": "What is Walrus and how does it use Sui?",
+    "back": "Walrus is Mysten's decentralized blob storage network. It stores blobs across storage nodes using erasure coding and uses Sui as the control plane: commitments, payments, availability attestations, and governance all live as Sui objects and Move logic. The $WAL token pays for storage and stakes nodes. Seal ciphertexts are commonly stored on Walrus, which is how the privacy stack composes with storage.",
+    "senior_nuance": "The interview framing is that Walrus outsources coordination to Sui rather than running its own consensus. That saves enormous complexity: payments, governance, and proofs-of-storage all become Move modules, and the Walrus protocol focuses on erasure coding and repair. This is a general pattern: 'use a smart-contract platform as the coordination plane for a specialized data network.'",
+    "quote_to_say": "Walrus is erasure coding plus a Sui control plane. The split is the design.",
+    "tags": ["walrus", "storage", "erasure-coding", "control-plane"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-walrus-red-stuff",
+    "topic": "mysten",
+    "subtopic": "walrus",
+    "difficulty": "hard",
+    "front": "Describe Walrus's Red Stuff encoding at a block-diagram level.",
+    "back": "Red Stuff is a 2D erasure code based on the Twin-code framework. A blob is encoded into f+1 primary slivers (vertical dimension) and 2f+1 secondary slivers (horizontal dimension). Each storage node holds one primary and one secondary sliver. Reconstruction can be done from either dimension, which gives the self-healing property. Replication factor is roughly 4.5x for Byzantine tolerance, compared to ~3x for naive replication with no Byzantine guarantee.",
+    "senior_nuance": "The property to highlight is that recovery bandwidth is proportional to the amount of lost data, not the full blob. If one node drops out, surviving nodes contribute their slivers and regenerate the lost ones without a central coordinator re-replicating the whole object. That is what makes Walrus viable at scale; naive Reed-Solomon would re-ingest the entire blob per repair.",
+    "quote_to_say": "Red Stuff's self-healing property — bandwidth proportional to lost data, not full blob — is what makes Walrus viable at the scale of a Sui-backed storage network.",
+    "tags": ["walrus", "red-stuff", "erasure-coding", "self-healing"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-walrus-availability",
+    "topic": "mysten",
+    "subtopic": "walrus",
+    "difficulty": "medium",
+    "front": "What availability guarantee does Walrus provide?",
+    "back": "Blobs remain retrievable even if up to 2/3 of the storage network is offline, the same threshold as a BFT consensus protocol. This is achieved by the (f+1, 2f+1) sliver distribution: any 2f+1 storage nodes collectively hold enough slivers to reconstruct the blob from either dimension of Red Stuff. The trust model matches the rest of Sui so operators only have to reason about one honest-majority assumption across the stack.",
+    "senior_nuance": "The subtle tradeoff is that availability is a function of the storage set size and the sliver distribution, not the replication count alone. Mysten's choice to match the BFT f threshold keeps the mental model consistent with consensus, which is an operational win (one honest-majority assumption everywhere).",
+    "tags": ["walrus", "availability", "bft", "fault-tolerance"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-walrus-sui-integration",
+    "topic": "mysten",
+    "subtopic": "walrus",
+    "difficulty": "medium",
+    "front": "How does Walrus integrate with Sui objects and payments?",
+    "back": "Blob ids and commitments live as Sui objects. Storing a blob mints a Move object you own; you can transfer it, set expiration, charge for reads, or freeze it immutable. Payments are Sui transactions denominated in $WAL (and potentially SUI for gas). Storage nodes stake $WAL and can be slashed via Move logic for unavailability. The Move type system enforces that you cannot 'forget' to pay for a blob extension or let a payment race with a deletion.",
+    "senior_nuance": "This is a textbook example of why the object model pays off: 'a blob is an owned object you pay for periodically' is directly representable. On an account-model chain you would build a separate registry contract and accept its security model. On Sui the blob itself is the capability.",
+    "tags": ["walrus", "sui-objects", "payment", "wal-token"],
+    "mock_eligible": true
+  },
+  {
+    "id": "mys-walrus-design-tradeoffs",
+    "topic": "mysten",
+    "subtopic": "walrus",
+    "difficulty": "hard",
+    "front": "If you were designing Walrus from scratch, what would you watch for?",
+    "back": "Four levers. 1) Replication factor: Red Stuff's ~4.5x is chosen to tolerate Byzantine nodes; cheaper codes give up tolerance. 2) Recovery bandwidth: must be proportional to lost data, not full blob, or the network collapses under churn. 3) Metadata scaling: blob ids and commitments on Sui must not bottleneck the shared-object path. 4) Economic incentives: unavailability must be detectable and slashable, which means challenge-response proofs-of-storage visible to the control plane.",
+    "senior_nuance": "Be specific about the proof-of-storage mechanism. You cannot just trust a storage node to say 'I still have it.' The challenge flow (random sliver audit) and the punishment flow (slash on failure) must be formally specified and cheap to run continuously. This is where most storage networks quietly fall short.",
+    "quote_to_say": "Proof-of-storage is the economic spine of a decentralized storage network. Without it, replication factor is theater.",
+    "tags": ["walrus", "design", "proof-of-storage", "economics"],
+    "mock_eligible": true
+  }
+]

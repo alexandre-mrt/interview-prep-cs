@@ -1,0 +1,257 @@
+[
+  {
+    "id": "be-prom-metric-types",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "What are Prometheus's four metric types? When do you choose each?",
+    "back": "Counter: monotonically increasing value, only goes up (resets on restart). Use for: total requests, errors, bytes sent. Never use for values that can decrease. Gauge: value that can go up or down. Use for: current connections, memory usage, queue depth, temperature. Histogram: samples observations into configurable buckets; exposes _bucket, _sum, _count. Use for: request durations, response sizes — allows server-side quantile calculation via histogram_quantile(). Summary: client-side quantiles (φ-quantiles computed in the client). Use for: accurate quantiles on a single instance when bucket precision matters — but quantiles cannot be aggregated across instances. In distributed systems, Histogram is almost always preferred over Summary.",
+    "senior_nuance": "Histogram bucket configuration is critical: default buckets [.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10] suit HTTP latency in seconds. For blockchain RPC latency (50ms-5s), configure custom buckets. Too few buckets: imprecise quantiles. Too many: memory overhead. Native histograms (Prometheus 2.40+): automatically configurable resolution, avoids bucket misconfiguration problem. histogram_quantile() interpolates within the bucket containing the quantile — configure buckets so your SLO target (e.g., 200ms) falls within a bucket boundary.",
+    "quote_to_say": "Counter for 'how many', Gauge for 'how many right now', Histogram for 'how long' — and Histogram wins over Summary in microservices because you can aggregate.",
+    "tags": [
+      "prometheus",
+      "metrics",
+      "counter",
+      "gauge",
+      "histogram",
+      "summary"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-prom-cardinality",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "You added a user_id label to a Prometheus counter. Now the metrics backend is choking. What happened and how do you fix it?",
+    "back": "High-cardinality labels create one time series per unique value. With 1M users you created 1M series; Prometheus stores series in memory so you OOM'd the TSDB. Fix: drop the label, aggregate before scraping, or use exemplars with trace IDs. For per-user diagnostics use tracing (Jaeger) or log-based metrics.",
+    "senior_nuance": "Prometheus cardinality limits are a feature — they force you to decide what you're measuring. 'Per user' is rarely what you want; you want 'by tier' or 'by route'. Thanos Ruler and Cortex have per-tenant cardinality limits to enforce this at ingestion. Exemplars (OpenMetrics spec) let you attach a trace_id to a histogram observation without creating a new time series — one exemplar per bucket, low overhead, links metrics to traces. TSDB compaction reduces series over time but cardinality is a real-time TSDB head problem.",
+    "quote_to_say": "Labels are for dimensions you'll aggregate across, not IDs you'll query by.",
+    "tags": ["prometheus", "cardinality", "observability", "tsdb", "exemplars"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-prom-promql",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "Walk through the essential PromQL functions: rate, irate, increase, histogram_quantile. When do you use each and what are the gotchas?",
+    "back": "rate(counter[5m]): per-second average rate over 5 minutes. Handles counter resets. Use for: alerting, dashboards showing throughput. irate(counter[5m]): rate of last two samples — very responsive but spiky. Use for: real-time monitoring, not alerting. increase(counter[5m]): total increase over 5m (= rate * 300). Useful for: 'requests in the last 5 minutes'. histogram_quantile(0.99, rate(http_duration_seconds_bucket[5m])): p99 latency. Requires applying rate() to _bucket before quantile. by/without: group by or aggregate removing labels. offset: query past values. subquery: [5m:1m] runs a range query on an instant query.",
+    "senior_nuance": "Common mistakes: (1) histogram_quantile on raw _bucket without rate() — gives meaningless increasing values; (2) irate for alerting — spiky, causes alert flapping; (3) rate with too-short range (< 2 scrape intervals) — mathematically unreliable; (4) aggregating summaries from multiple instances — quantile averages are statistically wrong. For SLO burn rate alerts: multi-window alerting (1h + 5m windows) catches both sustained degradation and sudden spikes. record rules pre-compute expensive queries (histogram_quantile at record time, query cheap result).",
+    "quote_to_say": "rate() for alerts, irate() for live dashboards — and always apply rate() to histogram_bucket before histogram_quantile().",
+    "tags": [
+      "prometheus",
+      "promql",
+      "rate",
+      "irate",
+      "histogram_quantile",
+      "observability"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-prom-scrape",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "How does Prometheus scraping work? What is the pull model and what are its tradeoffs vs push?",
+    "back": "Prometheus scrapes: it polls HTTP /metrics endpoints at scrape_interval (default 15s). Targets are discovered via static config or service discovery (Kubernetes SD, AWS EC2 SD, Consul SD). Pull model advantages: Prometheus controls the scrape rate (no client-side thundering herd), failed scrapes are visible (up metric), no need for agent on every target, easy local testing. Push model advantages: better for short-lived jobs (batch, Lambda), NAT-traversal (push to external endpoint). Hybrid: Pushgateway for batch jobs that push metrics, then Prometheus scrapes Pushgateway. Caution: Pushgateway has no TTL — stale metrics persist until manually deleted.",
+    "senior_nuance": "Kubernetes service discovery: Prometheus discovers pods/services via K8s API, uses annotations (prometheus.io/scrape: 'true', prometheus.io/path: /metrics, prometheus.io/port: '8080') to configure scraping. relabel_configs: drop non-annotated targets, rewrite labels at scrape time. Remote write: Prometheus writes timeseries to Thanos/Cortex/Mimir for long-term storage and global querying. Scrape interval and retention are independent — Prometheus default retention is 15 days in local TSDB.",
+    "quote_to_say": "The pull model makes every scrape failure visible via the 'up' metric — that's free health monitoring for every target.",
+    "tags": [
+      "prometheus",
+      "scraping",
+      "pull-model",
+      "service-discovery",
+      "pushgateway"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-red-use",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "Explain the RED method and the USE method. When do you apply each?",
+    "back": "RED (Rate, Errors, Duration): for services and request-driven workloads. Rate: requests per second. Errors: error rate (% of requests that fail). Duration: response time distribution (p50, p95, p99). Apply to: APIs, microservices, gRPC endpoints. USE (Utilization, Saturation, Errors): for resources (infrastructure). Utilization: % of time resource is busy. Saturation: how much extra work is queued (e.g., CPU run queue, disk I/O wait). Errors: hardware errors, kernel errors. Apply to: CPU, memory, disk, network interfaces, Kubernetes nodes. Both methods together give the full picture: RED for 'is the service serving users well?', USE for 'is the infrastructure holding up?'",
+    "senior_nuance": "The Four Golden Signals (Google SRE book): Latency, Traffic, Errors, Saturation — RED is a subset (Latency=Duration, Traffic=Rate, Errors=Errors) plus Saturation. For blockchain nodes: RED maps to RPC request rate/errors/latency; USE maps to block processing utilization, peer count saturation (maxpeers approached), and network errors. USE saturation is often the leading indicator before errors appear — CPU run queue depth rising predicts latency degradation before it shows in RED.",
+    "quote_to_say": "RED tells me if users are suffering, USE tells me why — I build dashboards with both layers.",
+    "tags": ["observability", "red", "use", "metrics", "sre", "golden-signals"],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-prom-histogram-vs-summary",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "What is the key difference between Prometheus histograms and summaries? Why can't summary quantiles be aggregated?",
+    "back": "Histogram: buckets are pre-defined server-side (at scrape time). Quantiles computed at query time from aggregated bucket data across all instances. Aggregatable: sum(rate(histogram_bucket[5m])) across instances, then histogram_quantile(). Summary: quantiles computed client-side per-instance, streamed as gauge-like values (p50=0.12, p99=0.95). Not aggregatable: avg(p99) across instances is mathematically wrong (the mean of quantiles is not the quantile of the population). Example: 3 instances, p99 latencies 100ms, 500ms, 200ms — avg is 267ms, but the actual p99 of all requests combined requires the raw distribution data (only histograms preserve it).",
+    "senior_nuance": "Summary requires a sliding time window in the client (e.g., 10-minute quantile window) — this adds memory overhead per metric. Histogram avoids client-side state. Summary is useful in single-instance scenarios (standalone app, not horizontally scaled) where you need precise quantiles without bucket configuration. Prometheus native histograms (experimental) merge the benefits: no pre-defined buckets, aggregatable. Grafana's exemplar support shows trace IDs on histogram data points — click a spike, jump to the trace.",
+    "quote_to_say": "If you're running more than one instance, use histogram — you can't average percentiles.",
+    "tags": [
+      "prometheus",
+      "histogram",
+      "summary",
+      "quantiles",
+      "aggregation",
+      "observability"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-slo-sli-error-budget",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "Define SLI, SLO, and error budget. How do you write a burn-rate alert?",
+    "back": "SLI (Service Level Indicator): a measurable metric (e.g., % of HTTP requests returning 2xx in < 200ms). SLO (Service Level Objective): target value for SLI (e.g., 99.9% of requests in < 200ms over 30 days). Error budget: the allowed failure rate = 1 - SLO (0.1% = 43.2 min/month for 99.9% SLO). Burn rate: how fast you're spending the error budget. 1x burn rate = exactly at budget (will exhaust in 30 days). 14.4x burn rate = exhaust in 2 days. Multi-window alert: fire if burn rate > 14.4x over 1h AND > 14.4x over 5m (fast burn) OR > 6x over 6h AND > 6x over 30m (slow burn). PromQL: sum(rate(http_requests_failed[1h])) / sum(rate(http_requests_total[1h])) > (14.4 * 0.001).",
+    "senior_nuance": "Error budget policy: when budget is < 50% remaining, freeze non-essential features and focus on reliability work. When at 0%, incident process triggers regardless of severity. Error budgets make reliability negotiations quantitative — engineering and product agree on the budget, not on SLA percentages. Exhausting the budget means users experienced exactly as much unreliability as was agreed. Alert on burn rate not raw error rate: burn rate alerts catch sustained low-level degradation that threshold alerts miss.",
+    "quote_to_say": "Error budget converts 'we need to be more reliable' into 'we have 12 minutes of budget left this month' — it's the shared language between eng and product.",
+    "tags": [
+      "slo",
+      "sli",
+      "error-budget",
+      "burn-rate",
+      "prometheus",
+      "sre",
+      "alerting"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-obs-tracing",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "What is distributed tracing? Explain trace context propagation, spans, and when tracing fills gaps that metrics cannot.",
+    "back": "Distributed trace: a tree of spans representing a single request across multiple services. Each span: operation name, start time, duration, tags (key-value), logs, parent span ID. Trace context propagated via HTTP headers (W3C TraceContext: traceparent header) or gRPC metadata. Jaeger/Zipkin/Tempo collect and visualize traces. Sampling: head-based (sample at ingress, propagate decision) or tail-based (buffer all spans, sample based on outcome — e.g., always keep errors). Metrics tell you 'p99 is 500ms'. Tracing tells you 'this specific request spent 480ms in the database query on line 42'.",
+    "senior_nuance": "OpenTelemetry is the standard: one SDK for traces, metrics, and logs; multiple backends (Jaeger, Tempo, Honeycomb, Lightstep). Sampling strategy: 1% head-based sampling misses rare slow requests. Tail-based sampling (Grafana Tempo, OpenTelemetry Collector) evaluates the full trace before deciding — keeps 100% of errors and slow traces. Exemplars link the two worlds: a Prometheus histogram observation includes a trace ID, letting you jump from a p99 spike in Grafana to the specific trace in Tempo. This is the full observability loop: metrics -> exemplar -> trace -> log.",
+    "quote_to_say": "Metrics tell me something is wrong, tracing tells me where — I instrument both from day one.",
+    "tags": [
+      "observability",
+      "tracing",
+      "opentelemetry",
+      "jaeger",
+      "tempo",
+      "sampling",
+      "spans"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-obs-structured-logging",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "What is structured logging and why does it matter for observability at scale?",
+    "back": "Structured logging: emit logs as machine-parseable JSON (or similar) with consistent fields rather than free-text strings. Fields: timestamp (ISO8601), level, message, service, trace_id, span_id, request_id, user_id (if privacy-compliant), error (with stack trace). Benefits: (1) queryable in log aggregators (Loki, Elasticsearch, CloudWatch Logs Insights); (2) correlate logs with traces via trace_id; (3) aggregate error counts without regex parsing. Avoid: concatenating variables into message string (makes log aggregation impossible). Example: {\"level\":\"error\",\"msg\":\"db query failed\",\"table\":\"orders\",\"duration_ms\":1203,\"trace_id\":\"abc\"}.",
+    "senior_nuance": "Log levels discipline: DEBUG (local dev only, never in prod at scale), INFO (business events, startup), WARN (degraded but operational), ERROR (needs human attention), FATAL (crash). Sampling logs: at 100k req/s even INFO logs are expensive. Sample request logs (1 in 100) but keep 100% of errors. Log context: propagate request_id and trace_id via context.Context (Go), AsyncLocalStorage (Node.js), MDC (Java) — not as function arguments. Loki with LogQL: structured labels for log streams, filter expressions for queries — much cheaper than Elasticsearch for log storage.",
+    "quote_to_say": "Free-text logs are write-only at scale — structured JSON makes every field queryable and correlatable with traces.",
+    "tags": [
+      "observability",
+      "logging",
+      "structured-logging",
+      "loki",
+      "trace-id"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-prom-grafana",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "How do you design a Grafana dashboard for a production service? What variables, panels, and thresholds matter?",
+    "back": "Dashboard structure: top row — RED metrics (rate, error %, p99 latency) with time-range stats. Middle — per-endpoint breakdown, saturation (CPU, memory). Bottom — dependency health (DB connections, cache hit rate, downstream error rates). Variables: datasource (switch between envs), instance (filter by pod/host), interval ($__rate_interval for auto rate window). Panel types: time series (trends), stat (current value), gauge (utilization %), table (top-N slow queries). Thresholds: color bands on stat panels (green<100ms, yellow<500ms, red>500ms). Alert rules directly in Grafana (Unified Alerting) or Prometheus Alertmanager.",
+    "senior_nuance": "$__rate_interval is the right variable for rate() in Grafana — it adapts to the selected time range and scrape interval, preventing 'too short range' errors. Grafana Loki data source: LogQL panel alongside metrics for correlated view. Template: link from Grafana panel to trace in Tempo via data links (use trace_id field in the log/exemplar). For blockchain node dashboards: block height lag (current block - chain tip), peer count, finality latency (time from proposal to finality), RPC p99, mempool depth — these are the operational signals that matter.",
+    "quote_to_say": "A good Grafana dashboard answers 'is it healthy?' in 3 seconds and 'what's wrong?' in 30 — I design for that scanning pattern.",
+    "tags": [
+      "grafana",
+      "observability",
+      "dashboard",
+      "prometheus",
+      "variables",
+      "panels"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-prom-remote-write",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "What is Prometheus remote write and how does Thanos/Mimir enable long-term storage and global querying?",
+    "back": "Remote write: Prometheus streams compressed WAL data to a remote endpoint (Thanos Receiver, Cortex/Mimir, Grafana Cloud). Prometheus retains data locally (15d default) plus writes to remote for long-term. Thanos architecture: Sidecar (reads Prometheus local TSDB + uploads to object storage), Store Gateway (serves historical data from object storage), Query (global query across all Sidecars + Store Gateways), Compactor (downsampling + retention). Mimir/Cortex: fully managed, horizontally scalable, multi-tenant. Remote write reliability: WAL-based buffer survives remote endpoint downtime, retries automatically.",
+    "senior_nuance": "Recording rules: pre-compute expensive PromQL (e.g., histogram_quantile aggregated across all services) as a new time series, stored locally and remotely. Query at constant cost instead of scanning raw histograms at query time. Federation: /federate endpoint lets a global Prometheus scrape aggregated metrics from regional Prometheus instances — simpler than Thanos but less scalable. For cost: raw metric storage at 1B samples/day costs ~$50-200/month in Grafana Cloud — recording rules and downsampling (5m/1h resolution after 30/180 days) reduce this significantly.",
+    "quote_to_say": "Remote write + object storage is the only way to get months of metrics history — I size the local TSDB for 2 weeks and remote write everything.",
+    "tags": [
+      "prometheus",
+      "remote-write",
+      "thanos",
+      "mimir",
+      "long-term-storage",
+      "federation"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-obs-blockchain-node",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "What metrics would you put on a blockchain node dashboard (e.g., Sui validator or Ethereum node)? How do you alert on them?",
+    "back": "Core blockchain node metrics: (1) block height lag = chain_tip - local_height (alert if >10 blocks for >2min); (2) peer count — alert below minimum (validator isolation risk); (3) transaction finality latency — time from submission to finalized state (histogram p99); (4) RPC request rate + error rate + p99 latency (RED method for the RPC endpoint); (5) consensus round duration and success rate; (6) mempool size (saturation signal); (7) validator uptime / missed blocks (for validators). Infrastructure overlaid: CPU utilization, memory (TSDB head for nodes with internal Prometheus), disk IOPS (state DB writes), network throughput (peer gossip).",
+    "senior_nuance": "Block height lag is the most critical single metric — it tells you if the node is following the chain. A node that's 100 blocks behind cannot serve accurate state queries. Peer count dropping below quorum is a leading indicator for lag. For Sui: `sui_validator_participation_rate` and `certified_transactions_per_second` are key validator health metrics. For Ethereum: `eth_blockNumber` vs chain tip from a public RPC, `net_peerCount`. On-call runbook: 'if block lag > 50 and peer count < 3, check network partition first, then disk I/O'.",
+    "quote_to_say": "For any blockchain node, block height lag is my primary health signal — everything else is diagnostic context.",
+    "tags": [
+      "observability",
+      "blockchain",
+      "grafana",
+      "prometheus",
+      "sui",
+      "validator",
+      "node-monitoring"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-obs-alertmanager",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "How do you design an alerting strategy that avoids alert fatigue while catching real incidents?",
+    "back": "Principles: (1) alert on symptoms (user-facing impact), not causes (CPU spike); (2) every alert should have a runbook and a clear action; (3) use multi-window burn rate for SLO alerts (catches fast and slow burns); (4) inhibition rules: suppress downstream alerts when upstream is already firing (DB down suppresses app errors). Alertmanager features: routing (by severity, team), grouping (reduce noise by batching related alerts), silencing (maintenance windows), inhibition. Severity tiers: page (on-call, immediate human action needed), ticket (business-hours, creates issue), warning (informational, logged).",
+    "senior_nuance": "Alert fatigue pattern: too many low-severity alerts train engineers to ignore all alerts. Fix: audit alert frequency monthly, eliminate any alert that fires more than once a week without actionable remediation. Dead man's switch (Watchdog): a constant always-firing alert in Alertmanager that triggers PagerDuty if Alertmanager itself stops sending — detects monitoring system failure. Runbook link in every alert: annotations.runbook_url: 'https://...'. Blameless postmortem check: if an alert fired but an engineer couldn't act on it in < 5 minutes with the runbook, the alert needs improvement.",
+    "quote_to_say": "If an alert fires and nobody knows what to do, it's not an alert — it's noise. Every alert gets a runbook or it gets deleted.",
+    "tags": [
+      "observability",
+      "alerting",
+      "alertmanager",
+      "sre",
+      "on-call",
+      "runbook",
+      "slo"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-obs-otel",
+    "topic": "backend",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "What is OpenTelemetry and how does it change the observability instrumentation strategy?",
+    "back": "OpenTelemetry (OTel): CNCF standard for instrumentation — one SDK for traces, metrics, and logs across languages. Components: API (interface to call in your code), SDK (batching, sampling, export), Collector (agent/gateway that receives, processes, exports to backends). OTLP (OpenTelemetry Protocol): the wire format. Benefits: vendor-neutral instrumentation — switch from Jaeger to Grafana Tempo without code changes, just reconfigure the Collector. Auto-instrumentation: zero-code instrumentation for common frameworks (HTTP, gRPC, DB drivers) via agents (Java agent, Node.js auto-instrumentation). Manual instrumentation: add custom spans for business logic.",
+    "senior_nuance": "OTel Collector pipeline: receive (OTLP, Jaeger, Zipkin, Prometheus scrape), process (tail sampling, attribute enrichment, PII redaction), export (to multiple backends simultaneously). Running the Collector as a DaemonSet in K8s offloads batching and retry logic from application pods. Tail sampling in the Collector: buffer all spans for a trace, evaluate sampling rules based on trace outcome (e.g., keep 100% errors, 1% success traces) — requires enough memory for in-flight traces. Context propagation: ensure all service-to-service calls (HTTP, gRPC, message queue headers) propagate the W3C traceparent header.",
+    "quote_to_say": "OTel is the instrumentation layer — it's the contract between my code and whatever backend my team chooses. I instrument once and switch backends freely.",
+    "tags": [
+      "observability",
+      "opentelemetry",
+      "otel",
+      "tracing",
+      "metrics",
+      "logs",
+      "collector"
+    ],
+    "mock_eligible": false
+  }
+]

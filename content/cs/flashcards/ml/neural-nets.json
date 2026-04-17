@@ -1,0 +1,90 @@
+[
+  {
+    "id": "ml-nn-backprop",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "easy",
+    "front": "Explain backpropagation at an intuitive level. What exactly is being propagated backwards?",
+    "back": "Backpropagation is automatic differentiation applied to the computation graph of a neural network. Forward pass: compute activations and store intermediate values. Backward pass: apply the chain rule recursively from the loss back through every layer, computing ∂L/∂w for each parameter. What's propagated is the gradient — a scalar signal indicating how much each weight contributed to the error. The signal is multiplied by local derivatives at each node (Jacobian-vector products). No separate 'error signal' exists — just a chain of partial derivatives.",
+    "senior_nuance": "Backprop scales to arbitrary depth because chain rule factorises. The bottleneck is memory (storing activations for the backward pass), not compute. Gradient checkpointing trades recomputation for memory when layers are too deep.",
+    "tags": ["backprop", "gradients", "chain-rule"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-nn-vanishing-exploding",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "medium",
+    "front": "Describe vanishing and exploding gradients. What causes each, and what are the standard fixes?",
+    "back": "Vanishing: gradients shrink exponentially as they flow through layers, because repeated multiplication by values <1 (saturated activations or small weights). Deep layers receive near-zero signal and stop learning. Exploding: gradients grow exponentially, causing NaN weights or oscillating loss. Causes: deep networks with sigmoid/tanh (saturated = flat gradient), poorly initialised weights, or RNNs with long sequences. Fixes: (1) ReLU/variants — non-saturating activations. (2) Residual connections — identity shortcut lets gradients skip layers. (3) Gradient clipping — caps gradient norm for exploding. (4) Batch norm / layer norm — normalises activations, keeping them in useful range. (5) Careful initialisation (He for ReLU, Glorot for tanh).",
+    "senior_nuance": "In transformers, the residual stream design is specifically chosen to avoid vanishing gradients — each block adds its output rather than replaces, so gradients always have an identity path back.",
+    "quote_to_say": "Residual connections are the highway for gradients to travel without tolls.",
+    "tags": ["vanishing-gradient", "exploding-gradient", "residual", "relu"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-nn-batch-norm",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "medium",
+    "front": "How does batch normalisation work at train time vs inference time? What breaks if you forget the distinction?",
+    "back": "Train time: for each mini-batch, compute the batch mean μ and variance σ² across the batch dimension, normalise activations to zero mean unit variance, then scale/shift with learned γ and β. Also update running (exponential moving) estimates of μ and σ². Inference time: use the running estimates, not the batch stats — batches can be size 1 or arrive one sample at a time, making batch stats noisy. If you accidentally use batch stats at inference, a single-sample input gets normalised to exactly 0 (mean of one element = that element), which breaks the scale/shift step and produces garbage outputs.",
+    "senior_nuance": "Model.eval() in PyTorch switches batch norm to running stats. Forgetting to call it is a classic production bug. Another trap: if the model was trained with small batches, the running stats converge poorly — layer norm (which operates per-sample) avoids this problem entirely.",
+    "quote_to_say": "Always call model.eval() before inference — batch norm is a silent killer if you don't.",
+    "tags": ["batch-norm", "inference", "training", "layer-norm"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-nn-activations",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "easy",
+    "front": "Compare sigmoid, tanh, ReLU, and GELU activations. When would you choose each?",
+    "back": "Sigmoid: output in (0,1), saturates at extremes causing vanishing gradients, still used for binary output layer. Tanh: output in (-1,1), zero-centred (better for gradients than sigmoid) but still saturates. ReLU: max(0,x), non-saturating for positive inputs, fast, widely default for hidden layers. Dying ReLU problem: neurons can get stuck outputting 0 permanently. Leaky ReLU / PReLU fix this with a small slope for negatives. GELU: smooth approximation of ReLU with stochastic regularisation interpretation, empirically strong in transformers and large models. SwiGLU is a gated variant popular in current LLM architectures.",
+    "tags": ["relu", "gelu", "sigmoid", "activations"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-nn-optimisers",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "medium",
+    "front": "Compare SGD with momentum, Adam, and AdamW. What does each add, and what are their failure modes?",
+    "back": "SGD+momentum: exponential moving average of gradients, reduces oscillation in ravines. Simple, predictable, generalises well on CV. Sensitive to learning rate; may converge to sharper minima than adaptive methods. Adam: per-parameter adaptive learning rates (first moment = gradient mean, second moment = gradient variance). Converges fast on sparse/noisy gradients. Known failure: can converge to sharp minima with worse generalisation; second moment estimates are biased early in training. AdamW: Adam + decoupled weight decay — L2 regularisation applied directly to weights, not folded into the adaptive update. This is the correct way to regularise Adam (vanilla Adam with L2 is mathematically wrong). Default optimiser for most LLM pre-training.",
+    "senior_nuance": "Adam's fast convergence is not free — it often achieves lower training loss but worse held-out performance than SGD when trained long enough. For fine-tuning LLMs, AdamW + cosine LR schedule + warmup is the de-facto standard.",
+    "tags": ["adam", "sgd", "adamw", "optimisers"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-nn-weight-init",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "medium",
+    "front": "Why does weight initialisation matter? Describe He and Glorot initialisation and when to use each.",
+    "back": "Poor initialisation causes all neurons in a layer to learn the same feature (symmetry) or produces immediate vanishing/exploding activations before training even starts. He (Kaiming) initialisation: weights ~ N(0, 2/fan_in). The factor 2 compensates for ReLU zeroing half its inputs on average. Use with ReLU/Leaky ReLU. Glorot (Xavier) initialisation: weights ~ N(0, 2/(fan_in+fan_out)). Derived assuming linear or tanh activations with symmetric gradients. Use with sigmoid/tanh. Bias is typically initialised to 0. Transformers often use modified normal distributions with std=0.02 empirically tuned.",
+    "tags": ["initialisation", "he", "glorot", "xavier"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-nn-dropout",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "medium",
+    "front": "How does dropout work at train vs inference time, and why does the dropout rate affect the scaling factor?",
+    "back": "Training: each neuron is independently zeroed with probability p, forcing the network to learn redundant representations — it can't rely on any one neuron. Remaining neurons are scaled by 1/(1-p) (inverted dropout) to preserve expected activation magnitude. Inference: dropout is disabled; no stochastic zeroing occurs. Without the scaling correction, expected output would be (1-p) × trained magnitude, shifting the distribution. Inverted dropout handles this at train time so inference is a simple forward pass. High p values (>0.5) on early layers can over-regularise; typical p=0.1-0.3 in transformers, p=0.5 in dense classifiers.",
+    "senior_nuance": "Dropout introduces stochasticity that can make loss curves noisier. In LLMs it is often set very low or disabled in later pre-training phases — the massive data and weight decay provide sufficient regularisation.",
+    "tags": ["dropout", "regularisation", "inference", "training"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-nn-gradient-checkpointing",
+    "topic": "ml",
+    "subtopic": "neural-nets",
+    "difficulty": "hard",
+    "front": "What is gradient checkpointing, and when is it worth the compute overhead?",
+    "back": "Standard backprop requires storing all intermediate activations from the forward pass to compute gradients. For deep or wide models, this consumes O(depth) memory per sample. Gradient checkpointing discards activations at designated checkpoints and recomputes them during the backward pass when needed. Memory cost drops from O(depth) to O(√depth) with optimal checkpoint placement, at the cost of one extra forward pass per segment (~33% more compute). Worth using when: GPU VRAM is the bottleneck, batch size is constrained by memory not throughput, or the model is large enough that the compute overhead is smaller than the cost of buying more hardware.",
+    "senior_nuance": "Checkpointing is not free compute — recomputation adds real wall-clock time. Profile first: if utilisation is already high and the model fits, checkpointing hurts throughput. If the bottleneck is batch size or model size vs VRAM, checkpointing enables training that would otherwise OOM.",
+    "tags": ["gradient-checkpointing", "memory", "training-efficiency"],
+    "mock_eligible": false
+  }
+]

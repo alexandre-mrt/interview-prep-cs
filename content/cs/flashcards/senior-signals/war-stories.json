@@ -1,0 +1,74 @@
+[
+  {
+    "id": "ss-war-leadership-migration",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "hard",
+    "front": "'Tell me about a time you led a high-stakes migration.'",
+    "back": "STAR: Situation: <system, scale, pain point>. Task: <your specific ownership, timeline>. Action: scope into phases with exit criteria; pair engineers; shadow deploy; rollback trigger. Result: quantified — <metric> improved by <X%>, zero oncall pages. End with reversible-decision framing.",
+    "senior_nuance": "Structure stories around decisions and tradeoffs, not tasks and tools. Always quantify.",
+    "quote_to_say": "I made it a reversible decision. Bounded blast radius, clear exit criterion.",
+    "tags": ["star", "leadership", "migration"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-war-incident-ownership",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "medium",
+    "front": "'Tell me about a production incident you owned end to end.'",
+    "back": "STAR: Situation: <service, user impact, SLO breach>. Task: incident commander for <duration>. Action: declared incident within <N> minutes; stabilized with <mitigation — rollback, rate limit, failover>; delegated comms to <role>; drove root cause to <specific defect>. Result: MTTR <N> min, followed by <concrete action items shipped> and an SLO guardrail added. Close with what the team does differently now.",
+    "senior_nuance": "Senior incident stories have a separation of concerns: mitigation first, root cause second, prevention third. Juniors mix them and lose time.",
+    "quote_to_say": "Stabilize first, root cause second, prevent third.",
+    "tags": ["star", "incident", "ownership"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-war-disagreement",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "medium",
+    "front": "'Tell me about a time you disagreed with a senior engineer or manager.'",
+    "back": "STAR: Situation: proposed <approach A>; senior preferred <approach B>. Task: align on a decision with <deadline>. Action: wrote a one-page doc naming the constraint, the options, and the reversal criteria; ran a <spike / benchmark / prototype> to turn opinion into data; met 1:1 to align before the group meeting. Result: we chose <outcome — mine, theirs, or a synthesis> based on <measured signal>. Highlight what you learned about their frame.",
+    "senior_nuance": "The point of the story is the process — writing it down, getting data, disagreeing in private, aligning in public — not who won.",
+    "quote_to_say": "We disagreed on paper, decided on data, aligned before the room.",
+    "tags": ["star", "disagreement", "influence"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-war-scope-cut",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "medium",
+    "front": "'Tell me about a time you had to cut scope to hit a deadline.'",
+    "back": "STAR: Situation: <feature, deadline, risk signal at week N>. Task: re-scope to a shippable subset. Action: ranked requirements by user value with <stakeholder>; cut <feature X> to a follow-up; hardened the critical path; added a feature flag to ship dark. Result: shipped on time with <metric>; <cut feature> landed <N weeks later> with no customer escalation. Name the forcing function you used to get agreement fast.",
+    "senior_nuance": "Scope cuts are a senior skill because they require taste about what users actually care about and the social capital to disappoint a stakeholder.",
+    "quote_to_say": "Ship the critical path on time; the rest follows on evidence.",
+    "tags": ["star", "scope", "deadline"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-war-mentorship",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "easy",
+    "front": "'Tell me about a time you mentored a junior engineer through a hard project.'",
+    "back": "STAR: Situation: <junior, project, stuck point>. Task: unblock without doing the work for them. Action: paired on the first hard debugging session; gave them the next one solo with a 30-minute check-in; taught them to write an ADR for the key decision; reviewed their PRs against a named rubric, not taste. Result: they shipped <feature> and owned the follow-up; they later <took on — oncall, next project, promoted>. Close with what you learned from them.",
+    "senior_nuance": "Good mentorship stories end with the junior operating independently, not with them needing you forever. Make that arc explicit.",
+    "quote_to_say": "Pair once, check in once, then get out of the way.",
+    "tags": ["star", "mentorship", "leadership"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ss-war-ambiguous-problem",
+    "topic": "senior-signals",
+    "subtopic": "war-stories",
+    "difficulty": "hard",
+    "front": "'Tell me about a time you owned an ambiguous problem with no clear spec.'",
+    "back": "STAR: Situation: <vague goal — 'fix reliability', 'reduce cost', 'improve onboarding'>. Task: define the problem before solving it. Action: interviewed <N stakeholders>; wrote a problem statement with one metric and one non-goal; proposed three options with cost and risk; got sign-off on one; shipped in <phases with exit criteria>. Result: <metric moved by X%>; the written problem statement became the team's reference doc. Emphasize the write-up, not the build.",
+    "senior_nuance": "Ambiguous problems are where senior engineers earn their title. The win is 80% framing, 20% building.",
+    "quote_to_say": "Define the problem in writing before you solve it.",
+    "tags": ["star", "ambiguity", "framing"],
+    "mock_eligible": true
+  }
+]

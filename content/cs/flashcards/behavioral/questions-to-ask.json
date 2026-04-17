@@ -1,0 +1,122 @@
+[
+  {
+    "id": "bh-q-ask-oncall",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Interview question that signals senior AND screens for bad on-call culture.",
+    "back": "'What's on-call like on this team? How often do people get paged, and what's the process when something breaks at 3am?' This reveals: (1) do they have SLOs and error budgets, (2) does the team respect work/life balance, (3) does leadership invest in reliability, (4) are postmortems blameless. Green flags: rotation size >=5, pages/week <2, dedicated follow-up time. Red flags: 'it's not too bad' with no numbers, solo on-call, no postmortem process.",
+    "senior_nuance": "Candidates who don't ask about on-call have never been on a team with bad on-call. Seniors always ask. Follow-up: 'What's the last page that woke someone up, and did it turn into a fix?'",
+    "quote_to_say": "What does on-call look like? Who gets paged and how often?",
+    "tags": ["questions", "oncall", "screening"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-tech-debt",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Question to ask that surfaces how the team treats tech debt.",
+    "back": "'How does the team decide when to invest in platform / tech debt work vs features? Can you give me a recent example where you chose one over the other?' The example is the tell — vague answers mean they don't actually do it. Green flag: named project, named tradeoff, PM involvement. Red flag: 'we do it on 20% time' with no examples, or 'we'll get to it'.",
+    "senior_nuance": "Asking for a specific recent example is the pro move. Anyone can claim they value tech debt. Only healthy teams can point to last quarter's example.",
+    "quote_to_say": "Give me a recent example where you picked debt work over a feature.",
+    "tags": ["questions", "tech-debt", "culture"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-roadmap",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Roadmap question that reveals strategic clarity (or lack of it).",
+    "back": "'What's the team's biggest bet for the next 6 months, and what has to be true for it to work?' Forces the interviewer to state a thesis, not a todo list. Green flag: clear bet + named risks + measurable success criteria. Red flag: a list of features with no narrative, or 'we'll see what the PM prioritizes'.",
+    "senior_nuance": "Ask separately of the EM, the IC interviewer, and (if you get one) a skip-level. If their answers don't match, the team lacks alignment and you'll spend energy on priority churn.",
+    "quote_to_say": "What's the team's biggest bet, and what has to be true for it to work?",
+    "tags": ["questions", "roadmap", "strategy"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-why-joined",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Question that uncovers what someone actually values (vs what they say in the recruiter pitch).",
+    "back": "'Why did you join, and what has surprised you — positively or negatively — since?' The surprise part is key. 'Nothing has surprised me' is suspicious. You want specific, honest answers about friction. A real person will mention one bureaucratic thing and one thing they love. Follow up on both.",
+    "senior_nuance": "Ask this of everyone you talk to. Patterns emerge: if three people all say 'the interview process was long but thorough', that's signal. If three people say 'the planning process is chaotic', that's also signal.",
+    "quote_to_say": "What surprised you — good or bad — after you joined?",
+    "tags": ["questions", "culture", "screening"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-architecture",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Architecture question that signals senior-level thinking.",
+    "back": "'Walk me through a recent architecture decision and the options you didn't pick.' This tests whether they reason about tradeoffs or just cargo-cult. Green flag: named alternatives, explicit tradeoffs, a decision record. Red flag: 'we use X because it's what we use', no alternatives considered, or only upside, no downside. Bonus: ask how they'd redo it if starting today.",
+    "senior_nuance": "Senior engineers ask about the options not taken. Juniors ask about the stack. The question 'what would you do differently' distinguishes teams that retrospect from teams that don't.",
+    "quote_to_say": "Tell me about a recent architecture decision and the options you rejected.",
+    "tags": ["questions", "architecture", "tradeoffs"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-eng-culture",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Question that reveals engineering culture beyond the brochure version.",
+    "back": "'How does code review work here? Walk me through a recent PR that got a lot of discussion.' Real answers reveal: review depth, disagreement norms, blocking vs commenting style, async culture. Green flag: 2+ reviewers, design discussed before code, respectful pushback. Red flag: rubber-stamp approvals, huge PRs, 'we move fast and fix forward' (often means no review).",
+    "senior_nuance": "Also ask: 'Who can push to main without review?' and 'How often does a PR from a junior change the design of a review from a senior?' You're testing whether the culture rewards being right over being senior.",
+    "quote_to_say": "Walk me through a recent PR that had a lot of discussion.",
+    "tags": ["questions", "culture", "code-review"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-team-health",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "medium",
+    "front": "Question that gauges team health without being awkward.",
+    "back": "'Who's left the team in the last year, and why? Who's joined?' Retention is the single most honest signal. High attrition on a senior team is a flashing red light. Also ask: 'What's the tenure of the longest person? Of the manager?' Green flag: stable manager, long tenures, departures to promotions or other great roles. Red flag: repeated departures with vague reasons, revolving-door management.",
+    "senior_nuance": "You will not get a fully honest answer, but you will get a directional one. Crosscheck with LinkedIn before the interview — you can see departures even when the company won't name them.",
+    "quote_to_say": "Who's left recently and where did they go?",
+    "tags": ["questions", "team-health", "retention"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-recent-incident",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "easy",
+    "front": "Incident question that reveals operational maturity.",
+    "back": "'What was your last significant incident, and what changed as a result?' You're testing three things: (1) do they have incidents (everyone does — if they say 'none', they hide them), (2) do they do postmortems, (3) do postmortems produce durable changes. Green flag: concrete story, named fix, process change. Red flag: 'we fixed it and moved on', 'it was human error', no follow-up tracking.",
+    "senior_nuance": "The phrase 'human error' as root cause is a culture red flag — mature teams treat human error as a symptom and look for the system that allowed it. Listen for that framing.",
+    "quote_to_say": "What was your last significant incident and what changed after?",
+    "tags": ["questions", "incidents", "postmortem"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-hiring-bar",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "medium",
+    "front": "Hiring-bar question that signals you care about peer quality.",
+    "back": "'What's the hiring bar like? When was the last time you said no to a strong candidate, and why?' This reveals whether the team has a real bar or just fills seats. Green flag: concrete story about rejecting someone talented for a specific reason (collaboration gap, scope mismatch). Red flag: 'we hire anyone good', 'we don't reject many', or 'the bar is high' with no specifics.",
+    "senior_nuance": "Your peers will be whoever passes this bar. If you're senior and they can't describe a rigorous no, you'll end up being the adult in every room. That gets exhausting.",
+    "quote_to_say": "When did you last say no to a candidate who was technically strong?",
+    "tags": ["questions", "hiring", "peer-quality"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bh-q-ask-growth",
+    "topic": "behavioral",
+    "subtopic": "questions-to-ask",
+    "difficulty": "medium",
+    "front": "Growth question to ask your future manager.",
+    "back": "'Who on your team has grown the most in the last 18 months, and what did that growth look like? What did you do to support it?' Three things revealed: (1) does the manager invest in growth, (2) is promotion possible on this team, (3) can the manager articulate someone else's trajectory specifically. Green flag: named person (no name given to you, but concrete), named skills, named opportunities the manager created. Red flag: generic 'everyone grows here'.",
+    "senior_nuance": "The manager's answer to this is a mirror of what your growth will look like. If they can't describe someone else's concretely, yours won't be either.",
+    "quote_to_say": "Who's grown the most on your team, and what did you do to support it?",
+    "tags": ["questions", "growth", "manager"],
+    "mock_eligible": false
+  }
+]

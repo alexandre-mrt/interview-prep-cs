@@ -24,29 +24,6 @@
     "mock_eligible": true
   },
   {
-    "id": "algos-quicksort-pivot",
-    "topic": "algos",
-    "subtopic": "sorting",
-    "difficulty": "medium",
-    "front": "Why does pivot choice matter in quicksort, and what strategies prevent O(n²) worst case?",
-    "back": "With a bad pivot (always smallest or largest), quicksort degrades to O(n²) — classic with sorted input and first-element pivot. Strategies: (1) median-of-three (first, middle, last), (2) random pivot, (3) Ninther (median of three medians). Introsort (used in C++ std::sort) starts with quicksort and switches to heapsort after log₂(n) recursion depth to guarantee O(n log n).",
-    "senior_nuance": "Dutch National Flag partitioning (3-way) handles duplicates efficiently, making quicksort O(n log n) on inputs with many equal elements — crucial when sorting real-world data with repeated keys. Timsort (Python, Java) beats all of these on nearly-sorted real data by exploiting existing runs.",
-    "tags": ["quicksort", "pivot", "sorting", "introsort", "timsort"],
-    "mock_eligible": false
-  },
-  {
-    "id": "sd-cap-theorem",
-    "topic": "system-design",
-    "subtopic": "consistency-availability",
-    "difficulty": "medium",
-    "front": "State CAP theorem and explain why PACELC is more useful in practice.",
-    "back": "CAP: during a network partition a system must choose Consistency or Availability. PACELC extends it: if Partitioned (P) choose A or C, Else (E) choose Latency (L) or Consistency (C). Real systems make both tradeoffs — Cassandra is PA/EL, Spanner is PC/EC.",
-    "senior_nuance": "CAP is the trivial observation. The interesting question is the tail latency cost of consistency when the network is healthy — which is exactly what PACELC asks. Most engineers over-index on the partition case, which is rare; they under-index on the every-request latency-vs-consistency dial.",
-    "quote_to_say": "We should decide PACELC before we decide the database.",
-    "tags": ["cap", "pacelc", "distributed", "consistency"],
-    "mock_eligible": true
-  },
-  {
     "id": "sd-idempotency-keys",
     "topic": "system-design",
     "subtopic": "reliability",
@@ -56,18 +33,6 @@
     "senior_nuance": "The hard part is atomicity: the operation and the idempotency record must commit together. A common bug is writing the idempotency record after the payment — a crash between them causes double-charge on retry. Use a single DB transaction or a transactional outbox. Also: scope keys per user/customer to prevent cross-customer key collisions.",
     "quote_to_say": "Idempotency keys are only as strong as the atomicity guarantee behind them.",
     "tags": ["idempotency", "payments", "api-design", "reliability"],
-    "mock_eligible": true
-  },
-  {
-    "id": "sd-cache-invalidation",
-    "topic": "system-design",
-    "subtopic": "caching",
-    "difficulty": "hard",
-    "front": "Name the main cache invalidation strategies and their tradeoffs.",
-    "back": "1. TTL (time-based expiry): simple, stale window is bounded. 2. Cache-aside (lazy loading): app checks cache, misses load from DB and populate. 3. Write-through: write to cache and DB on every write, consistent but slower writes. 4. Write-behind (write-back): write to cache, async flush to DB, fast writes but durability risk. 5. Event-driven invalidation: CDC (Debezium) or pub/sub triggers cache eviction on DB write.",
-    "senior_nuance": "The famous quote 'there are only two hard problems: cache invalidation and naming things' is funny because invalidation is genuinely unsolved in the general case. The subtlety with TTL: thundering herd on expiry. Mitigation: jitter on TTL, request coalescing (only one request populates cache on miss), or probabilistic early expiration (PER algorithm).",
-    "quote_to_say": "Before TTL, I ask: what is the cost of a stale read versus the cost of a cache miss? That determines the approach.",
-    "tags": ["cache", "invalidation", "ttl", "write-through", "cdc"],
     "mock_eligible": true
   },
   {

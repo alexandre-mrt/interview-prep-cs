@@ -1,0 +1,215 @@
+[
+  {
+    "id": "be-k8s-pod-lifecycle",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "easy",
+    "front": "What is a Pod in Kubernetes? Why is it the smallest deployable unit rather than a container?",
+    "back": "A Pod is one or more containers that share a network namespace (same IP, same localhost), same IPC namespace, and optionally same PID namespace. They are co-scheduled on the same node. The Pod abstraction enables sidecar patterns: main app container + log forwarder, service mesh proxy (Envoy), init containers that run setup before main container starts. Containers within a Pod communicate via localhost; Pods communicate via cluster networking (each Pod gets a unique IP). Pods are ephemeral — they are not self-healing; Deployments/StatefulSets manage Pod lifecycle.",
+    "senior_nuance": "Init containers run sequentially and must complete before app containers start — use them for DB migration, secret fetching, configuration injection. Sidecar containers (Kubernetes 1.29+ native sidecar support) run alongside the main container and restart independently. Ephemeral containers (kubectl debug) let you attach a debug container to a running Pod without restarting it — invaluable for production debugging with distroless images.",
+    "quote_to_say": "Pods share network and storage — that's the design contract that makes sidecar patterns work cleanly.",
+    "tags": ["kubernetes", "pod", "sidecar", "init-container", "lifecycle"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-deployments",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "easy",
+    "front": "Explain Kubernetes Deployments. How does a rolling update work and what are the key parameters?",
+    "back": "A Deployment manages a ReplicaSet (which manages Pods). It provides declarative updates: you change the desired state, the controller reconciles. Rolling update strategy: maxUnavailable (how many Pods can be down simultaneously, default 25%) and maxSurge (how many extra Pods can be created above desired, default 25%). During update: new ReplicaSet created, old ReplicaSet scaled down. Rollback: kubectl rollout undo deployment/name. Pause/resume: kubectl rollout pause to batch changes. History: kubectl rollout history shows revision log.",
+    "senior_nuance": "Rolling updates assume your app handles running old and new versions simultaneously (traffic hits both during rollout). If you have breaking DB schema changes, coordinate: migrate DB first (additive only), deploy new code, then remove old columns. minReadySeconds and readinessProbes determine when a new Pod is considered healthy before continuing rollout — without a readinessProbe, K8s considers a Pod ready the moment it starts, before your app finishes initialization.",
+    "quote_to_say": "A deployment rollback is not a magic fix — if the new version wrote bad data, the old version still reads it. I always pair rollbacks with incident analysis.",
+    "tags": [
+      "kubernetes",
+      "deployment",
+      "rolling-update",
+      "rollback",
+      "replicaset"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-services-ingress",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "What are the differences between ClusterIP, NodePort, LoadBalancer, and Ingress? When do you use each?",
+    "back": "ClusterIP: internal-only virtual IP, accessible within cluster. Default for service-to-service communication. NodePort: exposes service on a static port on every node (30000-32767). Use for dev/on-prem without cloud LB. LoadBalancer: provisions a cloud load balancer (AWS ALB, GCP NLB) per Service. Expensive at scale. Ingress: L7 HTTP/S routing rule (host/path-based) in front of multiple Services. Requires an Ingress Controller (nginx-ingress, Traefik, AWS ALB Ingress Controller). One LB can route to many Services via Ingress rules. Gateway API (K8s 1.28+ stable) supersedes Ingress with richer routing semantics.",
+    "senior_nuance": "Each LoadBalancer Service gets its own cloud LB — 20 services = 20 LBs = significant cost. Use one Ingress (one LB) routing to all services. For gRPC, use nginx-ingress with grpc_pass or Traefik with gRPC support — standard HTTP Ingress only handles HTTP/1.1. ExternalDNS controller can automatically create DNS records for Ingress/LoadBalancer resources. Gateway API supports traffic splitting (canary), header-based routing, and timeout policies natively.",
+    "quote_to_say": "One Ingress controller routing to all services — not one LoadBalancer per service. The cost difference is real.",
+    "tags": [
+      "kubernetes",
+      "service",
+      "ingress",
+      "clusterip",
+      "loadbalancer",
+      "gateway-api"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-probes",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "Explain liveness, readiness, and startup probes in Kubernetes. What happens when each fails?",
+    "back": "Liveness probe: 'is the app alive?' — failure causes container restart. Use for detecting deadlocks or hung processes. Readiness probe: 'is the app ready to serve traffic?' — failure removes Pod from Service endpoints (no traffic). Pod stays running. Use to signal warming up, dependency not ready. Startup probe: 'has the app finished starting?' — disables liveness/readiness until startup probe succeeds. Prevents liveness from killing a slow-starting app. Probe types: HTTP GET (check /healthz), TCP socket (check port open), exec (run command in container). Each probe has: initialDelaySeconds, periodSeconds, failureThreshold, timeoutSeconds.",
+    "senior_nuance": "Common mistakes: (1) using liveness == readiness — liveness should be a simple in-process check (not hitting DB), readiness can check dependencies; (2) no startup probe on slow apps — liveness fires before app is ready and causes restart loop; (3) readiness probe hitting an external DB — if DB is down, all Pods become unready and no traffic is served (cascading failure). Liveness should be extremely cheap and local. Health endpoint conventions: /healthz (liveness), /readyz (readiness), /metrics (Prometheus).",
+    "quote_to_say": "Liveness and readiness have different failure semantics — I design them separately and never let liveness depend on external systems.",
+    "tags": [
+      "kubernetes",
+      "probes",
+      "liveness",
+      "readiness",
+      "startup",
+      "health"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-k8s-resources-limits",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "hard",
+    "front": "Explain Kubernetes resource requests and limits. What are Quality of Service classes and how does OOMKill relate?",
+    "back": "Request: guaranteed resources reserved on the node (used for scheduling). Limit: maximum resources the container can use. CPU: limit throttles (using CFS bandwidth — container can't burst beyond limit, causes latency). Memory: limit triggers OOMKill (Linux kills the container if it exceeds limit). QoS classes: Guaranteed (requests == limits for all containers — highest priority, not subject to eviction), Burstable (limits > requests — medium priority), BestEffort (no requests or limits — first evicted under pressure). Node allocatable = node capacity minus system/kubelet reserved.",
+    "senior_nuance": "CPU throttling is invisible in metrics — a Pod may use 100% of its CPU request and get throttled, causing latency spikes without appearing 'high CPU'. Monitor container_cpu_cfs_throttled_periods_total. Memory: set limit = request for critical apps (Guaranteed QoS) to avoid eviction. For Java apps, tune JVM heap (-Xmx) to be below memory limit minus non-heap overhead, or use -XX:MaxRAMPercentage=75. Vertical Pod Autoscaler (VPA) recommends right-sized requests/limits based on historical usage.",
+    "quote_to_say": "CPU limits cause throttling, not OOM — a latency issue that's hard to diagnose. I monitor CFS throttle rate on every Java and Go service.",
+    "tags": [
+      "kubernetes",
+      "resources",
+      "limits",
+      "requests",
+      "qos",
+      "oomkill",
+      "cpu-throttling"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-k8s-hpa-vpa",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "Compare HPA and VPA. When would you use each and what are their limitations?",
+    "back": "HPA (Horizontal Pod Autoscaler): scales number of Pod replicas based on metrics (CPU utilization, memory, custom metrics via KEDA or metrics-server). Reacts in ~15-60s. Requires stateless apps or session-affinity. VPA (Vertical Pod Autoscaler): adjusts CPU/memory requests/limits per Pod based on historical usage. Must evict and restart Pods to apply changes (disruptive). Use HPA for: stateless APIs, workers that can scale horizontally. Use VPA for: right-sizing requests for scheduling efficiency. KEDA (Kubernetes Event-Driven Autoscaler): HPA extension that scales on external metrics (Kafka lag, queue depth, custom Prometheus queries).",
+    "senior_nuance": "HPA and VPA cannot be used together on the same metric (CPU/memory) — they fight each other. Common pattern: VPA in recommendation-only mode (audit) to right-size requests, HPA for actual scaling. KEDA + Kafka consumer lag is the canonical pattern for auto-scaling event-driven workers: scale up when lag grows, scale to zero when idle. minReplicas=1 for always-on, minReplicas=0 for true scale-to-zero with cold start tolerance.",
+    "quote_to_say": "HPA scales pods, VPA sizes pods — I use them for different problems and avoid running both in auto mode on the same resource.",
+    "tags": ["kubernetes", "hpa", "vpa", "keda", "autoscaling", "kafka"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-statefulsets",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "hard",
+    "front": "When do you use StatefulSets vs Deployments? What guarantees does a StatefulSet provide?",
+    "back": "StatefulSet provides: (1) stable, persistent pod identity (pod-0, pod-1, pod-N — survives rescheduling); (2) stable network DNS hostname (pod-0.service.namespace.svc.cluster.local); (3) ordered creation/deletion (pod-0 fully ready before pod-1 starts); (4) persistent volume claims per Pod (volumeClaimTemplates — PVC survives pod deletion). Use for: databases (MySQL, PostgreSQL, MongoDB, etcd), Kafka brokers, ZooKeeper, anything needing stable identity and persistent storage. Deployments: stateless, any Pod is interchangeable.",
+    "senior_nuance": "StatefulSet pods do not get load balanced by default — clients must address them by stable DNS name or use a headless Service (clusterIP: None) which returns all Pod IPs. This is how Kafka/ZooKeeper cluster members discover peers. Ordered rollout is configurable: podManagementPolicy: Parallel for faster updates when ordering doesn't matter. Deleting a StatefulSet does not delete PVCs — intentional to prevent accidental data loss. PVCs must be deleted separately.",
+    "quote_to_say": "StatefulSets give you identity and ordering — the tradeoff is complexity. I only use them when the workload genuinely needs both.",
+    "tags": [
+      "kubernetes",
+      "statefulset",
+      "persistent-volume",
+      "database",
+      "headless-service"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-k8s-rbac",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "How does Kubernetes RBAC work? Explain the relationship between Role, ClusterRole, RoleBinding, and ServiceAccount.",
+    "back": "RBAC subjects: User (human), Group, ServiceAccount (in-cluster identity). Role: namespaced set of rules (verbs: get/list/watch/create/update/patch/delete on resources). ClusterRole: same but cluster-scoped (can grant on all namespaces or non-namespaced resources like nodes). RoleBinding: grants a Role to a subject within a namespace. ClusterRoleBinding: grants a ClusterRole cluster-wide. ServiceAccount: Pod identity — pods authenticate to API server with the SA's JWT (auto-mounted at /var/run/secrets/kubernetes.io/serviceaccount/token). Default SA has no permissions in properly configured clusters.",
+    "senior_nuance": "Least privilege: every workload should have its own ServiceAccount with only the permissions it needs. Common mistake: using default ServiceAccount (has accumulated permissions). For CI/CD pipelines: scoped ServiceAccount per namespace (apply, get, list on deployments only). RBAC audit: kubectl auth can-i list pods --as=system:serviceaccount:default:my-sa -n my-namespace. Also: Workload Identity (GKE/EKS) links K8s ServiceAccount to cloud IAM role — no static credentials needed for AWS SDK / GCS calls from Pods.",
+    "quote_to_say": "Every Pod gets its own ServiceAccount with minimal permissions — default ServiceAccount access is a security smell.",
+    "tags": [
+      "kubernetes",
+      "rbac",
+      "serviceaccount",
+      "role",
+      "clusterrole",
+      "security"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-pdb",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "hard",
+    "front": "What is a PodDisruptionBudget and why is it critical for production reliability during node maintenance?",
+    "back": "PodDisruptionBudget (PDB): specifies minimum available (minAvailable) or maximum unavailable (maxUnavailable) Pods during voluntary disruptions (node drain, cluster upgrade, eviction). Without PDB: kubectl drain can evict all Pods of a Deployment simultaneously, causing downtime. With PDB minAvailable:1: drain will only evict a Pod once a replacement is running. Applies to: node drains, cluster autoscaler scale-down, Pod evictions via Eviction API. Does NOT protect against involuntary disruptions (node failure, OOMKill).",
+    "senior_nuance": "PDB is the contract between your app and cluster operations. Cluster operators (or autoscaler) respect PDB before draining nodes — if PDB cannot be satisfied (e.g., replicas=1 with minAvailable=1), drain blocks indefinitely. PDB with maxUnavailable=0 + a single replica is a deadlock during upgrades — always size replicas >= 2 for PDB to work. Also: PDB interacts with HPA minimum — if HPA scales down to minReplicas and PDB minAvailable is set correctly, you still have protection.",
+    "quote_to_say": "A PDB is my promise to ops: 'draining this node will not take my service down'. Without it, cluster maintenance is a gamble.",
+    "tags": [
+      "kubernetes",
+      "pdb",
+      "disruption-budget",
+      "availability",
+      "drain",
+      "reliability"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-k8s-networking",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "How does Kubernetes networking work? Explain the CNI model, kube-proxy, and NetworkPolicies.",
+    "back": "CNI (Container Network Interface): plugin model for pod networking. Each Pod gets a unique IP routable within the cluster. Popular CNIs: Calico (supports NetworkPolicy + BGP routing), Flannel (simple overlay), Cilium (eBPF-based, L7 policies, observability). kube-proxy: runs on each node, maintains iptables/ipvs rules for Service virtual IPs — when traffic hits a ClusterIP, kube-proxy redirects to a live Pod endpoint. NetworkPolicy: firewall rules for Pod-to-Pod traffic. Default: all traffic allowed. Deny-all egress + selective allow is the secure default.",
+    "senior_nuance": "Cilium replaces kube-proxy with eBPF for better performance and adds L7 NetworkPolicy (allow only HTTP GET /api). This is significant for zero-trust microservice architectures. Service mesh (Istio, Linkerd) adds mTLS, traffic shaping, and observability at L7 — but adds complexity. For most teams, CNI NetworkPolicy + monitoring is sufficient; service mesh is warranted when you need mTLS between all services or fine-grained traffic policies. DNS-based service discovery: CoreDNS resolves service.namespace.svc.cluster.local.",
+    "quote_to_say": "NetworkPolicy deny-all-ingress by default, then allow explicitly — that's zero-trust inside the cluster.",
+    "tags": [
+      "kubernetes",
+      "networking",
+      "cni",
+      "networkpolicy",
+      "kube-proxy",
+      "cilium"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-k8s-scheduling",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "hard",
+    "front": "Explain Kubernetes scheduler concepts: nodeSelector, affinity, taints/tolerations, and topology spread constraints.",
+    "back": "nodeSelector: hard constraint on node labels (simple key=value). nodeAffinity: richer rules — requiredDuringScheduling (hard) or preferredDuringScheduling (soft). podAffinity/podAntiAffinity: co-locate or spread Pods relative to other Pods. Taints: nodes repel Pods (NoSchedule, PreferNoSchedule, NoExecute). Tolerations: Pods declare tolerance for specific taints. Use case: taint GPU nodes, only GPU-workload Pods tolerate it. Topology Spread Constraints: distribute Pods evenly across zones/nodes — replaces podAntiAffinity for spread.",
+    "senior_nuance": "TopologySpreadConstraints with topologyKey: topology.kubernetes.io/zone + maxSkew: 1 + whenUnsatisfiable: DoNotSchedule ensures Pods spread across availability zones — critical for HA. Combine with PDB for safe zone-failure tolerance. Pod priority and preemption: high-priority Pods can evict lower-priority ones. Use PriorityClass for control plane and critical workloads. Cluster Autoscaler needs node labels to know which node group to expand — misconfigured affinity can cause pods to be unschedulable even when autoscaler adds nodes.",
+    "quote_to_say": "Topology spread across zones is the HA baseline — without it a single AZ outage takes out all replicas.",
+    "tags": [
+      "kubernetes",
+      "scheduling",
+      "affinity",
+      "taints",
+      "topology-spread",
+      "availability"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-k8s-secrets",
+    "topic": "backend",
+    "subtopic": "kubernetes",
+    "difficulty": "medium",
+    "front": "What are the limitations of Kubernetes Secrets and what are production-grade alternatives?",
+    "back": "K8s Secrets: base64-encoded (not encrypted), stored in etcd. Problems: (1) base64 is not encryption — anyone with etcd access reads them; (2) Secrets are accessible to all Pods in the namespace by default; (3) Secrets mounted as env vars appear in process listings; (4) no versioning or rotation workflow. Production alternatives: (1) etcd encryption at rest (EncryptionConfiguration) + strict RBAC on secrets; (2) external secrets operators (External Secrets Operator pulling from AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager); (3) Vault agent sidecar injecting secrets at runtime; (4) Sealed Secrets for GitOps-safe encrypted secrets in repo.",
+    "senior_nuance": "The External Secrets Operator pattern is the current best practice: Secrets live in a managed vault (AWS Secrets Manager, GCP Secret Manager), ExternalSecret CRD syncs them into K8s Secrets automatically and handles rotation. This combines GitOps-friendliness (you commit the ExternalSecret definition, not the value) with cloud-native rotation. For audit: all secret accesses go through the vault's audit log, not K8s audit log which is harder to analyze. Never put raw secret values in a Helm chart values.yaml.",
+    "quote_to_say": "K8s Secrets are just base64 — production secrets belong in a dedicated secret manager with rotation and audit logging.",
+    "tags": [
+      "kubernetes",
+      "secrets",
+      "vault",
+      "external-secrets",
+      "security",
+      "rbac"
+    ],
+    "mock_eligible": true
+  }
+]

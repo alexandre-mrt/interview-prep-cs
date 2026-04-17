@@ -1,0 +1,122 @@
+[
+  {
+    "id": "ml-fund-bias-variance",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "Explain the bias-variance tradeoff. What does each term represent and what causes them?",
+    "back": "Bias is error from wrong assumptions — a model too simple to capture the true relationship (underfitting). Variance is error from sensitivity to training noise — a model that memorises the training set (overfitting). Total expected error = Bias² + Variance + Irreducible noise. Increasing model capacity lowers bias but raises variance; regularization and more data move the tradeoff in your favour.",
+    "senior_nuance": "In practice 'high variance' manifests as large train-val gap; 'high bias' as both being bad. Diagnosing which regime you're in changes the fix: more data helps variance, not bias.",
+    "quote_to_say": "If train and val are both bad, you're biased. If only val is bad, you're overfitting.",
+    "tags": ["bias-variance", "underfitting", "overfitting"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-cross-val",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "Why use k-fold cross-validation instead of a single train/val split, and when does k-fold break down?",
+    "back": "A single split has high variance in the performance estimate — you got lucky or unlucky with that particular partition. k-fold averages k estimates, each on a different held-out fold, giving lower-variance evaluation. Typical k=5 or 10. Break-downs: (1) Time-series data — future leaks into past folds; use time-series split instead. (2) Very small datasets — even k=5 leaves tiny training sets. (3) Class imbalance — stratified k-fold is required to keep label distribution stable.",
+    "senior_nuance": "Nested cross-validation is needed when cross-val is also used for hyperparameter tuning; otherwise the best-tuned model is evaluated on data it effectively 'saw', biasing the estimate upward.",
+    "tags": ["cross-validation", "evaluation", "leakage"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-fund-metrics-basics",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "easy",
+    "front": "Define precision, recall, and F1. When would you prefer each over accuracy?",
+    "back": "Precision = TP/(TP+FP): of all predicted positives, how many were real? Recall = TP/(TP+FN): of all real positives, how many did we catch? F1 = 2·P·R/(P+R): harmonic mean, penalises extreme imbalance between the two. Use precision when false positives are costly (spam filter flagging good emails). Use recall when false negatives are costly (cancer screening). Use accuracy only when classes are balanced and both error types cost the same.",
+    "tags": ["precision", "recall", "f1", "metrics"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-regularisation",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "Compare L1 and L2 regularisation. When does each produce sparse weights, and why?",
+    "back": "L2 (Ridge) adds λΣwᵢ² to the loss, penalising large weights smoothly — gradient is proportional to w, so small weights are nudged toward zero but rarely reach it. L1 (Lasso) adds λΣ|wᵢ|, whose subgradient is ±λ regardless of weight magnitude — small weights hit exactly zero, producing sparse solutions. Elasticnet combines both. In practice: use L1 or Elasticnet when you expect only a few features to matter (feature selection). L2 when all features are relevant but need to be shrunk.",
+    "senior_nuance": "L1 sparsity breaks down with correlated features — it arbitrarily zeros one and keeps another. Group Lasso or Elasticnet is more principled in that regime.",
+    "quote_to_say": "L1 kills weights outright. L2 just sends them to therapy.",
+    "tags": ["regularisation", "l1", "l2", "sparsity"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-class-imbalance-accuracy",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "A classifier reports 98% accuracy on a fraud dataset where 2% of transactions are fraudulent. Is this a good result? What should you report instead?",
+    "back": "No — a classifier that always predicts 'not fraud' achieves 98% accuracy without learning anything. With heavy class imbalance, accuracy is misleading because the majority class dominates the metric. Report: Precision-Recall curve / AUC-PR, F1 on the minority class, Matthews Correlation Coefficient (MCC). AUC-ROC is also better than accuracy but still overly optimistic at high imbalance because it includes TN, which are trivially large. AUC-PR focuses on the rare class.",
+    "senior_nuance": "AUC-ROC misleads on heavy imbalance because a model can achieve high TPR at low FPR while still having terrible precision on the minority class. Switch to AUC-PR as the primary metric and set the decision threshold on the operating curve, not at 0.5.",
+    "quote_to_say": "98% accuracy on 2% fraud base rate means you learned nothing.",
+    "tags": ["class-imbalance", "accuracy", "auc-roc", "auc-pr", "metrics"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-auc-roc-imbalance",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "Why does AUC-ROC mislead on heavily imbalanced datasets? What does AUC-PR fix?",
+    "back": "ROC plots TPR (recall) vs FPR = FP/(FP+TN). When negatives vastly outnumber positives, FPR is tiny even for many false positives because TN is huge. A model can look great on ROC while flagging almost nothing useful. AUC-PR plots Precision vs Recall, ignoring true negatives entirely. It focuses on how well the model finds the rare class. For datasets with 99:1 imbalance, a random classifier achieves AUC-ROC ≈ 0.5 but also AUC-PR ≈ 0.01 — the latter reflects the actual difficulty.",
+    "senior_nuance": "When presenting to stakeholders, pair AUC-PR with the operating point you chose (the specific threshold) and the business cost of FP vs FN. The curve alone is not a deployment decision.",
+    "tags": ["auc-roc", "auc-pr", "class-imbalance", "metrics"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-imbalance-techniques",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "medium",
+    "front": "Walk through four techniques for handling class imbalance. What are the tradeoffs of each?",
+    "back": "(1) Resampling — oversample minority (SMOTE: synthetic neighbours) or undersample majority. Fast, model-agnostic. SMOTE can generate noise in sparse regions. (2) Class weights — weight minority class inversely proportional to frequency in the loss. No data change, just changes gradient. (3) Threshold tuning — train with default threshold, then shift the decision boundary post-hoc on a held-out set to hit desired precision/recall. (4) Algorithmic — cost-sensitive learners (XGBoost scale_pos_weight), focal loss for detection tasks. Best practice: combine class weights + threshold tuning, evaluate on AUC-PR.",
+    "senior_nuance": "Oversampling before the train/val split causes leakage — synthetic minority samples from the validation set appear in training. Always split first, then resample only the training fold.",
+    "quote_to_say": "Always split before you resample — otherwise you've seen the val set through its synthetic twins.",
+    "tags": ["class-imbalance", "smote", "resampling", "threshold"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-feature-leakage",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "Define feature leakage. Give two subtle examples and explain how to detect it before production.",
+    "back": "Leakage is when features available at training time contain information from the future or from the label itself, making offline metrics appear better than they are. Subtle examples: (1) Aggregating click-through rate on a per-user basis before the train/test split — the aggregate includes events from the test period. (2) Filling missing values with the global mean computed on the full dataset including test rows. Detection: check train AUC >> val AUC, or when removing a feature drops performance more than expected. Time-stratified splits + feature provenance tracking (when was each feature computable?) are the systematic fix.",
+    "senior_nuance": "Leakage is why models that look great in research fail in production — the offline/online gap is often leakage in disguise. Add a 'feature available at inference time?' audit to every feature engineering PR.",
+    "quote_to_say": "The offline/online gap is often just leakage you haven't found yet.",
+    "tags": ["leakage", "feature-engineering", "offline-online-gap"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-calibration",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "What is probability calibration? Why is a model with high AUC still poorly calibrated, and how do you fix it?",
+    "back": "A calibrated model's predicted probability matches the empirical frequency: if it says 0.8, 80% of those examples should be positive. A model can rank perfectly (high AUC) but output systematically skewed scores. Tree ensembles and SVMs are often overconfident; neural nets can be under- or overconfident depending on temperature. Fix: Platt scaling (logistic regression on model output) or isotonic regression on a held-out calibration set. Evaluate with reliability diagrams and Expected Calibration Error (ECE).",
+    "senior_nuance": "Miscalibrated probabilities break downstream decision-making: risk thresholds, expected value calculations, and multi-model pipelines that multiply probabilities all assume calibration. Calibrate as a post-processing step after final model selection, not during tuning.",
+    "tags": ["calibration", "probability", "platt-scaling", "ece"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-fund-offline-online-gap",
+    "topic": "ml",
+    "subtopic": "fundamentals",
+    "difficulty": "hard",
+    "front": "Your model's offline AUC is 0.88 but online CTR lift is +0. List the most likely causes and a diagnostic plan.",
+    "back": "Causes in order of frequency: (1) Training-serving skew — features computed differently in batch vs real-time (different null handling, stale joins). (2) Label leakage in offline eval. (3) Distribution shift — user behaviour changed between training period and live traffic. (4) Feedback loop — model affects what data it sees next, breaking i.i.d. assumptions. (5) Wrong metric — AUC measures ranking, not CTR; optimised ranking ≠ optimised click behaviour. Diagnostic: log raw features at serving time, replay them through the offline pipeline, compare feature distributions (KL divergence or PSI). Shadow the new model in production, compare feature stats live.",
+    "senior_nuance": "Offline-online gap is the canonical senior ML engineering problem. It doesn't mean the model is bad — it usually means the evaluation harness is broken. Fix the harness before retraining.",
+    "quote_to_say": "Offline-online gap is not a model problem. It's a measurement problem.",
+    "tags": [
+      "offline-online-gap",
+      "training-serving-skew",
+      "distribution-shift",
+      "debugging"
+    ],
+    "mock_eligible": true
+  }
+]

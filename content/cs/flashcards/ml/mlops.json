@@ -1,0 +1,103 @@
+[
+  {
+    "id": "ml-mlops-feature-stores",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "medium",
+    "front": "What problem does a feature store solve, and what are the two critical properties it must guarantee?",
+    "back": "Without a feature store, features are recomputed differently in training pipelines (batch, offline) and serving code (real-time, online), causing training-serving skew. A feature store is a centralised repository that provides: (1) Point-in-time correctness — historical feature values are retrieved as they would have been at any past timestamp, preventing future leakage during training data generation. (2) Online/offline parity — the same feature logic runs both in batch (for training datasets) and low-latency online retrieval (for serving). Components: offline store (data warehouse for historical features, used in training), online store (low-latency key-value store like Redis/DynamoDB, used at inference), feature pipeline (computes and synchronises both). Examples: Feast, Tecton, Hopsworks.",
+    "senior_nuance": "The hardest part of a feature store is not the infrastructure but the feature versioning. When a feature computation changes, historical datasets become inconsistent with new definitions. Version features like code — every change is a new feature version.",
+    "quote_to_say": "A feature store is not a database. It's a contract between training and serving.",
+    "tags": ["feature-store", "training-serving-skew", "mlops"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-mlops-model-registry",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "easy",
+    "front": "What is a model registry, and what metadata must it track for reproducibility and safe rollback?",
+    "back": "A model registry is a versioned store of trained model artefacts with associated metadata. Required metadata: (1) Training data version or hash (which data produced this model). (2) Code version (git SHA of training script). (3) Hyperparameters. (4) Evaluation metrics on the validation set. (5) Environment / dependency versions (Python, framework, CUDA). (6) Lineage (which previous model or experiment this was derived from). With this, any production model can be exactly reproduced and any deployed model can be rolled back by fetching the prior registered version. Without it, 'the model that was in prod last Tuesday' is irreproducible. MLflow, W&B, and cloud-native registries (SageMaker, Vertex AI) all implement this. Staging → production promotion workflows gate deployment.",
+    "senior_nuance": "Model registry metadata is only as good as the discipline around logging it. Automate metadata capture in the training job — human-entered metadata is always incomplete.",
+    "tags": ["model-registry", "mlops", "reproducibility", "rollback"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-mlops-drift",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "medium",
+    "front": "Distinguish data drift, concept drift, and label drift. Which is hardest to detect and why?",
+    "back": "Data drift (covariate shift): the input distribution P(X) changes. Features values shift. Detectable by comparing training and serving feature distributions (PSI, KS test, Jensen-Shannon divergence). Concept drift: the relationship P(Y|X) changes — the same features now have different labels. Harder to detect because it requires labels, which may arrive with delay (hours to months). Label drift: the marginal label distribution P(Y) changes. Visible in prediction distributions but without ground truth you can only observe the model's output distribution, not the actual label distribution. Hardest to detect: concept drift, because (1) it requires ground-truth labels which are delayed, (2) features can look normal while model quality has degraded, (3) it's invisible to unsupervised drift detectors. Solution: proxy metrics (engagement, downstream events), model output distribution monitoring, and fast feedback label pipelines.",
+    "senior_nuance": "In practice, model accuracy usually degrades before formal drift detection fires. Monitor business metrics and model output distributions as leading indicators; treat formal drift statistics as confirming signals, not early warnings.",
+    "tags": ["drift", "data-drift", "concept-drift", "mlops", "monitoring"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-mlops-ab-testing",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "medium",
+    "front": "How do you design an A/B test for a model change? What are the common statistical mistakes?",
+    "back": "Setup: randomly split users or requests into control (current model) and treatment (new model). Measure the primary metric (e.g., CTR, conversion) and guardrail metrics. Run for a pre-specified duration based on power analysis. Common mistakes: (1) Peeking — stopping early when you see significance. P-values are only valid at the pre-specified sample size; early stopping inflates false-positive rate. Fix: sequential testing (mSPRT) or pre-commit to sample size. (2) Multiple comparisons — testing many metrics without correction inflates false positives. Fix: Bonferroni or Benjamini-Hochberg correction. (3) Network effects — if user A and B interact, they are not independent. Use cluster-level randomisation. (4) Novelty effect — users behave differently when something is new. Run longer. (5) Metric selection after the fact — post-hoc choosing a metric that happens to be significant is p-hacking.",
+    "senior_nuance": "For ML systems, the A/B test is often not the bottleneck — getting a sufficiently clean randomisation unit (user vs session vs request) is. Use user-level randomisation whenever possible to capture long-term effects.",
+    "tags": ["ab-testing", "statistics", "experimentation", "mlops"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-mlops-canary-shadow",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "medium",
+    "front": "Compare canary deployment, shadow deployment, and blue-green for ML model releases. What risks does each mitigate?",
+    "back": "Canary: route a small % of live traffic (e.g., 1-5%) to the new model. Measure metrics on real traffic before full rollout. Mitigates: catastrophic failures affecting all users. Risk: canary traffic is real — bad predictions affect real users. Blue-green: run both environments in parallel, switch traffic at the load balancer atomically, keep the old environment live for instant rollback. Mitigates: rollback time (zero-downtime switch). Risk: requires double infrastructure cost during overlap. Shadow (dark launch): route all traffic to both models; serve old model responses to users; collect new model predictions silently for offline analysis. Mitigates: any risk to users — new model is never served. Also enables realistic latency testing at production traffic patterns. Cost: double inference compute. Combination: shadow → canary → full rollout is the standard safe pattern for high-stakes ML systems.",
+    "senior_nuance": "Shadow mode is the only way to validate model behaviour under real production traffic without user impact. For any model that will handle >1M requests/day, shadow mode is not optional — it's how you find edge cases that synthetic test sets miss.",
+    "tags": [
+      "canary",
+      "shadow-deployment",
+      "blue-green",
+      "deployment",
+      "mlops"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-mlops-offline-online-gap-mlops",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "hard",
+    "front": "Your model's offline metrics are strong but live performance is flat. Describe the systematic process for diagnosing the offline-online gap.",
+    "back": "Step 1: Log raw features at serving time. Compare distributions against training data using PSI (Population Stability Index) per feature. Identify features with PSI > 0.25 (high drift). Step 2: Reproduce offline evaluation on a time-stratified split — if offline eval used a random split, future data leaked into training evaluation. Redo with temporal split. Step 3: Compare prediction distributions — if the model's score distribution at serving is compressed or shifted vs training, suspect serving-side preprocessing differences. Step 4: Check label delay — if online labels (conversions, clicks) arrive with delay, ensure the offline evaluation used the same label horizon. Step 5: Shadow the new model to collect real-feature, real-label pairs and evaluate directly. Step 6: Audit feature pipelines — compare batch vs real-time feature values for the same entity at the same time.",
+    "senior_nuance": "The offline-online gap is the single most underestimated problem in ML systems. A model that looks 0.02 AUC better offline may be indistinguishable from baseline online. Gap diagnosis is a routine senior ML engineering skill.",
+    "quote_to_say": "The gap between offline and online is where careers are made — or where projects quietly die.",
+    "tags": [
+      "offline-online-gap",
+      "debugging",
+      "mlops",
+      "training-serving-skew"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-mlops-pipelines",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "hard",
+    "front": "What are the key components of a production ML training pipeline, and what makes each a reliability risk?",
+    "back": "Components and failure modes: (1) Data ingestion — schema drift from upstream systems; late or missing partitions; silent row drops. (2) Feature engineering — joins on incorrect keys; temporal leakage if timestamps are wrong; NULL handling differences between training and serving. (3) Training job — non-deterministic data shuffling (use fixed seeds for reproducibility); OOM failures on large datasets; hyperparameter configuration management. (4) Evaluation — offline metrics that don't correlate with online; insufficient slicing (aggregate metrics hide subgroup regressions). (5) Registration & promotion — no automated gate to prevent a worse model from replacing a better one; missing lineage. (6) Deployment — model artefact size causing slow rollout; dependency conflicts in serving environment. Mitigation: treat each stage as a typed, versioned data contract; run automated regression checks at every stage gate.",
+    "senior_nuance": "Most pipeline failures are silent — the job completes but produces a model trained on wrong data. Add data quality assertions (not just job success checks) at every stage. A green pipeline that trains on corrupted data is worse than a failing pipeline.",
+    "tags": ["ml-pipeline", "reliability", "mlops", "data-quality"],
+    "mock_eligible": false
+  },
+  {
+    "id": "ml-mlops-retraining",
+    "topic": "ml",
+    "subtopic": "mlops",
+    "difficulty": "hard",
+    "front": "When should you retrain a deployed model? Compare time-based, performance-based, and distribution-based triggers.",
+    "back": "Time-based: retrain on a fixed schedule (daily, weekly). Simple to implement. Risk: retrains when nothing has changed (wasted compute) and may not retrain fast enough when rapid drift occurs. Performance-based: monitor a proxy metric (CTR, conversion rate, prediction error on labeled samples) and trigger retraining when it degrades below a threshold. Most directly tied to business impact. Requires labeled feedback with low enough latency. Distribution-based: monitor feature or prediction distribution shifts (PSI, KL divergence) and trigger retraining when drift exceeds a threshold. Can act before performance degrades but is not guaranteed to correlate with quality drop. Best practice: combine all three. Use distribution monitoring as an early warning system, performance monitoring as the authoritative trigger, and time-based as a floor (retrain at least every N weeks regardless).",
+    "senior_nuance": "Retraining is not free — compute, evaluation, deployment, and monitoring costs accumulate. Always benchmark whether the performance gain from more frequent retraining exceeds the marginal cost. Not every model needs daily retraining.",
+    "tags": ["retraining", "drift", "mlops", "monitoring"],
+    "mock_eligible": true
+  }
+]

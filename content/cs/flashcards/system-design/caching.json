@@ -1,0 +1,147 @@
+[
+  {
+    "id": "sd-cache-aside",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "easy",
+    "front": "Describe the cache-aside (lazy loading) pattern. What is its key failure mode?",
+    "back": "Cache-aside: application checks cache first. On miss, reads from DB, writes to cache, returns result. On write, invalidates or updates cache. Application owns the cache population logic. Failure mode: cache stampede — if the cache entry for a popular key expires, many concurrent requests all miss and all query the DB simultaneously. Also known as thundering herd or cache stampede. Secondary failure: stale reads — if a write path forgets to invalidate the cache, readers see stale data indefinitely.",
+    "senior_nuance": "Cache-aside is the most common pattern because it's flexible and tolerates cache failures gracefully (fall through to DB). The stampede problem is solved with probabilistic early expiration (XFetch algorithm), mutex locking on miss (one thread fetches, others wait), or cache warming on deploy.",
+    "tags": [
+      "cache-aside",
+      "lazy-loading",
+      "cache-stampede",
+      "thundering-herd"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-write-through-write-back",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "medium",
+    "front": "Compare write-through and write-back caching. When would you use each?",
+    "back": "Write-through: every write updates cache and DB synchronously before acknowledging to client. Guarantees cache is always consistent with DB. High write latency (two writes per operation). Good for: read-heavy workloads where consistency matters, financial data. Write-back (write-behind): writes update cache immediately, DB is updated asynchronously (buffered). Low write latency but risk of data loss if cache node dies before flush. Good for: write-heavy workloads tolerating some data loss risk (leaderboards, analytics counters, session stores). CPU L1/L2 cache uses write-back; most distributed caches use write-through or cache-aside.",
+    "senior_nuance": "Write-back in distributed caches (e.g., Redis with AOF async mode) is risky if the Redis node fails between write and flush. For financial data this is unacceptable. For game scores it's fine. Always match the durability guarantee to the business requirement before choosing cache write strategy.",
+    "tags": [
+      "write-through",
+      "write-back",
+      "write-behind",
+      "cache-consistency",
+      "durability"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-cache-invalidation",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "hard",
+    "front": "Phil Karlton said 'there are only two hard things in computer science: cache invalidation and naming things.' Why is cache invalidation hard? Name three strategies.",
+    "back": "Cache invalidation is hard because distributed systems have no global clock and no atomic cache+DB operation. Strategies: (1) TTL-based expiration — simple but serves stale data up to TTL. (2) Event-driven invalidation — on write, publish an invalidation event; cache consumers delete the key. Race condition: event can arrive before the write is visible to all DB replicas. (3) Write-through with version tags — embed a version in the cache key; new writes generate a new version, old entries expire naturally. (4) Change Data Capture (CDC) — stream DB changes (via Debezium) and invalidate cache asynchronously. Lowest coupling, highest complexity.",
+    "senior_nuance": "CDC-based invalidation is robust but introduces lag. The blast radius of a cache invalidation bug is large: if keys are invalidated incorrectly, DB is suddenly overwhelmed. Always implement a circuit breaker at the cache layer — if cache miss rate spikes above threshold, serve stale rather than letting DB burn.",
+    "quote_to_say": "What's the failure mode if we miss an invalidation? That tells me whether TTL is good enough or we need CDC.",
+    "tags": ["cache-invalidation", "ttl", "cdc", "debezium", "stale-data"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-cache-stampede",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "medium",
+    "front": "How do you prevent a cache stampede (thundering herd) on a high-traffic key expiring?",
+    "back": "Strategies: (1) Probabilistic early re-computation (XFetch) — before expiry, each request has a small probability of early refresh proportional to remaining TTL. Distributes refresh load in time. (2) Mutex/lock on miss — first miss acquires a lock and populates cache; subsequent misses wait. Requires timeout to handle lock holder failure. Redis SETNX for distributed mutex. (3) Stale-while-revalidate — serve stale data immediately, refresh in background. (4) Cache warming — proactively populate cache before old entry expires (scheduled background job). Best choice depends on acceptable staleness and miss cost.",
+    "senior_nuance": "Mutex approach serializes refreshes but risks a thundering herd of lock waiters if refresh is slow. XFetch is elegant and stateless but requires tuning the beta parameter. In practice, stale-while-revalidate is the simplest and most effective for content caches (CDNs use it via Cache-Control: stale-while-revalidate header).",
+    "tags": [
+      "cache-stampede",
+      "thundering-herd",
+      "xfetch",
+      "stale-while-revalidate",
+      "mutex"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-eviction-policies",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "medium",
+    "front": "Compare LRU, LFU, and FIFO cache eviction policies. When does LRU fail?",
+    "back": "LRU (Least Recently Used): evict the key not accessed for the longest time. Good for temporal locality. Fails for: scan-resistant workloads — a full table scan evicts all hot keys. LFU (Least Frequently Used): evict the key accessed least often. Better for frequency-skewed workloads. Fails for: new hot keys — a new viral item is evicted before it builds up frequency. FIFO: evict oldest inserted key. Simplest, worst hit rate in most workloads. ARC (Adaptive Replacement Cache, used in ZFS): balances LRU and LFU dynamically. Redis uses approximated LRU (sampled k keys). Redis 4.0 added LFU mode.",
+    "senior_nuance": "Redis's approximate LRU samples 5-10 random keys and evicts the least recently used among them. This is O(1) but less accurate than true LRU. For workloads with strong frequency skew (Zipf distribution — top 20% of keys get 80% of traffic), LFU dramatically outperforms LRU. Tune maxmemory-policy in Redis based on your access pattern.",
+    "tags": ["lru", "lfu", "eviction-policy", "redis", "arc"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-cdn-caching",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "easy",
+    "front": "How does a CDN reduce origin load? What are the caching headers that control CDN behavior?",
+    "back": "CDN (Content Delivery Network): edge nodes geographically close to users cache content. On cache miss, edge fetches from origin (cache fill). Subsequent requests for the same content are served from edge. Key HTTP headers: Cache-Control: max-age=N (cache for N seconds), Cache-Control: s-maxage=N (CDN-specific TTL overriding max-age for shared caches), Cache-Control: stale-while-revalidate=N (serve stale while refreshing), Vary (caches different versions per header value), Surrogate-Control (CDN-specific, not sent to browser). Cache-Control: no-store bypasses CDN entirely. CDN reduces origin load by offload ratio = (1 - miss_rate) * 100%.",
+    "senior_nuance": "Vary: Accept-Encoding is correct for gzip/br variants. Vary: Cookie is a footgun — if any cookie is set, CDN treats each unique cookie value as a separate cache entry, effectively disabling CDN caching for authenticated users. Strip cookies at the CDN edge for cacheable routes.",
+    "tags": ["cdn", "cache-control", "cache-headers", "vary", "edge-caching"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-distributed-cache-topology",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "medium",
+    "front": "Compare a sidecar cache, a dedicated cache cluster, and a local in-process cache. When is each appropriate?",
+    "back": "Local in-process cache (Guava, Caffeine): zero network latency, no serialization, per-instance state. Problem: each instance has its own cache, so cache size is limited to one process and invalidation is hard across instances. Use for: immutable or rarely-changing config, session local data. Sidecar cache (Redis on the same host): sub-millisecond network, shared with co-located processes. Use for: per-pod local caching with shared namespace. Dedicated cache cluster (Redis Cluster, Memcached): shared across all instances, horizontally scalable. Use for: shared session state, rate limiting counters, distributed leaderboards.",
+    "senior_nuance": "Two-tier caching is powerful: L1 local in-process cache (short TTL, small size) + L2 Redis cluster. Reduces Redis load by 80-90% for hot keys. The tradeoff is consistency lag — a key invalidated in Redis is still in-process for up to L1 TTL seconds. For data where staleness of a few seconds is acceptable, this is often the right call.",
+    "tags": [
+      "sidecar-cache",
+      "local-cache",
+      "redis-cluster",
+      "two-tier-caching",
+      "topology"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-cache-warming",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "medium",
+    "front": "You deploy a new service and the cache is cold. How do you handle cold start and prevent origin overload?",
+    "back": "Cold start strategies: (1) Request coalescing — route all requests for the same key to one origin fetch, return to all waiters. Nginx proxy_cache_lock does this. (2) Pre-warming — before cutover, run a cache warmer that fetches top-N most popular keys (from analytics or simulated traffic). (3) Gradual rollout — route 1% of traffic to new deployment first; cache warms before full cutover. (4) Request rate limiting — during cold start, throttle origin requests to maximum origin capacity. Shed excess with 503 or serve degraded responses. (5) Snapshot restore — dump cache state from old cluster, restore to new (for in-memory DBs like Redis).",
+    "senior_nuance": "Cold start after an incident is especially dangerous — cache is empty and traffic is already high. Define a startup runbook: bring up origin capacity first (scale out), then allow cache to warm, then restore full traffic. Don't restore full traffic first.",
+    "tags": [
+      "cache-warming",
+      "cold-start",
+      "request-coalescing",
+      "gradual-rollout"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-cache-penetration",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "hard",
+    "front": "What is cache penetration and how does a Bloom filter prevent it?",
+    "back": "Cache penetration: requests for keys that don't exist in either cache or DB. Cache misses, DB returns null, null is not cached (or is cached briefly), next request misses again. Attackers can exploit this with random non-existent keys to DoS the DB. Bloom filter fix: maintain a probabilistic filter of all keys that exist in the DB. On cache miss, check the Bloom filter before hitting DB. If the filter says 'definitely not in DB', return null immediately. Bloom filter allows false positives (may say 'maybe in DB' for non-existent keys) but never false negatives. Redis has a Bloom filter module (RedisBloom).",
+    "senior_nuance": "Bloom filter false positive rate = ~(1 - e^(-kn/m))^k where k=hash functions, n=elements, m=bits. For 1% false positive rate, need ~9.6 bits per element. At 100M keys, that's ~120MB in Redis — affordable. Alternative for smaller key spaces: cache null results with a short TTL (null caching). Simpler but increases cache memory and doesn't protect against random key attacks.",
+    "tags": [
+      "cache-penetration",
+      "bloom-filter",
+      "null-caching",
+      "dos",
+      "redis"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-session-storage",
+    "topic": "system-design",
+    "subtopic": "caching",
+    "difficulty": "easy",
+    "front": "Compare storing sessions in cookies, server-side session store (Redis), and JWTs. What is the tradeoff?",
+    "back": "Cookie sessions: session data encoded and signed in cookie (e.g., Flask session). Stateless server, no storage. Limits: 4KB cookie limit, cannot invalidate until expiry. Redis session store: session ID in cookie, data in Redis. Can invalidate by deleting Redis key. Scales across multiple servers easily. Requires Redis availability. JWTs: self-contained claims in token. Stateless, scales to any number of servers. Cannot invalidate until expiry without a blocklist (which reintroduces state). JWTs are good for short-lived access tokens (15 min); Redis is better for long-lived sessions requiring invalidation (logout, security revoke).",
+    "senior_nuance": "The JWT revocation problem is frequently underestimated. If a user changes password or is compromised, their JWT is valid until expiry. Solutions: short expiry + refresh tokens (complexity), token blocklist in Redis (re-introduces statefulness), or accept the revocation window as acceptable risk. Choose based on your security SLO.",
+    "tags": ["session-storage", "jwt", "redis", "cookie", "revocation"],
+    "mock_eligible": false
+  }
+]

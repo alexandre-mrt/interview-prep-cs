@@ -1,0 +1,70 @@
+# Ownership STAR
+
+## Prompt pattern
+"Tell me about a time you took ownership of something outside your scope."
+"Describe a problem no one else was addressing that you picked up."
+"When have you gone beyond what was asked of you?"
+
+## STAR structure
+**Situation**: the gap — something broken or underinvested that wasn't formally anyone's responsibility.
+**Task**: why you decided to own it (and how you got alignment to do so).
+**Action**: scoping, communication, execution — without abandoning your actual job.
+**Result**: the gap closed + the ongoing ownership model after.
+
+## Senior signals
+- "Ownership" doesn't mean "hero mode." It means making the invisible visible and deciding.
+- Show that you got buy-in from your manager before spending large amounts of time.
+- Name a tradeoff: what you said no to in order to say yes to this.
+- End with a durable outcome — ongoing ownership handed off or institutionalized, not just a one-time fix.
+- Avoid framing yourself as the only one who cared. It reads as martyrdom.
+
+## Template 1: Owning a cross-team reliability gap
+
+**Situation**: <SYSTEM, e.g. shared authentication service> was causing intermittent failures across <N DEPENDENT SERVICES>. No team formally owned it — it had been inherited from a previous reorg. Each dependent team would file a ticket, nothing would happen for weeks, and everyone routed around the problem with retries and workarounds.
+
+**Task**: Decide whether to keep routing around it or to take it on. I was a senior IC on one of the dependent teams, not on the auth platform team.
+
+**Action**:
+1. Aligned with my EM first: "I want to spend ~20% of my time on this for a month. Here's why I think it's worth it, here's what I'll drop from my current plate." Got agreement in writing.
+2. Got the current code owners — an under-resourced platform team — on a call. Offered to do the work in their codebase following their review process, not to take over ownership.
+3. Triaged the top 5 failure modes from <N MONTHS> of incident data. Fixed the two with the highest impact-to-effort ratio in <TIME>.
+4. Wrote a runbook for the next 3 failure modes so on-call from any team could handle them without paging the platform team.
+5. Explicitly rejected the temptation to rewrite the service. My job was to stabilize it, not to own it long-term.
+
+**Result**: Related incidents dropped <OUTCOME PERCENT>. Platform team used the stabilization window to hire, and a quarter later formally owned the service again with a proper on-call rotation. My team's velocity improved because we stopped fighting retries.
+
+**Senior quote**: "I wasn't trying to become the new owner. I was trying to buy the real owners enough breathing room to exist."
+
+## Template 2: Owning quality when no one was
+
+**Situation**: Team had been shipping fast but quality signals were slipping: <SYMPTOM 1, e.g. flaky tests ignored>, <SYMPTOM 2, e.g. code coverage trending down>, <SYMPTOM 3, e.g. bugs caught in prod that should have been caught earlier>. No one was explicitly responsible for quality — the EM and PM were focused on delivery.
+
+**Task**: Bring quality concerns to a team-wide decision rather than either (a) letting the drift continue or (b) becoming the team's lone quality nag.
+
+**Action**:
+1. Instead of complaining in retro, pulled one month of data: flaky test rate, escaped bugs, time spent on hotfixes. Presented numbers, not vibes.
+2. Proposed a small, time-boxed experiment: <PROPOSAL, e.g. a quality budget — one engineer per sprint rotates on "quality duty">. Framed as reversible — "try for 4 sprints, measure, kill if it's not working."
+3. Volunteered to take the first rotation so the cost was visible to me before I asked anyone else to take it.
+4. Defined success metrics up front with the team: flaky test rate < X, escaped bugs < Y, time-on-hotfix < Z.
+5. Ran the rotation, documented what worked and what didn't, brought data back to the team at the 4-sprint checkpoint.
+
+**Result**: Flaky test rate dropped from <BEFORE> to <AFTER>. Escaped bugs dropped <PERCENT>. Team voted to keep the rotation permanently. I handed off the rotation structure — I didn't make myself the permanent owner.
+
+**Senior quote**: "Ownership isn't doing the work forever. It's getting the structure in place so someone else can."
+
+## Template 3: Owning a decision nobody wanted to make
+
+**Situation**: Team was sitting on a legacy <SYSTEM / SERVICE> that was costing time and money but was still generating <SMALL VALUE, e.g. some low-volume revenue / a few active customers>. Nobody wanted to be the one to sunset it because the revenue wasn't zero. The decision had been deferred for <TIME, e.g. 18 months>.
+
+**Task**: Force the decision — either commit to maintaining it properly or deprecate it. Drift was costing more than either path would.
+
+**Action**:
+1. Built the actual numbers: maintenance cost (on-call time, security patch overhead, dependency drag) vs the actual revenue and strategic value. It was embarrassingly one-sided — cost was <N>x the value.
+2. Took the case to my EM and the PM together. Proposed two options with dated decision points: (a) invest <N engineer-months> to modernize, or (b) sunset over <TIME> with a clear customer communication plan.
+3. Wrote the customer communication draft for option (b) so the decision felt concrete, not hypothetical.
+4. Acknowledged the uncomfortable truth out loud — "nobody wanted to be the one to say this, but deferring is already a choice and it's the most expensive one."
+5. Made the decision a joint EM + PM + me decision, in writing, so no single person was alone on it.
+
+**Result**: Team chose to sunset. Customers migrated over <TIME>. Reclaimed <N engineer-months/year> of ongoing maintenance. One of the sunset customers ended up upgrading to the modern product, which was a better fit for them anyway.
+
+**Senior quote**: "The decision felt unkind until I realized that letting it drift was the unkindness. I was protecting people from a hard conversation that cost more than the conversation would have."

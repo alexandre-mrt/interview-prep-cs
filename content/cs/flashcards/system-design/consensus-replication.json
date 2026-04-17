@@ -1,0 +1,184 @@
+[
+  {
+    "id": "sd-raft-overview",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "Explain Raft's leader election and log replication. Why was it designed as an alternative to Paxos?",
+    "back": "Raft decomposes consensus into: (1) Leader election — nodes start as followers, become candidate after election timeout (randomized 150-300ms), request votes, win if majority grants them. Term number is a logical clock; stale leaders detect via higher term in responses. (2) Log replication — leader receives writes, appends to log, sends AppendEntries RPCs to followers in parallel. Once a majority acknowledges, entry is committed and response sent to client. Designed to be understandable — Raft is published as 'In Search of an Understandable Consensus Algorithm'. Paxos is notoriously hard to implement correctly from the paper; Multi-Paxos requires significant extensions not described in the original.",
+    "senior_nuance": "Raft's strong leadership means all reads and writes go through the leader, creating a throughput bottleneck. etcd mitigates this with linearizable reads via a lease mechanism — the leader holds a timed lease to serve reads without a round trip. Followers can also serve stale reads for lower latency.",
+    "tags": ["raft", "leader-election", "log-replication", "consensus", "etcd"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-paxos",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "hard",
+    "front": "Describe the two phases of Basic Paxos. What is Multi-Paxos and why is it needed?",
+    "back": "Basic Paxos: Phase 1 — Proposer sends Prepare(n) to quorum of acceptors; acceptors respond with Promise(n, last_accepted). Phase 2 — Proposer sends Accept(n, value) using the highest-numbered previously accepted value (if any); acceptors accept if they haven't promised to a higher n; on quorum accept, the value is chosen. Basic Paxos only agrees on one value. Multi-Paxos: skip Phase 1 for a stable leader (leader can send Accept directly for subsequent slots). This is what makes Paxos practical for replicated logs. Google Chubby, Apache Zookeeper (ZAB is Paxos-like) use Multi-Paxos variants.",
+    "senior_nuance": "The critical difference from Raft: Paxos doesn't prescribe how leader election works — that's left as an exercise, which is why Lamport calls Paxos 'the island of consensus in a sea of confusion.' Real implementations (Google's Paxos, CockroachDB) are heavily engineered beyond the original paper.",
+    "tags": ["paxos", "multi-paxos", "consensus", "chubby", "zookeeper"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-quorum-reads-writes",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "In a system with N replicas, what are the quorum conditions for strong consistency? What is the formula?",
+    "back": "For strong consistency: R + W > N, where R = read quorum, W = write quorum. This guarantees overlap between any read set and any write set. Common configurations for N=3: W=2, R=2 (balanced, tolerates 1 failure), W=3, R=1 (fast reads, slow writes), W=1, R=3 (fast writes, slow reads). With R + W <= N, reads may miss recent writes (eventual consistency). DynamoDB and Cassandra expose R, W, N per-operation via consistency level settings.",
+    "senior_nuance": "Quorum alone doesn't give linearizability — you also need to ensure the leader doesn't serve reads from stale state. In Cassandra, QUORUM reads + QUORUM writes provide strong consistency for a given key, but leader lease or read repair is needed for full linearizability. Sloppy quorum (Dynamo) trades consistency for availability by allowing hinted handoff nodes to count toward quorum.",
+    "tags": [
+      "quorum",
+      "read-write-quorum",
+      "consistency",
+      "dynamo",
+      "cassandra"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-gossip-protocol",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "How does gossip protocol work? Where is it used and what are its convergence properties?",
+    "back": "Gossip (epidemic protocol): each node periodically selects K random peers and exchanges state. Nodes reconcile by merging received state with local state. Convergence is probabilistic — with N nodes each contacting K peers per round, the probability all nodes are informed grows as (1 - (1-K/N)^t). Converges in O(log N) rounds. Used for: Cassandra node membership and failure detection (gossip-based Phi accrual failure detector), DynamoDB ring membership, Redis Cluster node table, SWIM protocol in HashiCorp Consul/Serf.",
+    "senior_nuance": "Gossip is eventually consistent by design — nodes may have stale membership views. The Phi accrual failure detector in Cassandra doesn't declare a node dead at a fixed timeout; it computes a suspicion level based on historical heartbeat intervals, reducing false positives in GC-pausing JVMs.",
+    "tags": [
+      "gossip",
+      "epidemic-protocol",
+      "membership",
+      "cassandra",
+      "convergence"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-leader-election-zk",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "How do distributed systems use Zookeeper for leader election? What is an ephemeral sequential znode?",
+    "back": "Zookeeper leader election: each candidate creates an ephemeral sequential znode under /election/. Znodes are auto-numbered (/election/n_0001, /election/n_0002, ...). The node with the lowest sequence number is the leader. Each non-leader watches the znode with the next-lower sequence number (not the leader directly) — this avoids the herd effect (thundering herd on leader failure). When the watched node is deleted (node dies), the watcher checks if it now has the lowest number; if yes, it becomes leader. Ephemeral znodes are automatically deleted when the session expires, so leader death is automatically detected.",
+    "senior_nuance": "The herd effect: if all followers watch the leader's znode, a leader death causes all N-1 followers to wake up simultaneously, generating N-1 watch events and potentially overwhelming Zookeeper. The chain-watch approach limits this to one wakeup per leader failure. etcd uses a similar mechanism with leases.",
+    "tags": [
+      "zookeeper",
+      "leader-election",
+      "ephemeral-znode",
+      "herd-effect",
+      "watch"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-2pc",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "hard",
+    "front": "Explain 2-Phase Commit (2PC). What is its fundamental failure mode and how does 3PC partially address it?",
+    "back": "2PC: Phase 1 (Prepare) — coordinator sends Prepare to all participants; each votes Yes (and durably logs) or No. Phase 2 (Commit/Abort) — if all voted Yes, coordinator sends Commit; otherwise Abort. Fundamental failure: if the coordinator crashes after participants vote Yes but before sending Commit, participants are blocked — they hold locks and cannot unilaterally commit or abort. This is the in-doubt state. 3PC adds a Pre-Commit phase so participants can infer the coordinator's intent; it eliminates blocking in the fail-stop model but adds a round trip and still blocks under network partition (not practical for WAN systems).",
+    "senior_nuance": "2PC is still widely used (XA transactions) despite the blocking problem, because the coordinator crash window is small. Modern alternatives: Saga pattern (application-level compensation), optimistic concurrency with conflict detection (Google Spanner), or avoiding cross-shard transactions by choosing partition keys that colocate data.",
+    "quote_to_say": "What's the failure mode if the coordinator crashes at the worst moment? That's the 2PC in-doubt problem.",
+    "tags": [
+      "2pc",
+      "3pc",
+      "distributed-transactions",
+      "coordinator",
+      "in-doubt"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-replication-lag",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "What causes replication lag in MySQL primary-replica setups, and how do you handle reads that must be current?",
+    "back": "MySQL replication: primary writes to binary log, replica applies events. Lag sources: (1) Single-threaded SQL thread on older versions (pre-5.7). (2) Large transactions or DDL operations. (3) Network latency. (4) Replica CPU/IO saturation. Handling current reads: (1) Route to primary — correct but adds load. (2) Read-after-write using replication position — client passes last-write position, proxy waits until replica catches up (used by PlanetScale, ProxySQL). (3) Semi-synchronous replication — primary waits for at least one replica to acknowledge before committing, reducing lag window but adding write latency.",
+    "senior_nuance": "MySQL 5.7+ multi-threaded replication (parallel apply by schema or transaction) reduces lag significantly. ProxySQL and MaxScale can track replication lag per replica and route reads only to replicas within an acceptable lag threshold. Define that threshold based on your SLO for read freshness.",
+    "tags": [
+      "replication-lag",
+      "mysql",
+      "primary-replica",
+      "semi-synchronous",
+      "read-after-write"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-crdts-operations",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "hard",
+    "front": "Name three concrete CRDT types and describe a production use case for each.",
+    "back": "G-Counter (grow-only counter): each node has its own slot in a vector; merge = element-wise max; value = sum. Use case: like counts, view counts where only increments happen (Redis CRDT module). LWW-Register (last-write-wins): merge = higher timestamp wins. Use case: user profile last-login timestamp (acceptable to lose an update). OR-Set (observed-remove set): adds are tagged with unique IDs; a remove only removes the specific tagged version; concurrent add + remove = add wins. Use case: shopping cart — add and remove operations from different devices don't conflict destructively (Riak's default set type).",
+    "senior_nuance": "LWW-Register requires synchronized clocks. If two nodes write simultaneously with the same timestamp, the merge is arbitrary — this is often fine for metadata but not for financial data. OR-Set is more complex but semantically richer — 'add wins on concurrent add+remove' is usually the right shopping cart behavior.",
+    "tags": ["crdt", "g-counter", "lww-register", "or-set", "riak", "redis"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-split-brain",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "hard",
+    "front": "What is split-brain in distributed systems? Give two mechanisms to prevent it.",
+    "back": "Split-brain: a network partition causes two subsets of nodes to each believe they are the majority and both elect a leader. Both halves accept writes, leading to divergent state that is hard to reconcile. Prevention: (1) Quorum-based writes — require W > N/2 replicas to acknowledge a write. During a partition, at most one partition can achieve quorum. Used by Raft, ETCD, Zookeeper. (2) STONITH (Shoot the Other Node in the Head) — the node that cannot reach a quorum triggers a fencing operation (IPMI power off, SAN reserve, cloud instance stop) on the suspected node. Used in database HA setups (Patroni for Postgres, Pacemaker).",
+    "senior_nuance": "STONITH is necessary in HA setups where you have only two nodes — you can't form a quorum of 3 if you only have 2. Patroni uses a DCS (Distributed Control Store like etcd) as an external arbiter. The fencing step is critical — a split-brain where both nodes accept writes is far worse than a brief outage from fencing.",
+    "quote_to_say": "What's the blast radius if we get split-brain here? That tells me how aggressive the fencing needs to be.",
+    "tags": ["split-brain", "fencing", "stonith", "quorum", "patroni", "raft"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-chain-replication",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "hard",
+    "front": "How does chain replication work and how does it compare to leader-based quorum replication?",
+    "back": "Chain replication: nodes arranged in a chain (head, ..., tail). Writes go to the head, propagate through the chain. A write is committed only when the tail acknowledges — so the tail always has all committed data. Reads are served from the tail only (always consistent). Comparison to quorum: chain replication provides strong consistency with simpler logic — no need for quorum accounting. Write latency = sum of chain links (sequential). Quorum write latency = worst of W acknowledgments (parallel, faster). Chain is better for throughput and read latency; quorum is better for write latency. Used in: CRAQ (Chain Replication with Apportioned Queries), Amazon S3 internally, HDFS pipeline writes.",
+    "senior_nuance": "Failure handling in chain replication: if a middle node fails, the predecessor reconnects to the successor. Head or tail failure requires a master/coordinator. CRAQ extends chain replication to allow reads from any node (not just tail) by having nodes serve reads if they have no pending updates, improving read throughput.",
+    "tags": [
+      "chain-replication",
+      "craq",
+      "tail-latency",
+      "strong-consistency",
+      "hdfs"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-read-repair",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "medium",
+    "front": "What is read repair in Cassandra and what are its limitations?",
+    "back": "Read repair: when a coordinator reads from multiple replicas (for consistency level > ONE), it compares responses. If replicas disagree, the coordinator sends the winning value (based on timestamp) to the stale replica. Two modes: (1) Foreground read repair — blocks the read until all replicas are updated (consistency_level=QUORUM triggers this). (2) Background read repair — asynchronously repairs at dclocal_read_repair_chance probability. Limitations: only repairs data that is actually read. Cold data that is never queried accumulates divergence. Anti-entropy repair (nodetool repair) is needed to fix unreachable data.",
+    "senior_nuance": "Running nodetool repair is critical and often neglected. Cassandra's hinted handoff stores writes for downed nodes but only for a configurable window (default 3 hours). After that window, the node must be repaired manually. Missing repair can lead to permanent data loss if a node is replaced.",
+    "tags": [
+      "read-repair",
+      "cassandra",
+      "anti-entropy",
+      "hinted-handoff",
+      "nodetool"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-wal",
+    "topic": "system-design",
+    "subtopic": "consensus-replication",
+    "difficulty": "easy",
+    "front": "What is a Write-Ahead Log (WAL)? How is it used for both crash recovery and replication?",
+    "back": "WAL: before modifying data pages, write the change to a sequential append-only log on durable storage. The log entry contains enough information to redo the change. Crash recovery: on restart, replay WAL from last checkpoint to restore consistent state. Replication: the primary streams WAL entries to replicas (Postgres WAL streaming replication, MySQL binlog). Replicas replay the same changes. Benefits of WAL: sequential writes are much faster than random page writes; log is the source of truth. Used by: Postgres, MySQL, SQLite, RocksDB (MANIFEST + WAL).",
+    "senior_nuance": "WAL creates a tight coupling between primary and replica versions — a replica must understand the WAL format. This complicates major version upgrades. Postgres logical replication decouples this by sending logical change records (INSERT/UPDATE/DELETE) instead of physical WAL pages, enabling replication across major versions.",
+    "tags": [
+      "wal",
+      "write-ahead-log",
+      "crash-recovery",
+      "replication",
+      "postgres"
+    ],
+    "mock_eligible": false
+  }
+]

@@ -1,0 +1,117 @@
+[
+  {
+    "id": "algos-quicksort-pivot",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Why does pivot choice matter in quicksort, and what is the best practice?",
+    "back": "Quicksort's worst case O(n^2) occurs when the pivot is consistently the smallest or largest element (sorted or reverse-sorted input with first/last element as pivot). Three strategies: median-of-three (pivot = median of first, middle, last elements), random pivot (O(n^2) expected only with probability 2^-n for any fixed input), and ninther (median of three medians). Randomized pivot is the standard choice for its simplicity and statistical guarantees.",
+    "senior_nuance": "Introsort (GCC's std::sort) uses randomized quicksort by default but monitors recursion depth — if it exceeds 2 log n, it switches to heapsort for that partition. This hybrid achieves O(n log n) worst-case with quicksort's practical speed. Understanding this is why 'std::sort is O(n log n)' is true even though pure quicksort is not.",
+    "quote_to_say": "Introsort: quicksort + heapsort fallback = O(n log n) guaranteed, O(n log n) practical.",
+    "tags": ["quicksort", "sorting", "pivot", "introsort"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-stable-vs-unstable-sort",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "easy",
+    "front": "What is a stable sort? Name one stable and one unstable sorting algorithm.",
+    "back": "A stable sort preserves the relative order of equal elements in the input. Merge sort is stable: equal elements from the left subarray are placed before those from the right, maintaining original relative order. Quicksort is unstable by default: the partition step can reorder equal elements. Heap sort is also unstable. Python's Timsort and Java's Arrays.sort for objects are both stable.",
+    "senior_nuance": "Stability matters when sorting on multiple keys: sort by column B first (stably), then by column A — records with equal A values retain their column B order. This is why Python's sort is stable by design. Unstable sorts can be made stable by appending the original index as a tiebreaker, but this adds overhead and memory.",
+    "tags": ["sorting", "stable", "merge-sort", "quicksort"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-merge-sort",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Describe merge sort. What is its time and space complexity and why is it preferred for linked lists?",
+    "back": "Merge sort divides the array in half recursively until single elements, then merges sorted halves. Time O(n log n) in all cases (worst, average, best). Space O(n) auxiliary for arrays. For linked lists, merge sort is O(1) extra space (merging re-links nodes without auxiliary arrays) and does not require random access (unlike quicksort which needs O(1) index access for partition). It is the standard sort for linked lists.",
+    "senior_nuance": "For arrays, mergesort's O(n) auxiliary space is a significant drawback versus in-place quicksort. However, for external sorting (data too large to fit in memory), mergesort's sequential access pattern is ideal — it accesses data in runs, minimizing disk seeks. Quicksort's random access pattern is catastrophic for disk I/O. External merge sort is the standard for database sorting.",
+    "quote_to_say": "Mergesort: stable, O(n log n) guaranteed, ideal for linked lists and external sort.",
+    "tags": ["merge-sort", "sorting", "linked-list", "external-sort"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-counting-radix-sort",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Describe counting sort and radix sort. When do they beat O(n log n) comparison sorts?",
+    "back": "Counting sort: count occurrences of each value, compute prefix sums for positions, place each element at its computed position. Time O(n + k) where k is the value range. Radix sort: sort by each digit (LSD to MSD) using stable counting sort as the subroutine. Time O(d * (n + k)) where d is the number of digits. Both beat O(n log n) when k and d are small relative to n (e.g., sorting integers in a known range).",
+    "senior_nuance": "The comparison-sort lower bound O(n log n) applies only to algorithms that determine order solely through element comparisons. Counting and radix sort bypass this bound by exploiting the structure of the keys (integer values, digit representations). For 32-bit integers (d=8 for base-256 radix sort), radix sort is O(8n) = O(n) in practice — competitive with the fastest comparison sorts for large n.",
+    "quote_to_say": "Radix sort breaks the O(n log n) barrier by exploiting key structure, not comparisons.",
+    "tags": ["counting-sort", "radix-sort", "sorting", "linear-time"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-binary-search-rotated",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Find a target in a rotated sorted array in O(log n).",
+    "back": "Standard binary search with an additional check: determine which half is sorted by comparing A[lo] and A[mid]. If A[lo] <= A[mid], the left half is sorted: check if target is in [A[lo], A[mid]] — if so, narrow to left; else right. Otherwise, the right half is sorted: check if target is in [A[mid], A[hi]] — if so, narrow to right; else left. Handle duplicates by incrementing lo when A[lo] == A[mid] (falls back to O(n) in the worst case).",
+    "senior_nuance": "With duplicates (e.g., [3,3,3,1,3]), the check A[lo] == A[mid] is inconclusive — the mid element could be in either half. The only safe move is lo++ (linear degradation). For the interviewer, explicitly state this edge case: 'With duplicates, worst case becomes O(n); without duplicates, it stays O(log n).' This distinction is frequently asked as a follow-up.",
+    "tags": ["binary-search", "sorted", "rotated", "array"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-search-2d-matrix",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Search a target in an m x n matrix where each row is sorted and row starts exceed previous row ends. What is the most efficient approach?",
+    "back": "Treat the matrix as a 1D sorted array: map index i to row = i / n, col = i % n. Run standard binary search on this virtual 1D array. Time O(log(m*n)) = O(log m + log n), space O(1). This is strictly better than row-by-row binary search (O(m log n)).",
+    "senior_nuance": "For the variant where only each row is sorted and each column is sorted (but rows don't extend each other), use the 'staircase search': start at top-right corner, move left if current > target, move down if current < target. Time O(m + n), which is worse than O(log mn) for the stricter matrix but the only correct approach for the weaker constraint. Always clarify which constraint applies.",
+    "tags": ["binary-search", "matrix", "2d"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-sort-colors",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Sort an array containing only 0s, 1s, and 2s in O(n) and O(1) space (Dutch National Flag problem).",
+    "back": "Use three pointers: lo (boundary of 0s), mid (current element), hi (boundary of 2s). If A[mid] == 0: swap A[lo] and A[mid], increment both lo and mid. If A[mid] == 1: increment mid only. If A[mid] == 2: swap A[mid] and A[hi], decrement hi (do not increment mid — the swapped element needs checking). Stop when mid > hi.",
+    "senior_nuance": "The key is not incrementing mid after swapping with hi — the element swapped from hi is unknown and must be re-examined. After swapping with lo, we know A[lo] was processed (it must be a 1 since mid was already past lo), so mid can safely advance. Getting this asymmetry wrong is the most common bug in this problem.",
+    "tags": ["sorting", "dutch-national-flag", "three-pointers", "in-place"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-binary-search-answer",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "What is 'binary search on the answer' and when does it apply?",
+    "back": "When the answer is a monotone function of a parameter (e.g., 'minimum x such that f(x) is feasible'), binary search the parameter space instead of searching through elements. Check feasibility at mid; if feasible, the answer could be smaller (hi = mid); if not, increase (lo = mid + 1). Time: O(log(answer_range) * cost_of_feasibility_check). Applies to: koko eating bananas, ship packages, split array largest sum.",
+    "senior_nuance": "Identifying binary-search-on-the-answer problems requires recognizing that the feasibility function is monotone in the parameter: once feasible at x, always feasible for x' > x (or vice versa). This monotonicity is the invariant to verify before applying the approach. Without it, binary search is incorrect.",
+    "quote_to_say": "Binary search on the answer: feasibility must be monotone in the parameter.",
+    "tags": ["binary-search", "parametric-search", "monotone"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-timsort",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "hard",
+    "front": "Describe Timsort. Why is it the default sort in Python and Java?",
+    "back": "Timsort is a hybrid sort combining merge sort and insertion sort. It identifies naturally ordered 'runs' in the input (ascending or descending sequences), extends them to a minimum size using insertion sort if needed, then merges runs using a modified merge sort. Best case O(n) for already-sorted input (one run), worst case O(n log n). Stable and adaptive — very fast on real-world data which often has partial order.",
+    "senior_nuance": "Timsort's merge strategy uses a stack of run sizes and invariants (like Fibonacci growth constraints) to minimize the total number of merge operations. Python chose Timsort because real data is rarely random — it has structure (partially sorted records, repeated values) that Timsort exploits. For truly random data, quicksort/introsort is faster. This is the 'know your data' lesson in algorithm selection.",
+    "quote_to_say": "Timsort exploits partial order in real data. Random data? Quicksort wins.",
+    "tags": ["timsort", "sorting", "adaptive", "hard"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-quickselect-kth",
+    "topic": "algos",
+    "subtopic": "sorting-searching",
+    "difficulty": "medium",
+    "front": "Describe the quickselect algorithm for finding the k-th smallest element.",
+    "back": "Partition the array around a pivot (same as quicksort). If the pivot lands at index k, it is the k-th smallest. If k < pivot_index, recurse left; else recurse right. Average time O(n) because expected partition size halves each time (geometric series sums to 2n). Worst case O(n^2) with bad pivot choices. Space O(1) iteratively.",
+    "senior_nuance": "Median-of-medians algorithm guarantees O(n) worst-case selection by finding a pivot that splits the array in at least 3/10 - 7/10 ratio each time. In practice, median-of-medians is 5-10x slower than randomized quickselect due to constants. Use randomized quickselect for practical work; state median-of-medians exists for the theoretical guarantee when asked.",
+    "tags": ["quickselect", "sorting", "searching", "kth-smallest"],
+    "mock_eligible": true
+  }
+]

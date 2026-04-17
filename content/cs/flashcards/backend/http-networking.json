@@ -1,0 +1,88 @@
+[
+  {
+    "id": "be-http-versions",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "medium",
+    "front": "Compare HTTP/1.1, HTTP/2, and HTTP/3. What does each version add and what problem does it solve?",
+    "back": "HTTP/1.1: text-based, one request per connection (pipelining exists but broken in practice), head-of-line blocking at TCP level, persistent connections with Keep-Alive. HTTP/2: binary framing, multiplexing (multiple streams over one TCP connection, no HOL blocking at HTTP layer), header compression (HPACK), server push (deprecated in practice), ALPN negotiation. HTTP/3: built on QUIC (UDP-based), TLS 1.3 baked in, independent stream multiplexing (no TCP HOL blocking even at transport), faster connection establishment (0-RTT handshake), better mobile performance (connection migration on IP change).",
+    "senior_nuance": "HTTP/2 solves HTTP-level HOL blocking but not TCP-level: packet loss stalls all streams on the connection (TCP ensures in-order delivery). QUIC eliminates this — each stream is independent at the transport layer. HTTP/3 is now supported by ~30% of web traffic. For microservices: gRPC uses HTTP/2 internally. For CDN/load balancers: terminate HTTP/3 at the edge, HTTP/2 to origin. Server push was promising but disabled in Chrome 106 — the use cases are served better by preload headers.",
+    "quote_to_say": "HTTP/2 multiplexing helps at the HTTP layer but TCP head-of-line blocking remains — HTTP/3 over QUIC solves it completely.",
+    "tags": ["http", "http2", "http3", "quic", "networking", "multiplexing"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-grpc",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "medium",
+    "front": "What is gRPC and when do you choose it over REST? What are the tradeoffs?",
+    "back": "gRPC: RPC framework using HTTP/2 + Protocol Buffers (binary serialization). Features: strongly-typed contracts (.proto files), bidirectional streaming, code generation for multiple languages, built-in deadlines and cancellation, load balancing headers. vs REST: gRPC is faster (binary vs JSON, HTTP/2 multiplexing), type-safe at compile time, streaming-native, harder to debug (not human-readable). REST: universally supported, browser-native (fetch), JSON is debuggable with curl, stateless by design, easier firewall traversal.",
+    "senior_nuance": "gRPC-Web: browser-to-gRPC via a proxy (Envoy, grpc-web) — required because browsers can't use raw HTTP/2 trailers. grpc-gateway: auto-generates REST API from .proto definitions — lets you serve both gRPC and REST from the same service. Deadlines: always set client-side deadline (ctx with timeout) — a gRPC call without deadline can block indefinitely. For internal microservices: gRPC wins on performance and type safety. For public APIs: REST/JSON wins on accessibility. GraphQL: adds a query language layer, great for frontend flexibility but complex server-side.",
+    "quote_to_say": "I use gRPC for internal service-to-service communication and REST for anything public-facing or browser-native.",
+    "tags": ["grpc", "rest", "http2", "protobuf", "networking", "api"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-tls13",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "hard",
+    "front": "What changed in TLS 1.3 compared to TLS 1.2? Explain the handshake and 0-RTT.",
+    "back": "TLS 1.3 handshake: 1-RTT (one round trip instead of TLS 1.2's 2-RTT). Client sends ClientHello with key shares; server responds with ServerHello + certificate + Finished in one flight. Removed: RSA key exchange (forward secrecy now mandatory via ECDHE), static DH, RC4, SHA-1, MD5, export ciphers. Added: 0-RTT resumption (client sends early data on first flight using pre-shared key from previous session — saves one RTT but has replay attack risk, not safe for non-idempotent requests). Mandatory forward secrecy: compromise of server's private key cannot decrypt past sessions.",
+    "senior_nuance": "0-RTT replay protection: the server cannot distinguish legitimate retries from attacker replays of early data. Only use 0-RTT for safe, idempotent requests (GET). Disable 0-RTT for POST/PUT. Certificate transparency (CT): all public certs must be logged in public CT logs — browsers reject certs not in CT logs. OCSP stapling: server attaches revocation status to the TLS handshake — eliminates client OCSP round trips. mTLS (mutual TLS): both client and server present certificates — used in service mesh (Istio) and blockchain peer auth.",
+    "quote_to_say": "TLS 1.3 is mandatory forward secrecy by design — I deprecate any config that allows TLS 1.2 cipher suites without PFS.",
+    "tags": [
+      "tls",
+      "tls13",
+      "security",
+      "handshake",
+      "0-rtt",
+      "forward-secrecy"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-dns",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "easy",
+    "front": "Explain the DNS resolution process. What is TTL, negative caching, and how does DNS affect failover?",
+    "back": "DNS resolution: client queries recursive resolver (ISP or 8.8.8.8) -> root nameserver (.) -> TLD nameserver (.com) -> authoritative nameserver (example.com) -> returns IP. TTL (Time To Live): how long resolvers cache the record. Low TTL = fast failover but more queries. High TTL = cached longer, cheaper. Negative caching: NXDOMAIN responses are cached for the SOA MINIMUM value — a misconfigured DNS record causes negative cache propagation. DNS for load balancing: multiple A records (round-robin), weighted routing (Route53), geolocation routing, health-check-based failover (Route53, Cloudflare).",
+    "senior_nuance": "DNS failover is not instant even with TTL=0 — some resolvers ignore TTL, OSes cache for min(TTL, socket_timeout), and connection pooling keeps old IPs alive. For fast failover: use Anycast (single IP announced from multiple PoPs — routing protocol handles failover), or client-side health checking. Also: DNS over HTTPS (DoH) and DNS over TLS (DoT) encrypt DNS queries — important for privacy and preventing ISP interception. DNSSEC signs records cryptographically — protects against DNS cache poisoning (Kaminsky attack).",
+    "quote_to_say": "Low TTL is not instant failover — I always test failover timing end-to-end including resolver caches and connection pools.",
+    "tags": ["dns", "ttl", "failover", "networking", "route53"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-websockets-sse",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "medium",
+    "front": "Compare WebSockets, SSE (Server-Sent Events), and long polling. When do you choose each?",
+    "back": "Long polling: client sends request, server holds it open until data is available, then responds. Client immediately reconnects. Overhead: TCP+HTTP per message. Simple to implement, works everywhere. SSE: server pushes a stream of text events over a single HTTP connection (text/event-stream). Unidirectional (server to client). Auto-reconnect built into browser EventSource API. HTTP/2 compatible. Simple for notification feeds, dashboards. WebSocket: full-duplex bidirectional connection. Upgraded from HTTP via 101 Switching Protocols. Low latency, efficient framing. Use for: real-time chat, gaming, collaborative editing, financial tickers.",
+    "senior_nuance": "SSE has a 6-connection limit per domain in HTTP/1.1 browsers (not an issue with HTTP/2 multiplexing). WebSocket connections are long-lived — track them carefully for memory leaks in the server. At scale, WebSocket servers need sticky sessions (same connection to same server) or shared state (Redis pub/sub) for broadcast. SSE is often underused: for dashboard refresh, live notifications, or streaming LLM tokens (text/event-stream is how OpenAI streams), SSE is simpler and sufficient.",
+    "quote_to_say": "SSE for server-to-client push, WebSockets for bidirectional real-time — most dashboard use cases don't need WebSockets.",
+    "tags": ["websocket", "sse", "long-polling", "networking", "real-time"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-load-balancing",
+    "topic": "backend",
+    "subtopic": "http-networking",
+    "difficulty": "medium",
+    "front": "Explain L4 vs L7 load balancing. What algorithms exist and what are the tradeoffs?",
+    "back": "L4 (transport): routes TCP/UDP connections based on IP+port. Fast, no TLS termination needed at LB, connection-level routing. Cannot inspect HTTP headers. L7 (application): routes HTTP requests based on headers, URL, cookies. Enables: path-based routing (/api -> service A, /web -> service B), sticky sessions (cookie-based), A/B testing, header insertion, TLS termination at LB. Algorithms: round-robin (simple, equal load assumption), least connections (routes to server with fewest active connections — good for variable request duration), IP hash (sticky sessions by IP), consistent hashing (same key always routes to same backend — good for caches). Weighted variants of each.",
+    "senior_nuance": "L7 LB enables blue/green and canary deployments via weight-based routing (5% to canary, 95% to stable). AWS ALB (L7) vs NLB (L4): NLB preserves client IP, ultra-low latency, better for non-HTTP protocols; ALB supports WebSocket, gRPC, HTTP/2, path/header routing. Least connections requires shared state across LB instances — in practice, power-of-two-choices (P2C) algorithm samples two random backends and picks the least loaded — avoids coordination overhead. For gRPC: L7 LB that understands HTTP/2 frames is required for request-level load balancing; L4 only does connection-level.",
+    "quote_to_say": "L4 for raw throughput and protocol agnosticism, L7 for routing intelligence — I always use L7 for HTTP microservices.",
+    "tags": [
+      "load-balancing",
+      "l4",
+      "l7",
+      "networking",
+      "round-robin",
+      "least-connections"
+    ],
+    "mock_eligible": false
+  }
+]

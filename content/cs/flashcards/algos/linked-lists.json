@@ -1,0 +1,93 @@
+[
+  {
+    "id": "algos-ll-reverse",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "easy",
+    "front": "Reverse a singly linked list iteratively in O(n) time and O(1) space.",
+    "back": "Maintain three pointers: prev (null), curr (head), next. In each iteration: save next = curr.next, set curr.next = prev, advance prev = curr, advance curr = next. After the loop, prev is the new head. This is O(n) time and O(1) space — no stack or recursion needed.",
+    "senior_nuance": "The recursive approach is elegant but uses O(n) stack space, which can cause stack overflow on long lists. In production (e.g., linked lists of 10^6 nodes), always use the iterative version. The recursive approach is only acceptable in interviews if you explicitly acknowledge the space cost.",
+    "quote_to_say": "prev, curr, next — three pointers, one pass.",
+    "tags": ["linked-list", "in-place", "iterative"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-cycle-detection-floyd",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "medium",
+    "front": "Describe Floyd's cycle detection algorithm (tortoise and hare). How do you find the cycle start?",
+    "back": "Use slow (1 step) and fast (2 steps) pointers. If they meet, a cycle exists. To find the cycle start: reset one pointer to head, keep the other at the meeting point, and advance both one step at a time — they will meet exactly at the cycle start. This works because the math guarantees the distances are congruent modulo the cycle length.",
+    "senior_nuance": "Floyd's uses O(1) space but finds only that a cycle exists (and its start) — it does not reveal the cycle length without an extra pass. Brent's algorithm is a faster variant (fewer iterations in practice) but the same O(1) space. The proof relies on the meeting point being at distance F from the start, where F is also the distance from head to the cycle entry.",
+    "quote_to_say": "Tortoise meets hare; reset one to head — they meet at the cycle start.",
+    "tags": ["linked-list", "cycle-detection", "floyd", "two-pointers"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-merge-two-sorted-lists",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "easy",
+    "front": "Merge two sorted linked lists into a single sorted list in O(n + m) time.",
+    "back": "Use a sentinel dummy node. Maintain a current pointer. At each step, compare the heads of both lists and append the smaller node to the result, advancing that list's pointer. When one list is exhausted, append the remainder of the other. Return dummy.next. Time O(n + m), space O(1) — nodes are re-linked, not copied.",
+    "senior_nuance": "The recursive version is three lines but uses O(n + m) stack space. The sentinel dummy node removes special-casing for an empty result list. This same pattern scales to merge k sorted lists using a min-heap of size k, giving O(N log k) where N is total nodes.",
+    "tags": ["linked-list", "merge", "sorted"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-lru-cache-ll",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "hard",
+    "front": "Why does LRU cache require a doubly-linked list rather than a singly-linked list?",
+    "back": "LRU cache needs O(1) removal of arbitrary nodes. In a singly-linked list, removing a node requires traversal to find its predecessor (O(n)). A doubly-linked list gives each node a prev pointer, so removal is O(1): redirect prev.next and next.prev. The hashmap stores pointers directly to nodes, enabling O(1) access plus O(1) removal.",
+    "senior_nuance": "A common alternative is using a sentinel head and tail node to avoid null checks on edge cases (empty list, single element). This simplifies the code significantly and is the standard production approach. Without sentinels, you need multiple special cases for insertions and deletions at the boundaries.",
+    "tags": ["linked-list", "lru", "doubly-linked", "design"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-find-middle-node",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "easy",
+    "front": "Find the middle node of a linked list in one pass without knowing the length.",
+    "back": "Use slow and fast pointers both starting at head. Advance slow by one step and fast by two steps. When fast reaches the end (fast == null or fast.next == null), slow is at the middle. For even-length lists, this naturally yields the second of the two middle nodes — verify with the interviewer which middle is expected.",
+    "senior_nuance": "This is the same slow/fast pointer machinery as cycle detection, so internalizing the pattern pays dividends across multiple problem types. When combined with reversing the second half, it enables palindrome detection and reordering operations in O(n) time and O(1) space.",
+    "tags": ["linked-list", "two-pointers", "slow-fast"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-remove-nth-from-end",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "medium",
+    "front": "Remove the Nth node from the end of a linked list in one pass.",
+    "back": "Use two pointers with a gap of N nodes. Advance the fast pointer N steps ahead, then move both pointers one step at a time until fast reaches the end. At this point, slow is at the node just before the target. Set slow.next = slow.next.next. Use a dummy head to handle the edge case of removing the first node.",
+    "senior_nuance": "The dummy/sentinel head is critical here: without it, you need a special case when the node to remove is the head itself (N == list length). With a dummy node pointing to head, the algorithm handles all cases uniformly, which is cleaner and less error-prone in practice.",
+    "tags": ["linked-list", "two-pointers", "remove"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-reorder-list",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "hard",
+    "front": "Reorder a linked list L0->L1->...->Ln in-place to L0->Ln->L1->Ln-1->... in O(n) time and O(1) space.",
+    "back": "Three steps: (1) Find the middle using slow/fast pointers. (2) Reverse the second half in-place. (3) Merge the first half and reversed second half by interleaving nodes. Each step is O(n) and O(1) space. The merge step must handle the second half being shorter (for odd-length lists) by stopping when the second pointer reaches null.",
+    "senior_nuance": "Each of the three sub-steps is a standard linked list primitive. Decomposing complex list problems into these primitives (find middle, reverse, merge) is the senior approach — it keeps each piece testable and correct, rather than trying to solve everything in one tangled loop.",
+    "quote_to_say": "Find middle, reverse half, merge — three primitives, one solution.",
+    "tags": ["linked-list", "in-place", "hard", "slow-fast"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-add-two-numbers-list",
+    "topic": "algos",
+    "subtopic": "linked-lists",
+    "difficulty": "medium",
+    "front": "Add two numbers represented as linked lists (digits in reverse order). Return the sum as a linked list.",
+    "back": "Traverse both lists simultaneously, summing digits and tracking carry. At each step, new_val = l1.val + l2.val + carry; carry = new_val / 10; node.val = new_val % 10. Continue while either list or carry is non-zero. Use a dummy head to simplify result list construction. Time O(max(n, m)), space O(max(n, m)) for the output.",
+    "senior_nuance": "The carry after the last node pair can produce an additional node (e.g., 999 + 1 = 1000). This is the most common bug — the while condition must include `|| carry != 0`. If the lists were in forward order instead of reversed, the cleanest approach is to reverse both first, add, then reverse the result.",
+    "tags": ["linked-list", "math", "carry"],
+    "mock_eligible": false
+  }
+]

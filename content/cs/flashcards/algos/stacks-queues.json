@@ -1,0 +1,92 @@
+[
+  {
+    "id": "algos-monotonic-stack",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "medium",
+    "front": "What is a monotonic stack and what class of problems does it solve?",
+    "back": "A monotonic stack maintains elements in strictly increasing or decreasing order by popping elements that violate the monotonicity before pushing new ones. The popped elements have found their 'next greater/smaller element.' It solves Next Greater Element, Largest Rectangle in Histogram, and Daily Temperatures in O(n) — each element is pushed and popped at most once.",
+    "senior_nuance": "The O(n) proof is amortized: in the worst case a single element causes O(n) pops, but since each element is popped at most once across the entire traversal, total work is O(n). Confusing this with per-element worst case is a common interview stumble — explicitly state the amortized argument.",
+    "quote_to_say": "Each element enters and leaves the stack exactly once — O(n) total.",
+    "tags": ["stack", "monotonic", "amortized"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-min-stack",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "easy",
+    "front": "Design a stack that supports push, pop, top, and getMin in O(1).",
+    "back": "Maintain a second stack of minimums in parallel. On push: push the value; push min(value, minStack.top()) onto the min stack. On pop: pop from both stacks. getMin returns minStack.top(). Space is O(n) for the extra stack. An O(1) space variant stores (value - currentMin) and encodes the previous min in the stack itself, but is harder to reason about.",
+    "senior_nuance": "The dual-stack approach is preferred in interviews for clarity. The encoding trick (value - min) works only for numeric types and breaks with integer overflow. In a typed language, this tradeoff must be surfaced. Always ask: 'Is the stack generic or numeric-only?'",
+    "tags": ["stack", "design", "min-stack"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-valid-parentheses",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "easy",
+    "front": "Check if a string of brackets is valid using a stack. What are the edge cases?",
+    "back": "Push opening brackets onto the stack. For each closing bracket, check if the stack top is the matching opener; if not (or the stack is empty), the string is invalid. After processing all characters, valid strings leave an empty stack. Edge cases: string starting with a closing bracket (stack empty on pop attempt), string of only opening brackets (non-empty stack at end), and empty string (valid by definition).",
+    "senior_nuance": "A counter-based approach (incrementing on open, decrementing on close) fails for inputs like '](' — it gives a false positive. The stack is necessary because it tracks order, not just count. This is a subtle distinction worth stating in an interview.",
+    "tags": ["stack", "string", "brackets"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-bfs-template",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "medium",
+    "front": "Write the BFS template for shortest path in an unweighted graph or grid.",
+    "back": "Initialize a queue with the start node and a visited set. While the queue is non-empty: dequeue a node, check if it's the goal, then enqueue all unvisited neighbors and mark them visited immediately on enqueue. Track levels by processing the queue in batches or storing distance alongside each node. BFS guarantees the shortest path in unweighted graphs because it explores level by level.",
+    "senior_nuance": "Mark nodes visited on enqueue, not on dequeue. Marking on dequeue allows the same node to be enqueued multiple times, causing O(V^2) time in dense graphs. This is one of the most common BFS implementation bugs in interviews.",
+    "quote_to_say": "Mark visited on enqueue — never on dequeue.",
+    "tags": ["bfs", "queue", "graph", "shortest-path"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-deque-sliding-window-max",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "hard",
+    "front": "Find the maximum in every sliding window of size k using a deque. What is the time complexity?",
+    "back": "Use a deque storing indices in decreasing order of their values. For each new element: remove indices from the back of the deque while the corresponding values are less than the new element (they can never be the window max). Remove the front index if it is outside the current window. The front always holds the index of the window maximum. Total time O(n) — each index is added and removed at most once.",
+    "senior_nuance": "This is a monotonic deque: the invariant is that values at stored indices are monotonically decreasing from front to back. The deque does double duty as both a max-finder and an expiry tracker. A naive O(n*k) solution (scan each window) is often acceptable for small k — always ask about constraints before over-engineering.",
+    "tags": ["deque", "sliding-window", "monotonic", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-implement-queue-using-stacks",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "easy",
+    "front": "Implement a queue using two stacks with amortized O(1) enqueue and dequeue.",
+    "back": "Use an 'inbox' stack for enqueue and an 'outbox' stack for dequeue. On enqueue, push to inbox. On dequeue, if outbox is empty, pop all elements from inbox to outbox (reversing their order), then pop from outbox. Each element moves from inbox to outbox exactly once, so dequeue is amortized O(1) even though a single call can take O(n).",
+    "senior_nuance": "This is the classic amortized analysis example: banker's method assigns each push a cost of 2 (one for the push, one saved for the future transfer). The aggregate cost argument is essential — without it, stating 'O(1) amortized' is an undefended claim.",
+    "tags": ["stack", "queue", "amortized", "design"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-largest-rectangle-histogram",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "hard",
+    "front": "Find the largest rectangle in a histogram in O(n) using a monotonic stack.",
+    "back": "Use an increasing monotonic stack of bar indices. For each bar: while the stack top has a height greater than the current bar, pop it and compute the area: height[popped] * (current_index - stack.top() - 1). The width uses the new stack top as the left boundary. Append a sentinel height-0 bar at the end to flush remaining stack elements. Time O(n), space O(n).",
+    "senior_nuance": "The width calculation `current_index - stack.top() - 1` is subtle: after popping, the new stack top is the first bar to the left that is shorter than the popped bar, so it forms the left boundary (exclusive). Getting this index arithmetic wrong is the most common bug. Draw an example with indices to verify before coding.",
+    "tags": ["stack", "monotonic", "histogram", "hard"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-evaluate-rpn",
+    "topic": "algos",
+    "subtopic": "stacks-queues",
+    "difficulty": "medium",
+    "front": "Evaluate a Reverse Polish Notation (RPN) expression using a stack.",
+    "back": "Iterate through tokens. If the token is a number, push it. If it is an operator (+, -, *, /), pop two operands (b then a — order matters for subtraction and division), apply the operator as (a op b), and push the result. The final value remaining on the stack is the answer. Time O(n), space O(n).",
+    "senior_nuance": "Integer division in RPN truncates toward zero (not floor division). In Python, `int(a / b)` rather than `a // b` is necessary to handle negative numbers correctly (e.g., -7 / 2 should be -3, not -4). This language-specific detail is easy to overlook and is a genuine source of bugs.",
+    "tags": ["stack", "expression-evaluation", "rpn"],
+    "mock_eligible": false
+  }
+]

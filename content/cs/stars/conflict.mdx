@@ -1,0 +1,69 @@
+# Conflict STAR
+
+## Prompt pattern
+"Tell me about a conflict with a coworker."
+"Describe a time you disagreed with a peer on a technical decision."
+"When have you had to work with someone difficult?"
+
+## STAR structure
+**Situation**: the decision at stake + why both sides had merit.
+**Task**: your specific role in resolving it.
+**Action**: understand their reasoning, identify the shared goal, propose a tiebreaker, commit to the outcome.
+**Result**: decision made + relationship preserved. Optionally, updated view.
+
+## Senior signals
+- Frame it as a technical disagreement, not a personality clash.
+- Never cast the other person as the villain.
+- Best stories end with "they were partially right and I updated my view."
+- Propose data-driven tiebreakers: prototype, metric, spike.
+- Name the working relationship after the conflict — show it survived.
+
+## Template 1: Technical disagreement on architecture
+
+**Situation**: <PEER, e.g. senior engineer on the same team> and I disagreed on <DECISION, e.g. whether to use <TECH A> or <TECH B> for <SYSTEM>>. The stakes were <STAKES, e.g. 6 months of engineering time and ~$50K/month infra cost>. Both options had legitimate tradeoffs: <THEIR POSITION> vs <MY POSITION>.
+
+**Task**: Reach a decision the team could commit to, within <TIMELINE, e.g. 2 weeks>, without either of us overriding the other.
+
+**Action**:
+1. Booked a 1:1 with <PEER> specifically to understand their reasoning — not to argue my case. Asked "what's the failure mode you're most worried about?"
+2. Discovered their real concern was <UNDERLYING CONCERN, e.g. operational complexity at 3am>, which I had underweighted.
+3. Proposed a <TIEBREAKER, e.g. 2-week spike> where we'd prototype both approaches against <CRITERIA, e.g. a realistic load test + a simulated oncall scenario>.
+4. Co-wrote the evaluation criteria with <PEER> before the spike started so neither of us could move the goalposts.
+5. Spike showed <RESULT, e.g. their approach was better on ops, mine was better on latency>. We chose <CHOICE> and documented the tradeoff in an <ADR, e.g. architecture decision record>.
+
+**Result**: Decision shipped in <TIME>. <METRIC, e.g. system ran at p99 target with zero ops escalations in first quarter>. <PEER> and I have since collaborated on <FOLLOW-UP PROJECT>.
+
+**Senior quote**: "I went into the 1:1 to understand, not to win. That's usually where the real answer is hiding."
+
+## Template 2: Disagreement with a product manager on scope
+
+**Situation**: <PM> wanted to ship <FEATURE> by <DATE> with <SCOPE>. I believed the timeline required cutting <ITEM, e.g. the migration path for existing users>, which I considered non-negotiable for trust reasons.
+
+**Task**: Advocate for the constraint without blocking the launch — PM had legitimate business pressure from <SOURCE, e.g. a customer commitment>.
+
+**Action**:
+1. Restated the PM's ask and the business driver in writing to confirm I understood — avoided arguing against a straw man.
+2. Quantified the risk of cutting the migration path: <RISK, e.g. estimated 15% of existing users would see broken state, support load +N tickets/week>.
+3. Offered <N ALTERNATIVES, e.g. a feature flag for phased rollout, a reduced-scope v1 that kept migration safe, a 2-week extension with clear scope>.
+4. Made the tradeoff a decision for <PM + EM> together, in writing, rather than relitigating it in standup.
+5. Committed to whichever path was chosen, and pre-wrote the rollback plan for the riskier option.
+
+**Result**: Team chose <OUTCOME, e.g. the phased rollout>. Shipped <TIMING, e.g. one week late> with <METRIC, e.g. zero migration-related incidents>. The phased rollout became our default pattern for risky migrations.
+
+**Senior quote**: "I wasn't trying to stop the launch. I was trying to make sure we could reverse it if we were wrong."
+
+## Template 3: Conflict with a skip-level / senior stakeholder
+
+**Situation**: <STAKEHOLDER, e.g. director from an adjacent org> pushed hard for <REQUEST, e.g. a custom integration> on a timeline that would have derailed our quarter. My EM was hesitant to push back.
+
+**Task**: Surface the tradeoff clearly without damaging the cross-org relationship or putting my EM in a bad spot.
+
+**Action**:
+1. Got on the phone (not Slack) with <STAKEHOLDER> to understand the underlying need. The custom ask was one way of solving <REAL PROBLEM, e.g. latency for their enterprise customer>.
+2. Proposed an alternative that solved their real problem without requiring <ORIGINAL ASK>: <ALTERNATIVE, e.g. a config change in our existing API>.
+3. Brought the alternative to my EM so they could represent it to the director — I didn't go around my EM.
+4. Agreed with <STAKEHOLDER> on a joint success metric so the relationship didn't become transactional.
+
+**Result**: We solved their problem in <TIME, e.g. 3 days instead of 6 weeks>. <STAKEHOLDER> has since brought <N OTHER REQUESTS> to our team first, because the collaboration worked. Relationship improved, not degraded.
+
+**Senior quote**: "Their ask was a solution. My job was to find what they were really trying to solve."

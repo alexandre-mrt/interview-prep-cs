@@ -1,0 +1,117 @@
+[
+  {
+    "id": "sd-red-method",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "What is the RED method? What type of system is it designed for and what does each letter mean?",
+    "back": "RED is designed for request-driven services (microservices, APIs). R = Rate (requests per second), E = Errors (error rate — 4xx/5xx per second or as percentage), D = Duration (latency distribution, typically p50/p95/p99). RED gives you the minimal viable dashboard to understand if a service is healthy from a user perspective. If Rate drops, Errors spike, or Duration increases, something is wrong. Popularized by Tom Wilkie at Weaveworks. Used as the default dashboard in Grafana service-level monitoring.",
+    "senior_nuance": "RED is user-centric: it measures what users experience. Complement it with USE for resource-centric health. A service can have good RED metrics (fast responses) while approaching resource saturation — you need both views to catch issues before they become user-visible.",
+    "tags": ["red-method", "rate", "errors", "duration", "observability"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-use-method",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "easy",
+    "front": "What is the USE method? What type of system is it designed for?",
+    "back": "USE is designed for infrastructure and resource-oriented systems (CPU, memory, disk, network, thread pools). U = Utilization (fraction of time resource is busy), S = Saturation (amount of work queued or waiting — the backlog), E = Errors (device-level errors, correctable ECC, dropped packets). Developed by Brendan Gregg. For every resource, check: am I close to capacity (utilization)? Is work piling up (saturation)? Are errors occurring? High utilization alone isn't a problem; high saturation is — it means latency will increase. Thread pool saturation = queue depth growing.",
+    "senior_nuance": "Saturation is the most important and most overlooked. A CPU at 80% utilization with a task queue of 0 is fine. A CPU at 60% with a queue of 1000 tasks is in trouble. For DB connection pools, saturation = number of requests waiting for a connection — this is your DB bottleneck signal before latency degrades.",
+    "tags": [
+      "use-method",
+      "utilization",
+      "saturation",
+      "errors",
+      "brendan-gregg"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-slo-sli-error-budget",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "Define SLI, SLO, SLA, and error budget. How does an error budget change engineering behavior?",
+    "back": "SLI (Service Level Indicator): a metric that measures behavior (request latency p99, error rate, availability). SLO (Service Level Objective): a target for an SLI (e.g., p99 latency < 200ms, availability >= 99.9%). SLA (Service Level Agreement): a contractual commitment with consequences for breach. Error budget = (1 - SLO) * time window. For 99.9% availability over 30 days: error budget = 0.1% * 30 days = 43.2 minutes of allowed downtime. When budget is consumed, engineering focus shifts from feature work to reliability. This aligns incentives: teams don't over-invest in reliability (burning error budget is OK) or under-invest (budget running dry forces action).",
+    "senior_nuance": "Error budget framing is powerful in interviews: propose SLO-driven decisions instead of absolute reliability claims. 'We'd target 99.9% availability with a 43-minute monthly budget. If we're approaching budget, we'd halt deploys and focus on stability work.' This is how Google SRE operates.",
+    "quote_to_say": "Error budget consumed = reliability investment justified. Error budget idle = time to ship features.",
+    "tags": ["slo", "sli", "sla", "error-budget", "sre"],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-distributed-tracing",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "How does distributed tracing work? What is a trace, a span, and a context?",
+    "back": "Distributed tracing tracks a request across multiple services. Concepts: Trace = the entire request journey (unique trace_id). Span = a single unit of work within a trace (service call, DB query), with start time, duration, and metadata. Context propagation = trace_id + span_id passed via HTTP headers (W3C Trace Context: traceparent header) or gRPC metadata between services. Each service creates child spans and reports them to a collector (Jaeger, Zipkin, Tempo). Sampling: trace every request is expensive — sample a fraction (e.g., 1%) or use head-based/tail-based sampling.",
+    "senior_nuance": "Tail-based sampling (Grafana Tempo, OpenTelemetry Collector) collects all spans and decides after the fact whether to keep a trace — keeps all error traces and slow traces, discards fast/successful traces. Head-based sampling decides at the start — simpler but misses the long tail of errors. For debugging production issues, tail-based sampling is far more useful.",
+    "tags": [
+      "distributed-tracing",
+      "jaeger",
+      "opentelemetry",
+      "trace",
+      "span",
+      "sampling"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-promql-basics",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "Write PromQL to express: request rate, error rate, and p99 latency. What is the difference between rate() and irate()?",
+    "back": "Request rate: rate(http_requests_total[5m]) — per-second rate over 5m window. Error rate: rate(http_requests_total{status=~'5..'}[5m]) / rate(http_requests_total[5m]) — fraction of requests that are errors. p99 latency: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)). rate() vs irate(): rate() averages over the window (smooth, good for alerts). irate() uses only the last two samples (responsive, good for graphs of spiky metrics). Use rate() for alerting — irate() can miss short spikes in alert evaluation intervals.",
+    "senior_nuance": "Labels are for dimensions you'll aggregate across, not IDs you'll query by. A label with user_id creates one time series per user — Prometheus cardinality explosion. Keep label values bounded (status_code, endpoint, region) — never use unbounded values (user IDs, UUIDs, request IDs) as labels.",
+    "quote_to_say": "Labels are for dimensions you'll aggregate across, not IDs you'll query by.",
+    "tags": [
+      "promql",
+      "prometheus",
+      "rate",
+      "histogram-quantile",
+      "cardinality"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "sd-logging-best-practices",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "What are the key principles of production-grade structured logging?",
+    "back": "Structured logging: emit JSON (not plain text) so logs are machine-parseable. Required fields: timestamp (ISO8601), level (DEBUG/INFO/WARN/ERROR), service, trace_id (for correlation), request_id, message. Log levels: DEBUG off in production (too verbose), INFO for business events (user login, order placed), WARN for recoverable issues, ERROR for unexpected failures needing attention. Do not log: PII (passwords, SSNs, emails without masking), secrets, full request/response bodies (security + volume). Centralized log aggregation: Fluentd/Vector -> Loki or Elasticsearch. Retention: hot 7 days (fast query), warm 30 days, cold 1 year (compliance).",
+    "senior_nuance": "Log sampling is often necessary for high-throughput services. Log 100% of errors, 100% of slow requests (>p99 threshold), and sample 1-5% of normal requests. Without sampling, a 100k req/sec service generates terabytes of logs daily — cost and query performance suffer. Define sampling rates per log level in config, not in code.",
+    "tags": ["logging", "structured-logging", "fluentd", "loki", "log-levels"],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-alerting-principles",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "medium",
+    "front": "What makes a good alert? Describe the four signals to alert on and how to avoid alert fatigue.",
+    "back": "Good alert: actionable (on-call knows what to do), urgent (warrants waking someone up), not a known flake. Google's four golden signals: Latency (time to serve requests, distinguish successful vs failed latency), Traffic (request rate, load), Errors (error rate or count), Saturation (resource approaching limits). Alert fatigue: alerts that fire too often but aren't actionable desensitize on-call. Fix: alert on symptoms, not causes. 'p99 > 500ms for 5 minutes' = actionable. 'CPU > 80%' = often not actionable (cause, not symptom). Route low-urgency alerts to Slack (no page), high-urgency to PagerDuty (page).",
+    "senior_nuance": "Symptom-based alerting is the Google SRE principle: alert on what users experience (error rate, latency), not on what you think causes it (CPU, memory). Cause-based alerts become investigation tools (dashboards), not pages. This dramatically reduces false positive pages.",
+    "tags": [
+      "alerting",
+      "alert-fatigue",
+      "four-golden-signals",
+      "pagerduty",
+      "sre"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "sd-on-call-runbook",
+    "topic": "system-design",
+    "subtopic": "observability",
+    "difficulty": "hard",
+    "front": "Design an observability stack for a new microservice from scratch. What do you instrument first?",
+    "back": "Day 1 instrumentation: (1) Request metrics — rate, error rate, p99 latency via RED. Instrument at the HTTP middleware layer to capture all requests. (2) Dependency health — track calls to each downstream service/DB with success/failure rate and latency. Enables root cause attribution. (3) Business metric — one KPI counter meaningful to the product (orders_placed_total, payments_processed_total). Day 2: (4) Distributed trace with trace_id in all logs and spans. (5) Resource metrics via USE for DB connection pool, thread pool. Week 1: (6) Define SLO based on measured p99 baseline. (7) Alert on SLO burn rate (Alertmanager multi-window alert).",
+    "senior_nuance": "Multi-window SLO burn rate alerts (from Google SRE Workbook): alert when error budget is being consumed at 14x normal rate for 1 hour OR 6x rate for 6 hours. This catches both fast burns (incident) and slow burns (gradual degradation) with minimal false positives.",
+    "tags": ["observability", "instrumentation", "slo-burn-rate", "red", "use"],
+    "mock_eligible": true
+  }
+]

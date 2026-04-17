@@ -1,0 +1,96 @@
+[
+  {
+    "id": "algos-pattern-sliding-window-template",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "medium",
+    "front": "State the sliding window template for 'longest subarray/substring satisfying a constraint.'",
+    "back": "Initialize left = 0, result = 0, and a state structure (hashmap, counter, etc). For each right from 0 to n-1: update state with A[right]. While constraint is violated: undo state for A[left], increment left. Update result = max(result, right - left + 1). The key: the constraint must be such that shrinking the window from the left can restore validity — i.e., the constraint is monotone in window size.",
+    "senior_nuance": "The template handles 'at most k' constraints naturally (shrink when violated). For 'exactly k' constraints, use the identity: exactly(k) = atMost(k) - atMost(k-1). This avoids a fundamentally different algorithm. Recognizing when to apply this subtraction trick is a senior pattern.",
+    "quote_to_say": "Exactly k = atMost(k) - atMost(k-1). The template handles atMost for free.",
+    "tags": ["pattern", "sliding-window", "template"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-pattern-bfs-shortest",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "easy",
+    "front": "When should you use BFS over DFS for graph traversal?",
+    "back": "Use BFS when: (1) you need the shortest path in an unweighted graph (BFS guarantees minimum hops), (2) you need to explore nodes level by level, (3) the graph is very deep (DFS risks stack overflow). Use DFS when: you need topological order, detecting cycles, finding all paths, or connected components. For weighted shortest paths, neither BFS nor DFS suffices — use Dijkstra or Bellman-Ford.",
+    "senior_nuance": "BFS for shortest path is only correct when all edge weights are equal (unweighted = weight 1). For 0/1 weighted graphs, use a deque (0-1 BFS): push to front for weight-0 edges, to back for weight-1 edges. This generalizes BFS to handle two weight classes in O(V + E) without a heap.",
+    "quote_to_say": "BFS for shortest hops. Dijkstra for shortest weighted path. 0-1 BFS for binary weights.",
+    "tags": ["pattern", "bfs", "dfs", "shortest-path"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-pattern-union-find-connectivity",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "medium",
+    "front": "When should you reach for Union-Find instead of BFS/DFS for graph connectivity?",
+    "back": "Use Union-Find when: edges arrive dynamically (online) and you need real-time connectivity queries, you want to check if two nodes are in the same component in near-O(1), or when implementing Kruskal's MST. Use BFS/DFS for: exploring the full graph, finding actual paths, or one-time static connectivity checks. Union-Find does not support edge deletion (requires link-cut trees for that).",
+    "senior_nuance": "Union-Find's near-O(1) per-operation amortized time makes it superior to BFS/DFS's O(V+E) for repeated connectivity queries on a dynamic graph. However, Union-Find cannot tell you the actual path between two nodes — only whether they are connected. For path reconstruction, BFS/DFS is necessary. The tradeoff is query power vs. query speed.",
+    "quote_to_say": "Union-Find: fast connectivity queries, no path. BFS: slow per-query, gives the path.",
+    "tags": ["pattern", "union-find", "connectivity", "bfs"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-pattern-two-pointers-variants",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "easy",
+    "front": "List the three main two-pointer configurations and a canonical problem for each.",
+    "back": "1. Opposite ends moving inward (sorted array): two sum, container with most water, three sum. 2. Same direction (fast/slow pointers): cycle detection in linked list, find middle node, detect duplicate in array. 3. Same direction at different starting positions (sliding window): longest substring without repeating characters, minimum window substring. Each configuration solves a different type of linear constraint.",
+    "senior_nuance": "The fast/slow pointer (tortoise and hare) is a special case of the two-pointer technique where the fast pointer moves at 2x speed. Generalizing to k-x speed detects patterns of period k. For Floyd's cycle start finding, the mathematical invariant (distances are congruent mod cycle length) is what enables the second phase — memorizing without understanding leads to bugs on variations.",
+    "tags": ["pattern", "two-pointers", "slow-fast"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-pattern-backtracking",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "medium",
+    "front": "Describe the backtracking template and which problems it applies to.",
+    "back": "Backtracking template: choose an option from valid choices, recurse on the reduced problem, undo the choice. It applies to problems requiring all valid configurations: permutations, combinations, subsets, N-queens, sudoku, word search. Time complexity is typically O(n! * work_per_node) or O(2^n * work_per_node). Pruning (cutting branches early) is the key optimization that separates practical from impractical backtracking solutions.",
+    "senior_nuance": "Backtracking is DFS on the implicit decision tree. Pruning reduces the tree size from its theoretical maximum; without pruning, backtracking degenerates to brute force. For competitive programming and interviews, state the pruning strategy explicitly — 'we prune when the partial solution already violates constraint X' — before coding. Pruning strategy is often where interview performance diverges.",
+    "quote_to_say": "Backtracking without pruning is brute force. The pruning is the algorithm.",
+    "tags": ["pattern", "backtracking", "dfs", "pruning"],
+    "mock_eligible": true
+  },
+  {
+    "id": "algos-pattern-dp-identification",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "medium",
+    "front": "How do you identify if a problem should be solved with DP?",
+    "back": "Two signals: (1) overlapping subproblems — the same subproblem is solved multiple times in the recursive tree (check with memoization), and (2) optimal substructure — an optimal solution to the problem uses optimal solutions to subproblems. Classic question types: maximize/minimize a value, count the number of ways, check feasibility (can you reach X?). If greedy fails and backtracking is too slow, try DP.",
+    "senior_nuance": "The transition from 'this recursive solution times out' to 'add a memo table' is the discovery of DP. Most DP problems in interviews are recognized by their constraint sizes: O(n^2) state space suggests 2D DP, O(n * W) suggests knapsack-style DP. When you see n <= 1000 and O(n^2) time is acceptable, suspect DP before trying O(n log n) approaches.",
+    "tags": ["pattern", "dp", "identification"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-pattern-sort-then-binary-search",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "easy",
+    "front": "When does sorting + binary search beat a complex data structure on small n?",
+    "back": "For small n (typically n <= 10^4), sorting (O(n log n)) plus repeated binary searches (O(log n) each) is often faster in practice than building a balanced BST or segment tree, due to lower constant factors and cache locality of sorted arrays. A sorted array with binary search has no per-element pointer overhead and excellent sequential access patterns.",
+    "senior_nuance": "For static datasets (no insertions/deletions after initial build), a sorted array is strictly better than a BST: same O(log n) lookup, lower memory overhead, better cache behavior. BSTs only win when the dataset is dynamic. Always ask 'will this data change?' before recommending a BST over a sorted array.",
+    "quote_to_say": "Sorting + binary search beats clever structures on small n or static data.",
+    "tags": ["pattern", "sorting", "binary-search", "tradeoffs"],
+    "mock_eligible": false
+  },
+  {
+    "id": "algos-pattern-monotonic-applications",
+    "topic": "algos",
+    "subtopic": "patterns",
+    "difficulty": "hard",
+    "front": "List three problems solved by monotonic stacks/queues and state the common invariant.",
+    "back": "1. Next greater element: maintain decreasing stack; pop when a greater element is found. 2. Largest rectangle in histogram: maintain increasing stack; pop when a smaller bar is found. 3. Sliding window maximum: maintain decreasing deque; remove out-of-window indices from front, smaller elements from back. Common invariant: maintain monotonicity by discarding elements that cannot possibly be the answer for future queries.",
+    "senior_nuance": "The monotonic structure works because discarded elements are dominated: a smaller element behind a larger one can never be the 'next greater element' for any future query that the larger element also answers. This domination argument is the general principle — apply it whenever you find yourself needing to efficiently find the nearest element satisfying a comparison operator.",
+    "quote_to_say": "Monotonic stack: domination. If A is better than B and A comes after B, B is dead.",
+    "tags": ["pattern", "monotonic-stack", "deque", "hard"],
+    "mock_eligible": true
+  }
+]

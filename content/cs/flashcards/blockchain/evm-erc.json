@@ -1,0 +1,140 @@
+[
+  {
+    "id": "bc-evm-gas-model",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "Explain EVM gas: what operations are expensive, what is the gas limit, and how does EIP-1559 change fee mechanics?",
+    "back": "Gas measures computation cost. Expensive ops: SSTORE (cold slot: 20,000 gas, warm: 2,900), SLOAD (cold: 2,100, warm: 100), external calls (2,600 base). Cheap: ADD (3), memory ops scale quadratically with size. Block gas limit caps total work per block (~30M gas on mainnet). EIP-1559: replaced first-price auction with baseFee (burned, dynamically adjusted ±12.5% per block) + priorityFee (tip to validator). Users set maxFeePerGas and maxPriorityFeePerGas. Predictable pricing, but ETH supply is now deflationary under high load.",
+    "senior_nuance": "Warm/cold slot distinction (EIP-2929) is critical for gas estimation. First SLOAD in a tx is cold (2100); subsequent are warm (100). Solidity access lists (EIP-2930) can pre-warm slots to save gas in complex transactions. Always benchmark with realistic storage patterns.",
+    "quote_to_say": "Gas is the economic defense against infinite loops. SSTORE is 20x more expensive than almost anything else.",
+    "tags": ["EVM", "gas", "EIP-1559", "SSTORE", "baseFee"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-evm-storage-memory-calldata",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "What are the differences between EVM storage, memory, calldata, and the stack? When do you use each in Solidity?",
+    "back": "Storage: persistent, on-chain, 32-byte slots, most expensive. State variables live here. Memory: ephemeral per-call, byte-addressable, quadratic cost above 724 bytes. Local variables and function arguments use memory. Calldata: read-only, cheapest way to pass data into functions. Use calldata for external function params you don't need to modify — saves a memory copy. Stack: 1024 depth, 32-byte words, used for local value types. Stack-too-deep errors occur when >16 items are in scope. Transient storage (EIP-1153): like storage but cleared at end of tx, costs 100 gas — ideal for reentrancy guards.",
+    "senior_nuance": "Packing storage variables (multiple values in one 32-byte slot) saves gas on reads/writes only if they are accessed together. Packing vars that are always written separately can cost more due to read-modify-write cycles.",
+    "quote_to_say": "calldata > memory > storage for cost. Use calldata for inputs you only read.",
+    "tags": ["EVM", "storage", "memory", "calldata", "gas-optimization"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-erc20-transfer-gotchas",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "Name three ERC-20 token gotchas that cause real bugs in integrating contracts.",
+    "back": "(1) Non-standard return values: some tokens (USDT, early BNB) do not return bool on transfer()/transferFrom(). Naive require(token.transfer(...)) reverts on these. Use SafeERC20.safeTransfer() which handles missing returns. (2) Fee-on-transfer tokens: actual received amount < amount specified. Contract must check balance before and after transfer, not trust the argument. (3) Rebasing tokens (AMPL, stETH): balances change without any transfer event. Contracts storing a balance snapshot will have stale data. (4) ERC-777 hooks: ERC-777 is ERC-20 compatible but has sender/recipient hooks, re-enabling reentrancy attacks on contracts that do not expect them.",
+    "senior_nuance": "Uniswap v2/v3 uses before/after balance checks for fee-on-transfer tokens. Most lending protocols explicitly blocklist rebasing tokens. Know your token assumptions before integrating.",
+    "quote_to_say": "ERC-20 is a spec, not a guarantee. Always use SafeERC20 and test with USDT.",
+    "tags": ["ERC-20", "SafeERC20", "fee-on-transfer", "rebasing", "gotchas"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-erc721-gotchas",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "What are the key ERC-721 security considerations? What does safeTransferFrom do that transferFrom does not?",
+    "back": "safeTransferFrom checks if recipient is a contract; if so, calls onERC721Received() and requires it returns the magic selector. This prevents NFTs from being locked in contracts that cannot handle them. Risk: onERC721Received is a callback — it can re-enter the calling contract. transferFrom skips this check — simpler but NFT can be permanently locked. Other gotchas: (1) tokenId must be unique and not reused after burn; (2) approve() is per-token, setApprovalForAll() is full operator access — phishing attacks use malicious UI to get setApprovalForAll approvals; (3) metadata (tokenURI) is centralized by default — IPFS pinning required for decentralization.",
+    "senior_nuance": "OpenSea's Seaport had a 'consideration item remainder' bug where partial fills could leave NFTs stranded. ERC-721 approval phishing ($100M+ lost) is the leading user-facing NFT attack — hardware wallet confirmation screens often do not display the full implications.",
+    "quote_to_say": "safeTransferFrom is only safe if your callback does not re-enter. Know your trust surface.",
+    "tags": [
+      "ERC-721",
+      "NFT",
+      "safeTransferFrom",
+      "approval-phishing",
+      "callbacks"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-erc1155-design",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "easy",
+    "front": "Why was ERC-1155 created, and what are its main advantages and gotchas over ERC-20 and ERC-721?",
+    "back": "ERC-1155 is a multi-token standard: one contract holds both fungible and non-fungible tokens by id. Advantages: batch transfers (safeBatchTransferFrom) in one tx, far cheaper for game items and NFT collections. Each (contract, id) pair is a distinct token. Gotchas: (1) safeTransferFrom still triggers onERC1155Received callback — reentrancy risk; (2) approval is full-operator (no per-token approval) — setApprovalForAll is all-or-nothing; (3) supply tracking is not built in — must implement manually; (4) royalty spec is non-standard (EIP-2981 added separately).",
+    "senior_nuance": "ERC-1155 with id=0 as fungible and id=1 as non-fungible is a common game pattern. Marketplaces must handle both modes. OpenSea supports ERC-1155, but royalty enforcement is off-chain — bypassed by aggregators.",
+    "quote_to_say": "ERC-1155: one contract, infinite token types, batch gas savings. The tradeoff is coarser approvals.",
+    "tags": ["ERC-1155", "multi-token", "batch-transfer", "NFT", "fungible"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-eip2612-permit",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "How does EIP-2612 permit() work under the hood? What is the signed data structure?",
+    "back": "permit(owner, spender, value, deadline, v, r, s) sets allowance[owner][spender] = value without requiring owner to send a transaction. The signed payload is an EIP-712 typed data hash: PERMIT_TYPEHASH = keccak256('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)'). The contract hashes the struct, prepends the domain separator (includes chainId, contract address), and recovers signer from (v,r,s). It checks signer == owner, nonce matches (prevents replay), and deadline has not passed. Nonce increments after use.",
+    "senior_nuance": "permit() griefing attack: anyone who sees the permit signature in the mempool can call permit() before the spender does. The spender's subsequent permit() call fails (nonce already used). Mitigation: spender contract should try/catch permit() and check existing allowance as fallback.",
+    "quote_to_say": "permit() is approve() with an off-chain signature — gasless for users, but watch the griefing vector.",
+    "tags": ["EIP-2612", "permit", "EIP-712", "gasless", "nonce"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-erc4626-vaults",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "hard",
+    "front": "Explain ERC-4626 tokenized vaults. What is the inflation attack and how is it mitigated?",
+    "back": "ERC-4626 standardizes yield-bearing vaults: deposit assets, receive shares; redeem shares for assets. Share price = totalAssets / totalSupply. Inflation (share price manipulation) attack: (1) attacker deposits 1 wei, gets 1 share; (2) attacker donates large amount directly to vault (increasing totalAssets without minting shares); (3) first legitimate depositor deposits e.g. 1000 tokens — preview shows they get 0 shares due to rounding (1000 < totalAssets/totalSupply * 1). Attacker redeems the 1 share for nearly all assets. Mitigations: virtual shares (add 1 to totalSupply and totalAssets in calculations — OpenZeppelin's implementation), dead shares (mint small shares to address(0) at deployment), or minimum deposit requirements.",
+    "senior_nuance": "EIP-4626 mandates convertToShares/convertToAssets use floor rounding for deposits and ceil for withdrawals (in favor of the vault, not depositors). This prevents value extraction through rounding alone, but the inflation attack requires the virtual offset mitigation.",
+    "quote_to_say": "ERC-4626 share price is rounding's attack surface. Virtual offset is the fix that became standard.",
+    "tags": ["ERC-4626", "vault", "inflation-attack", "shares", "rounding"],
+    "mock_eligible": true
+  },
+  {
+    "id": "bc-evm-create2",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "How does CREATE2 work and what attack vectors does it enable?",
+    "back": "CREATE2 deploys a contract to a deterministic address: keccak256(0xff ++ deployer ++ salt ++ keccak256(initcode)). Address is known before deployment. Uses: counterfactual wallets (deploy only when first used), state channels, factory patterns. Attack vector 1 — metamorphic contracts: (1) deploy with CREATE2; (2) selfdestruct; (3) redeploy different code to same address. Audited-and-safe contract is replaced with malicious one. EIP-6780 broke this for post-Dencun contracts (selfdestruct no longer clears code unless in same tx). Attack vector 2 — frontrunning deployment: if salt is predictable, attacker deploys to the same address first, polluting the address with unexpected state.",
+    "senior_nuance": "Counterfactual addresses rely on the init code being immutable. Any dependency on mutable constructor args that an attacker controls weakens the guarantee. Always hash the deployer address into the salt for factory patterns.",
+    "quote_to_say": "CREATE2 is address predictability at the cost of code immutability guarantees — metamorphic risk.",
+    "tags": ["CREATE2", "metamorphic", "selfdestruct", "counterfactual", "EVM"],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-evm-abi-encoding",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "medium",
+    "front": "What is ABI encoding and what bugs arise from decoding untrusted calldata?",
+    "back": "ABI encoding serializes function args into calldata: 4-byte selector (keccak256 of signature) + encoded params. Dynamic types (bytes, string, arrays) use offsets + lengths. Vulnerabilities: (1) head-of-calldata injection: if a contract blindly forwards calldata and appends to it, the offsets in the original head become wrong; (2) extra calldata is silently ignored by Solidity's abi.decode — a contract that decodes only part of the calldata may miss trailing params crafted by attacker; (3) selector collision: two functions can share a 4-byte selector if crafted carefully — audited contracts have been exploited via colliding selectors on proxy upgrades. (4) abi.encodePacked with dynamic types can cause hash collisions — prefer abi.encode.",
+    "senior_nuance": "abi.encodePacked(addr, str) and abi.encodePacked(str, addr) can produce the same bytes if str is manipulated. Always use abi.encode for hashing multiple params in signatures, not abi.encodePacked.",
+    "quote_to_say": "abi.encodePacked is a hash collision footgun. Use abi.encode for anything you sign or verify.",
+    "tags": [
+      "ABI",
+      "encoding",
+      "calldata",
+      "selector-collision",
+      "abi.encodePacked"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "bc-evm-transient-storage",
+    "topic": "blockchain",
+    "subtopic": "evm-erc",
+    "difficulty": "hard",
+    "front": "What is transient storage (EIP-1153) and what use cases does it unlock?",
+    "back": "Transient storage (TSTORE/TLOAD opcodes, Dencun upgrade) persists within a transaction but is cleared after. Cost: 100 gas for TSTORE/TLOAD (vs 20,000/2,100 for cold SSTORE/SLOAD). Use cases: (1) Reentrancy guards: replace 20,000-gas SSTORE lock with 100-gas TSTORE — same safety, 200x cheaper; (2) Intra-tx flash accounting: accumulate debts and credits across internal calls, settle at tx boundary (Uniswap v4 uses this for the 'delta' accounting model); (3) Temporary permissions: grant approval for one tx without persistent state. Transient storage is scoped per-address per-tx — different contracts have separate transient namespaces.",
+    "senior_nuance": "Transient storage is not available in staticcall context (view functions). Contracts that use TSTORE in a path also reachable via staticcall will revert. Test all call paths.",
+    "quote_to_say": "Transient storage is the reentrancy guard that costs 100 gas instead of 20,000. Use it.",
+    "tags": [
+      "EIP-1153",
+      "transient-storage",
+      "TSTORE",
+      "reentrancy-guard",
+      "gas"
+    ],
+    "mock_eligible": true
+  }
+]

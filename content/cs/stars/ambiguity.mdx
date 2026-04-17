@@ -1,0 +1,70 @@
+# Ambiguity STAR
+
+## Prompt pattern
+"Tell me about a time you worked on an ambiguous problem."
+"Describe a project where the requirements weren't clear."
+"When have you had to figure out what to build?"
+
+## STAR structure
+**Situation**: the vague ask and why it was vague (new domain, conflicting stakeholders, exploratory).
+**Task**: converting ambiguity into a crisp, measurable contract.
+**Action**: stakeholder discovery, metric definition, small first bet, iterate on signal.
+**Result**: the metric that moved + the clarified scope passed on to the next team.
+
+## Senior signals
+- Ambiguity is about building the map, not finding the treasure alone.
+- Show how you created shared understanding — with stakeholders, not in isolation.
+- Start with the smallest useful thing, not the perfect thing.
+- Name one assumption you made explicit and wrote down.
+- Own the framing: your job was to turn "make it better" into a falsifiable goal.
+
+## Template 1: Vague ask from leadership
+
+**Situation**: <LEADER, e.g. VP of Eng> told the team "our data pipeline is too slow" in an all-hands. No spec, no target, no owner. Three teams touched the pipeline. Everyone assumed someone else would pick it up.
+
+**Task**: I volunteered to scope the problem. My real task wasn't fixing slowness — it was deciding what "too slow" even meant and whether it was worth fixing.
+
+**Action**:
+1. Before proposing anything, I interviewed <N> stakeholders: <PERSONA 1, e.g. analytics lead>, <PERSONA 2, e.g. ML team lead>, <PERSONA 3, e.g. the exec's chief of staff>. Asked each: "what specifically would be better for you if this got faster?"
+2. Discovered three different definitions of "slow": <DEF 1, e.g. dashboard freshness lag>, <DEF 2, e.g. ML feature availability>, <DEF 3, e.g. ad-hoc query latency>. The exec had been reacting to <DEF 2> without knowing the term.
+3. Wrote a one-page problem framing with: the three definitions, which ones overlapped, which one the exec actually cared about, and the estimated cost of addressing each. Circulated to all three personas for sign-off.
+4. Proposed a 2-week smallest-useful-thing: <SCOPED BET, e.g. reduce ML feature availability lag from 6h to 1h by batching a single upstream job>.
+5. Shipped it, measured, then used the signal to scope phase 2. Never tried to "fix the pipeline" as a monolith.
+
+**Result**: <METRIC, e.g. ML feature lag> went from <BEFORE> to <AFTER> in <TIME>. The problem framing document became the reference for a larger initiative that <FOLLOW-ON TEAM> picked up a quarter later. Exec's original complaint was resolved.
+
+**Senior quote**: "The ask was fuzzy, so step one was agreeing on what 'done' looked like. The rest was easier than the framing."
+
+## Template 2: Greenfield product area with no PM
+
+**Situation**: Team was asked to <BUILD, e.g. add a usage-based billing capability> to <PRODUCT>. No PM assigned in the first month. Customer requests existed but were scattered. Leadership wanted "something shipped this quarter."
+
+**Task**: Figure out what to build, in what order, with enough confidence to start coding without waiting for a PM hire.
+
+**Action**:
+1. Cataloged every customer request I could find: <N SOURCES, e.g. support tickets, sales call notes, churn interviews>. Deduped into <N DISTINCT NEEDS>.
+2. Interviewed <N CUSTOMERS> directly over two weeks. Asked about the problem they were solving, not the feature they thought they wanted.
+3. Identified a core need present in <PERCENT, e.g. 70%> of conversations: <CORE NEED>. Wrote it up as a one-page "problem brief" rather than a spec.
+4. Built a prototype in <TIME, e.g. 1 week> with <ENGINEER> — UI was ugly, backend was real. Showed it to <N CUSTOMERS> for reactions, not sign-off.
+5. Explicitly labeled every assumption I couldn't verify yet as "TBD — will validate with usage data after launch" so we wouldn't pretend we knew.
+
+**Result**: Shipped v1 in <TIME>. <ADOPTION METRIC, e.g. 40% of target customers activated within 30 days>. When PM joined, they inherited a working product + a prioritized backlog of the next questions, not a blank slate.
+
+**Senior quote**: "Waiting for a spec would have burned the quarter. I treated the spec as something I'd write as I went."
+
+## Template 3: Ambiguous cross-functional ask
+
+**Situation**: <STAKEHOLDER, e.g. customer success> was reporting that "customers are confused by <FEATURE>." No clear data on what specifically was confusing, and three possible interpretations: UI issue, docs issue, or product fit issue.
+
+**Task**: Figure out if the problem was real, what it actually was, and whether engineering effort was even the right response.
+
+**Action**:
+1. Resisted the instinct to propose a UI redesign. First step: go to the source.
+2. Watched <N> recorded support calls with my own ears instead of relying on summaries. Took notes on where customers actually stumbled.
+3. Pulled product telemetry to cross-check: did customers who complained have a different usage pattern than those who didn't?
+4. Found that the confusion concentrated in one specific flow: <FLOW>, and the root cause was <ROOT CAUSE, e.g. the flow assumed a prerequisite configuration that 30% of customers hadn't done>.
+5. Proposed three options with costs: <OPTION 1, e.g. detect the missing prereq and guide the user, 2 engineer-weeks>, <OPTION 2, e.g. change the flow to not require the prereq, 2 months>, <OPTION 3, e.g. docs-only fix, 3 days>. Let <PM + CS lead> pick.
+
+**Result**: Team chose Option 1. Built and shipped it in <TIME>. Support tickets on this flow dropped <PERCENT> in the following month. CS lead said the decision framing was more valuable than the fix itself.
+
+**Senior quote**: "The real work was not writing code. It was turning 'customers are confused' into something a team could actually decide about."

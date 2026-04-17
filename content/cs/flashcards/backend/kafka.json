@@ -1,0 +1,145 @@
+[
+  {
+    "id": "be-kafka-fundamentals",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "easy",
+    "front": "What are topics, partitions, and offsets in Kafka? How do they enable parallelism and ordering guarantees?",
+    "back": "Topic: logical stream of records, like a database table. Partition: ordered, immutable log of records within a topic. A topic has N partitions distributed across brokers — this is the unit of parallelism. Offset: monotonically increasing integer identifying a record's position within a partition. Ordering is guaranteed within a partition, not across partitions. A consumer tracks its committed offset per partition. To scale consumption, add partitions and add consumers (up to #partitions consumers in a group can be active). Records with the same key always route to the same partition (key-based hashing), preserving per-key order.",
+    "senior_nuance": "Partition count is immutable in most Kafka versions (changing it breaks key-based routing). Pick enough partitions upfront (10-20x your expected parallelism is a common rule of thumb) — but too many partitions increases metadata overhead on brokers and ZooKeeper/KRaft. For global ordering needs (total order), you need a single partition — a hard throughput ceiling. Use per-entity ordering (same key to same partition) for most event-driven patterns.",
+    "quote_to_say": "Kafka's ordering guarantee is per-partition, not per-topic — I design keys deliberately to co-locate related events.",
+    "tags": ["kafka", "topics", "partitions", "offsets", "ordering"],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-kafka-consumer-groups",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "medium",
+    "front": "Explain Kafka consumer groups. How does partition assignment work and what triggers rebalancing?",
+    "back": "Consumer group: a set of consumers that jointly consume a topic. Each partition is assigned to exactly one consumer in the group at a time. N consumers in a group for a topic with M partitions: min(N,M) consumers are active, rest are idle. If N > M, extra consumers do nothing. Multiple consumer groups read the same topic independently — each group has its own offset tracking. Rebalancing: triggered when a consumer joins, leaves, crashes (session.timeout.ms exceeded), or partition count changes. During rebalance, all consumption stops (stop-the-world in legacy eager rebalance protocol).",
+    "senior_nuance": "Cooperative/incremental rebalancing (Kafka 2.4+, default in 3.x) only revokes partitions that need to move, not all partitions — dramatically reduces rebalance downtime. Use StickyAssignor to minimize partition moves. Set session.timeout.ms and heartbeat.interval.ms carefully: too low = spurious rebalances; too high = slow failure detection. Kafka Streams uses its own rebalancing on top of consumer groups. For exactly-once: use enable.idempotence=true on producer + transactional APIs.",
+    "quote_to_say": "Rebalance storms are one of the top Kafka production problems — I always enable cooperative rebalancing and tune timeout carefully.",
+    "tags": [
+      "kafka",
+      "consumer-groups",
+      "rebalancing",
+      "partition-assignment",
+      "cooperative"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-kafka-retention-compaction",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "medium",
+    "front": "What are Kafka's retention modes? When do you use log compaction vs time/size-based retention?",
+    "back": "Time/size retention (delete policy): segments are deleted after retention.ms or when topic size exceeds retention.bytes. Use for: event streams, logs, metrics where old data loses relevance. Log compaction (cleanup.policy=compact): Kafka retains the latest value per key, deleting older records with the same key (tombstone = null value deletes key). Use for: changelog topics, materialized views, CDC (each key = entity ID, value = latest state). Compaction runs in background via cleaner threads — does not guarantee recency, only eventual cleanup. Hybrid: cleanup.policy=compact,delete applies both.",
+    "senior_nuance": "Compacted topics are the foundation of Kafka Streams KTable and KSQL table semantics. Replaying a compacted topic gives you the current state of every entity — useful for cache warming or rebuilding downstream systems. Compaction lag (the uncompacted 'head' of the log) is controlled by min.cleanable.dirty.ratio. Compaction does not guarantee minimum retention time — a message may be compacted away minutes after production if a newer value arrives. For audit logs, use delete policy with long retention.",
+    "quote_to_say": "Compaction is for 'latest value per key' semantics — I use it for event-sourced entity state, not for audit trails.",
+    "tags": [
+      "kafka",
+      "retention",
+      "log-compaction",
+      "cleanup-policy",
+      "changelog"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-kafka-delivery-semantics",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "hard",
+    "front": "What are Kafka's delivery semantics — at-most-once, at-least-once, exactly-once — and what configuration achieves each?",
+    "back": "At-most-once: disable retries, commit offsets before processing — messages can be lost but never duplicated. At-least-once: enable retries (retries=MAX_INT, retry.backoff.ms), commit offsets after successful processing — messages may be redelivered on crash. Exactly-once: requires idempotent producer (enable.idempotence=true, acks=all, max.in.flight.requests.per.connection<=5) which prevents duplicate sends via sequence numbers, plus transactional API (initTransactions, beginTransaction, commitTransaction) to atomically produce+commit offsets. EOS end-to-end: producer + consumer with isolation.level=read_committed.",
+    "senior_nuance": "Exactly-once in Kafka is 'exactly-once within Kafka' — if your consumer writes to an external system (DB, API), you need idempotent consumers or two-phase commit for true E2E EOS. Idempotent consumers (dedup by event ID in the DB) are simpler and more portable. Performance cost of EOS: ~20% throughput reduction. Most production systems use at-least-once with idempotent consumers as the practical sweet spot.",
+    "quote_to_say": "Exactly-once inside Kafka is real, but end-to-end exactly-once requires idempotent consumers too — I design for at-least-once + dedup.",
+    "tags": [
+      "kafka",
+      "exactly-once",
+      "idempotent",
+      "at-least-once",
+      "transactions",
+      "delivery-semantics"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-kafka-lag-monitoring",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "medium",
+    "front": "How do you monitor Kafka consumer health? What is consumer lag and how do you alert on it?",
+    "back": "Consumer lag: difference between the latest offset in a partition (log-end-offset) and the committed offset of a consumer group. High lag = consumer is falling behind production rate. Metrics: kafka.consumer:type=consumer-fetch-manager-metrics,attribute=records-lag-max, or use external tools (Burrow, kminion, Confluent Control Center). Key metrics per consumer group + partition: lag, lead (distance from earliest offset — detects if consumer is near log retention boundary). Alert when: lag grows continuously over time (not just spikes), or lag exceeds a threshold that implies SLA breach (calculate: lag / consumer_throughput = time to catch up).",
+    "senior_nuance": "Lag is a lagging indicator — by the time it's high, your real-time pipeline is already delayed. Leading indicator: consumer throughput rate vs producer rate. Also: a consumer with lag=0 may be paused (no messages produced) — check records-consumed-rate. Burrow by LinkedIn models lag as a time series and alerts on 'will this consumer ever catch up?' rather than just threshold. For blockchain node processing pipelines, block processing lag maps directly to data freshness — track blocks-behind alongside consumer lag.",
+    "quote_to_say": "Consumer lag is the heartbeat of a streaming pipeline — I put it on the main ops dashboard and page on sustained growth, not absolute value.",
+    "tags": [
+      "kafka",
+      "consumer-lag",
+      "monitoring",
+      "burrow",
+      "kminion",
+      "observability"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-kafka-producers",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "medium",
+    "front": "What producer configurations most impact Kafka throughput and durability? Walk through acks, batching, and compression.",
+    "back": "acks=0: fire and forget, maximum throughput, no durability. acks=1: leader ACKs, leader failure can lose message. acks=all (or -1): all in-sync replicas ACK, maximum durability. Batching: linger.ms (how long to wait before sending a batch, default 0 = immediate), batch.size (max bytes per batch, default 16KB). Increase both for throughput: linger.ms=5-20ms, batch.size=100KB-1MB. Compression: snappy/lz4 (fast, moderate ratio), gzip (slow, high ratio), zstd (best ratio+speed). Compression happens at batch level — more batching = better compression.",
+    "senior_nuance": "buffer.memory (default 32MB) is the total producer memory for unsent records. If full, send() blocks for max.block.ms then throws. Tune this for bursty producers. For high-throughput pipelines: acks=all + compression=zstd + linger.ms=20 + batch.size=500KB is a common production tuning. enable.idempotence=true forces acks=all + retries=MAX — accept the constraints. Also: producer metrics: record-send-rate, request-latency-avg, record-error-rate.",
+    "quote_to_say": "acks=all is non-negotiable for data I care about — then I tune batching and compression to recover the throughput.",
+    "tags": [
+      "kafka",
+      "producer",
+      "acks",
+      "batching",
+      "compression",
+      "throughput"
+    ],
+    "mock_eligible": false
+  },
+  {
+    "id": "be-kafka-schema-registry",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "hard",
+    "front": "Why use a Schema Registry with Kafka? Explain schema evolution and compatibility modes.",
+    "back": "Schema Registry (Confluent) stores Avro/Protobuf/JSON Schema definitions. Producers serialize with schema ID embedded in message header; consumers fetch schema by ID. Benefits: (1) type safety without schema-in-every-message (saves space); (2) schema evolution with compatibility enforcement; (3) decoupled schema ownership. Compatibility modes: BACKWARD (new schema can read old data — default, add optional fields), FORWARD (old schema can read new data — delete optional fields), FULL (both), NONE (no check). Breaking changes: adding required fields, changing types, deleting fields — all break consumers.",
+    "senior_nuance": "Protobuf is more evolution-friendly than Avro (field numbers are stable identifiers, not field names). JSON Schema is flexible but verbose. For microservice event contracts, schema registry enforces the contract at publish time rather than at consumer runtime — catching breaking changes before production. Also: compatibility check happens at producer registration, not at runtime — subscribe to schema.registry.confluent.cloud alerts for rejected schemas in CI.",
+    "quote_to_say": "Schema registry is your event contract enforcement layer — it catches breaking changes at registration, not at 3am.",
+    "tags": [
+      "kafka",
+      "schema-registry",
+      "avro",
+      "protobuf",
+      "schema-evolution",
+      "compatibility"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "be-kafka-vs-alternatives",
+    "topic": "backend",
+    "subtopic": "kafka",
+    "difficulty": "medium",
+    "front": "When would you choose Kafka over Redis Streams, RabbitMQ, or a cloud queue (SQS/Pub/Sub)?",
+    "back": "Kafka excels at: long retention (days/weeks), high throughput (millions msg/s), replayability, fan-out to multiple consumer groups, event sourcing. Redis Streams: simpler ops, lower latency, good when data is already in Redis — but no cross-datacenter replication, memory-bound retention. RabbitMQ: complex routing (exchanges, bindings, DLQ), low-latency delivery, message TTL, priority queues — better for task queues with routing logic. SQS/GCP Pub/Sub: zero ops, auto-scaling, pay-per-use — ideal for serverless and bursty workloads but no replay, limited retention, higher per-message cost at scale.",
+    "senior_nuance": "Kafka's operational cost is real: ZooKeeper/KRaft cluster, replication factor tuning, partition management, schema registry. KRaft mode (no ZooKeeper) simplifies ops significantly since Kafka 3.3. For greenfield projects under moderate scale: managed Kafka (Confluent Cloud, MSK, Upstash) removes most of this. The replayability argument is often decisive: if you need to replay events to rebuild state or audit history, Kafka wins over all alternatives.",
+    "quote_to_say": "I reach for Kafka when replayability or fan-out to multiple teams are requirements — otherwise a simpler queue avoids the ops burden.",
+    "tags": [
+      "kafka",
+      "redis-streams",
+      "rabbitmq",
+      "sqs",
+      "comparison",
+      "message-queue"
+    ],
+    "mock_eligible": false
+  }
+]

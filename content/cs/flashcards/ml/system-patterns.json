@@ -1,0 +1,67 @@
+[
+  {
+    "id": "ml-sys-latency-budgets",
+    "topic": "ml",
+    "subtopic": "system-patterns",
+    "difficulty": "medium",
+    "front": "How do you define and allocate latency budgets in an LLM-powered API? Distinguish TTFT from throughput.",
+    "back": "Time-to-first-token (TTFT): time from request receipt to the first output token appearing. Driven by prefill — the KV computation over the input prompt. Scales with prompt length and model size. Throughput: tokens generated per second after the first token. Driven by autoregressive decode — each step is a forward pass over one token using cached KV. Latency budget allocation: set P99 TTFT and P50/P99 throughput targets per product SLA. Break down: network (req in/out ~10ms), inference (prefill + decode), post-processing. Typical targets: TTFT < 300ms for interactive chat, throughput > 30 tok/s for comfortable streaming. Levers: model size, quantisation, hardware (A100 vs H100), batching strategy, prompt length limits, speculative decoding.",
+    "senior_nuance": "Streaming output (sending tokens as they are generated) decouples TTFT from total generation latency. Even a slow model feels fast if it starts streaming quickly. Design the API to stream first, then optimise TTFT separately from total latency.",
+    "quote_to_say": "TTFT is what users feel. Throughput is what your GPU utilisation depends on. Optimise both, but measure them separately.",
+    "tags": ["latency", "ttft", "throughput", "inference", "llm"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-sys-batching",
+    "topic": "ml",
+    "subtopic": "system-patterns",
+    "difficulty": "medium",
+    "front": "What is continuous batching in LLM serving, and how does it differ from static batching? Why does it matter for GPU utilisation?",
+    "back": "Static batching: group N requests into a batch; run the full batch until all sequences are complete. Problem: sequences finish at different lengths; the GPU sits idle waiting for the longest sequence in the batch, wasting cycles. Continuous batching (iteration-level scheduling): at every decode step, check if any sequence has finished; immediately slot in a new waiting request to fill the vacancy. GPU is never idle waiting for stragglers. Implementation: the server maintains a queue of waiting requests; the scheduler inserts them into the active batch dynamically. Result: significantly higher GPU utilisation at production load — frameworks like vLLM use this by default via PagedAttention (which manages KV cache as pages, enabling dynamic insertion). Impact: 2-4× throughput improvement over static batching at the same hardware.",
+    "senior_nuance": "Continuous batching shifts the bottleneck from GPU utilisation to KV cache memory management. PagedAttention solves this by treating KV cache as virtual memory pages, eliminating fragmentation and enabling fine-grained batch management.",
+    "quote_to_say": "Continuous batching is the difference between a GPU that waits for stragglers and one that's always busy.",
+    "tags": ["batching", "continuous-batching", "inference", "gpu", "vllm"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-sys-speculative-decoding-sys",
+    "topic": "ml",
+    "subtopic": "system-patterns",
+    "difficulty": "hard",
+    "front": "From a systems perspective, when does speculative decoding improve end-to-end latency, and when does it hurt throughput?",
+    "back": "Speculative decoding uses a small draft model to propose k tokens; the large target model verifies all k in one forward pass. Improves latency when: (1) Draft acceptance rate is high (>70%), meaning draft and target are well-aligned. (2) The target model is compute-bound per step — adding k tokens to a single batch call costs little extra (transformer scales sub-linearly in sequence length per step). (3) The draft model runs at <<10% of target model latency. Hurts throughput when: at high load, the target model step is already batching many sequences; adding k speculative tokens per sequence multiplies batch token count, increasing memory bandwidth pressure and potentially causing KV cache OOM. The GPU throughput degradation can outweigh the per-sequence latency gain. Production rule: speculative decoding is best for latency-sensitive, low-concurrency workloads; at very high concurrency, it may need to be disabled.",
+    "senior_nuance": "Speculative decoding and continuous batching interact non-trivially. Each sequence in the batch may have different draft acceptance rates, creating unequal step lengths and complicating batch management. Some frameworks handle this with adaptive speculative decoding that turns off speculation for high-concurrency periods.",
+    "tags": [
+      "speculative-decoding",
+      "inference",
+      "latency",
+      "throughput",
+      "systems"
+    ],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-sys-prompt-caching",
+    "topic": "ml",
+    "subtopic": "system-patterns",
+    "difficulty": "medium",
+    "front": "What is prompt caching, what KV cache property does it exploit, and what conditions must hold for high hit rate?",
+    "back": "Prompt caching stores the computed KV cache for a prompt prefix on the server; subsequent requests with the same prefix skip recomputation of those tokens. Exploits: transformer attention is prefix-decomposable — KV entries for token i depend only on tokens 0..i, not on future tokens. So the KV cache for a shared system prompt is identical across requests and can be reused. Hit rate conditions: (1) Prompt prefix must be byte-identical (even a space difference misses). (2) The cached prefix must still be in memory (eviction is based on LRU/size). (3) High request volume on the same prefix (otherwise cold-start cost dominates). Impact: for long system prompts (2K-8K tokens), caching reduces TTFT by 50-80% and eliminates the compute cost of prefill for the cached portion. Cost model: cache hit saves compute proportional to prefix length; cost is memory to store KV cache. Design: put system prompt and few-shot examples at the top of the prompt (the stable part); put the variable user query at the end.",
+    "senior_nuance": "Prompt caching hit rate is highly dependent on prompt structure. If the user-specific content appears before the system prompt, caching is impossible. Instrument cache hit rates in production — a caching implementation with 30% hit rate is often a prompt structure problem, not an infrastructure problem.",
+    "quote_to_say": "Put the stable parts first. Prompt caching only works on exact-match prefixes.",
+    "tags": ["prompt-caching", "kv-cache", "inference", "latency", "ttft"],
+    "mock_eligible": true
+  },
+  {
+    "id": "ml-sys-pareto-quality-latency",
+    "topic": "ml",
+    "subtopic": "system-patterns",
+    "difficulty": "hard",
+    "front": "Describe the latency-quality Pareto frontier for LLM systems. What are the main levers and how do you pick an operating point?",
+    "back": "The latency-quality frontier is the set of configurations where improving quality (larger model, more generation steps, reranking) increases latency, and reducing latency degrades quality. Levers that move you along the frontier: model size, quantisation level, number of retrieved/generated tokens, use of reranker, number of reasoning steps (chain-of-thought). Levers that shift the frontier outward (better quality at same latency): better model architecture, hardware upgrade (H100 vs A100), speculative decoding, prompt caching, flash-attention. Operating point selection: define the minimum acceptable quality for the task (e.g., >85% golden-set pass rate); find the fastest configuration that meets it. Avoid optimising for latency without a quality floor — you will reach a configuration that is fast and wrong. Re-evaluate the operating point when the traffic pattern changes (batch vs interactive) or when new models shift the frontier.",
+    "senior_nuance": "The Pareto frontier shifts over time as hardware, models, and techniques improve. What required a 70B model six months ago may now be achievable with a 7B model plus better prompting. Periodically re-benchmark your operating point against new options.",
+    "quote_to_say": "Set your quality floor first, then chase latency. Optimising latency without a floor gets you a system that's fast and wrong.",
+    "tags": ["latency", "quality", "pareto", "systems", "tradeoffs"],
+    "mock_eligible": true
+  }
+]
