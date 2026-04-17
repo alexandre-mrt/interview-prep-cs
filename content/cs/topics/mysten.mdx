@@ -1,0 +1,762 @@
+---
+title: Mysten Labs — Senior Interview Deep Dive
+topic: mysten
+slug: mysten
+summary: A senior-level prep guide for Mysten Labs interviews. Covers the Sui Stack thesis, the object-centric model, Move, the Narwhal → Bullshark → Mysticeti consensus lineage, Walrus/DeepBook/zkLogin/Seal/Nautilus, the January 2026 outage, and observability for a Sui validator.
+reading_time_minutes: 35
+last_reviewed: 2026-04-17
+---
+
+# Mysten Labs — Senior Interview Deep Dive
+
+This is a working prep document, not a marketing page. Everything here is grounded in the
+`MYSTEN_RESEARCH.md` research file; where that file flagged items as "verify in interview
+prep session," the uncertainty is preserved here. The goal is to walk into a Mysten loop
+with concrete opinions, not memorized talking points.
+
+Use this page as the long-form companion to the 60 flashcards under `content/cs/flashcards/mysten/`.
+
+---
+
+## 1. Why Mysten, why now — the Sui Stack positioning
+
+The single most important framing to bring into the loop is that **Mysten is not an L1
+company anymore, it is a Sui Stack (S2) company**. The 2025–2026 narrative shift is
+explicit: Sui is the execution layer, Walrus is the storage layer, Seal is the privacy
+layer, Nautilus is the verifiable-compute layer, and DeepBook is the liquidity layer. All
+five are first-party products built by Mysten or close collaborators, and they are
+designed to compose.
+
+Why that matters:
+
+- **"Monolithic vs modular" is a misleading axis.** Sui is monolithic for execution (one
+  parallel VM, one consensus) and modular for storage / privacy / compute (Walrus, Seal,
+  Nautilus). A competitor framing like "Ethereum is modular because of rollups" collapses
+  into "we both picked modularity, just on different axes."
+- **The Stack story reframes 'why Sui over Ethereum'.** The comparison is no longer L1 vs
+  L1; it is "full stack with first-party storage, privacy, and compute primitives" vs
+  "settlement layer with third-party everything else." That is a real difference.
+- **Interview implication.** If you walk in treating Sui as just the L1, the hiring
+  manager notices. If you walk in with a specific Stack composition in mind (e.g. "I want
+  to build confidential DeFi using Seal over Walrus with Nautilus-verified matching"),
+  they notice that too.
+
+> Interview quote to have ready: *"Treating Sui as just the L1 misses the Stack thesis.
+> The storage, privacy, and compute primitives are first-party, not add-ons."*
+
+---
+
+## 2. Object-centric model — explained to an EVM/Solana dev
+
+### 2.1 The core shift
+
+In Sui, **everything is an object** identified by a 32-byte UID. Every object carries:
+
+| Field       | Meaning                                                         |
+|-------------|-----------------------------------------------------------------|
+| `id: UID`   | 32-byte globally unique address                                 |
+| `version`   | Monotonically increasing per-object version                     |
+| owner       | One of: address-owned, object-owned, shared, immutable          |
+| contents    | A Move struct with the `key` ability (first field must be `id`) |
+
+A transaction **declares its input objects by id and version upfront**. That one sentence
+is the whole object-model thesis: an EVM/Solana transaction cannot declare what state it
+will touch without executing, so the scheduler must serialize globally before execution.
+A Sui transaction lets the scheduler do conflict detection *before* execution, which
+unlocks two things:
+
+1. **Parallelism.** Two transactions touching disjoint objects run in parallel, no
+   discovery phase.
+2. **Consensus bypass for owned objects.** If a transaction only touches objects owned by
+   the sender, there is no concurrent-write risk, so it skips consensus entirely and goes
+   through the Mysticeti fast path.
+
+### 2.2 Ownership kinds at a glance
+
+| Ownership        | Consensus required? | Use case                                         |
+|------------------|---------------------|--------------------------------------------------|
+| Address-owned    | No (fast path)      | Coins, personal NFTs, single-actor state         |
+| Shared           | Yes (Mysticeti)     | AMMs, order books, registries, governance        |
+| Immutable        | No (parallel reads) | Published packages, frozen public data           |
+| Object-owned     | Parent's rules      | Dynamic fields, composition                      |
+
+### 2.3 Interview framing
+
+Do not describe this as a syntax preference. Frame it as **a performance plus security
+design choice**:
+
+- *Performance*: declarative inputs = cheaper scheduling + fast path for owned objects.
+- *Security*: linear types + capability objects mean fewer "forgot to do X" bugs at
+  compile time, which kills a whole class of Solidity exploits.
+
+The cost is that shared objects become serialization points. DeepBook's pool is a shared
+object; every order on a pair serializes through consensus. That's fine because consensus
+is sub-second and matching is O(log n), but it's a cost you must acknowledge.
+
+> *"The object model is declarative scheduling; the account model is post-hoc conflict
+> detection."*
+
+---
+
+## 3. Move deep dive
+
+### 3.1 Abilities
+
+Move has four abilities, declared per struct. Memorize the four and their canonical
+combinations.
+
+| Ability | Meaning                                                                |
+|---------|------------------------------------------------------------------------|
+| `copy`  | Value can be implicitly duplicated. Bools, integers yes; coins no.     |
+| `drop`  | Value can be silently discarded at scope end. Without it: must consume.|
+| `key`   | Top-level object; requires `id: UID` as first field (Sui Move).        |
+| `store` | Can live inside a `key` struct, i.e., persist in global storage.       |
+
+Canonical combinations:
+
+```move
+// Linear asset (coin, NFT capability) — can't duplicate, can't drop silently
+public struct Coin<phantom T> has key, store {
+    id: UID,
+    value: u64,
+}
+
+// Plain data — free to pass around
+public struct Balance has copy, drop, store {
+    amount: u64,
+}
+
+// Capability token — must live at top level, cannot be nested
+public struct AdminCap has key {
+    id: UID,
+}
+```
+
+### 3.2 Why `id: UID` as first field matters
+
+Sui's storage is object-addressed, not account-addressed. Every top-level object needs a
+unique, immutable address; `UID` is that address. The first-field requirement lets the
+runtime extract the UID at a fixed byte offset without reflecting over the struct. On
+Aptos (core Move), storage is keyed by `(address, type)` so no UID is required. This one
+difference is the cleanest way to explain the Sui Move vs core Move split to an
+interviewer: a single storage-model change cascades into an ability and a struct layout.
+
+### 3.3 Entry functions vs public functions
+
+- `entry fun`: callable as a top-level PTB command; parameters must be primitives,
+  objects, or `vector<T>`; cannot return values (except generics); effects must be
+  observable as side effects (transfer / emit / mutate shared).
+- `public fun`: callable from any Move module and via PTB wrappers. Modern Sui prefers
+  `public fun` with object inputs so other modules can compose.
+
+Use `entry` only when you deliberately want to lock a callsite to PTB-only invocation —
+for example, to prevent a third-party Move module from wrapping a function that accepts
+a sensitive capability.
+
+### 3.4 Programmable Transaction Blocks (PTBs)
+
+A PTB is up to **1,024 commands** executed atomically. Commands:
+
+| Command            | Purpose                                              |
+|--------------------|------------------------------------------------------|
+| `MoveCall`         | Invoke a public Move function                         |
+| `TransferObjects`  | Transfer a set of objects to a recipient              |
+| `SplitCoins`       | Split a coin into sub-coins for per-call amounts      |
+| `MergeCoins`       | Merge a set of coins into a primary                   |
+| `MakeMoveVec`      | Build a typed vector for a downstream call            |
+| `Publish`          | Publish a new Move package                            |
+| `Upgrade`          | Upgrade an existing package via an `UpgradeCap`       |
+
+Arguments reference `Input(i)` (inputs), `Result(i)` (previous command output), or
+`NestedResult(i, j)` (a tuple element).
+
+**Worked example — swap SUI → USDC on DeepBook and stake the USDC in one tx:**
+
+```
+1. SplitCoins(gas_coin, [amount])                                  -> Result(0): Coin<SUI>
+2. MoveCall(deepbook::pool::swap, [pool, Result(0), min_out])      -> Result(1): Coin<USDC>
+3. MoveCall(staking::stake, [Result(1), pool_id])
+```
+
+Properties: atomic (all or nothing), composable across unrelated Move packages, no
+intermediate signed transactions.
+
+### 3.5 Threat-model implication of PTBs
+
+PTBs push composition from smart-contract callsite to **the client**. A Move module can
+no longer assume "only my module calls this function in this order." Capability objects
+accepted as arguments must be robust against arbitrary caller graphs. This is a subtle
+point most candidates miss — it shifts where part of the trust surface lives.
+
+### 3.6 Dynamic fields and dynamic object fields
+
+Dynamic fields attach runtime key-value pairs to a parent object; the child is stored as
+a separately-addressable object conceptually owned by the parent. **Dynamic object
+fields** are the subset where the value itself has the `key` ability, meaning it can be
+addressed independently. Use them when you need flexible schemas (per-user storage,
+open-ended registries) or unbounded collections that shouldn't live inline.
+
+Tradeoff: reads cost more gas than struct-inline reads and enumeration is not free — you
+need off-chain indexing. Dynamic object fields add one more cost layer because they are
+addressable independently.
+
+### 3.7 Package upgrades
+
+Packages are **immutable**; an "upgrade" mints a new package id linked to the old one
+via an `UpgradeCap` object. Policies:
+
+| Policy       | Effect                                                           |
+|--------------|------------------------------------------------------------------|
+| `compatible` | Default. Adds and relaxes without breaking existing types.       |
+| `additive`   | Only new modules and functions.                                  |
+| `dep_only`   | Only dependency bumps.                                           |
+| `immutable`  | Freeze forever (typical post-audit move).                        |
+
+Existing objects continue to reference the version they were created under; the Move
+type system enforces compatibility. Destroying the `UpgradeCap` is the on-chain
+equivalent of renouncing ownership on an EVM contract, with compile-time guarantees
+instead of a Solidity convention.
+
+---
+
+## 4. Consensus lineage — Narwhal → Bullshark → Mysticeti v1 → Mysticeti v2
+
+### 4.1 The shared insight: separate availability from ordering
+
+The single most important idea in modern DAG-BFT is that **data dissemination should be
+decoupled from ordering**. Narwhal disseminates transactions via a reliable-broadcast
+DAG; the ordering protocol on top only has to agree on the order of the small
+headers, not the large transaction bodies. Dissemination throughput scales with the
+number of workers, not the number of consensus participants.
+
+### 4.2 The lineage
+
+| Protocol     | Era         | Role                                                        | Claim (per research)                              |
+|--------------|-------------|-------------------------------------------------------------|---------------------------------------------------|
+| Narwhal      | 2021–2022   | Reliable-broadcast DAG mempool (EuroSys 2022 Best Paper)    | >130k TPS on WAN with production crypto           |
+| Tusk         | 2022        | Asynchronous consensus on Narwhal DAG (randomness-based)    | Correct under full async                          |
+| Bullshark    | 2022        | Partially-synchronous consensus on Narwhal DAG, ~200 LOC    | Sui mainnet consensus from launch through mid-2024|
+| Mysticeti v1 | 2024        | Uncertified DAG + novel commit rule                          | ~0.5s WAN commit latency at >200k TPS             |
+| Mysticeti v2 | Nov 6, 2025 | Merges validation into consensus, new Transaction Driver     | ~25–35% latency reduction vs v1                   |
+
+### 4.3 Mysticeti v1 — the novel commit rule
+
+Mysticeti drops Narwhal's explicit certification step. Each block is broadcast but not
+explicitly certified before being referenced in the DAG ("uncertified DAG"). A novel
+commit rule lets every block be a potential leader and commit based on support from
+subsequent rounds rather than a quorum-of-certificates round trip. On production
+cutover across 106 validators, P50 latency dropped from ~1900 ms (Bullshark) to
+~390 ms (Mysticeti-C).
+
+"Uncertified" does not mean "unsafe." Safety still comes from:
+
+1. Each block referencing 2f+1 parents from the previous round.
+2. The commit rule checking support in subsequent rounds before finalizing.
+
+What you save is one explicit certificate-aggregation round per commit.
+
+**Mysticeti-FPC (Fast Path Commit)** extends C with a fast path for owned-object
+transactions: they are woven into the DAG but skip the consensus ordering step. This is
+the mechanism behind sub-300 ms owned-object finality, which is the object model paying
+for itself at the latency level.
+
+### 4.4 Mysticeti v2 — the latency/risk tradeoff
+
+v2 (shipped Nov 6, 2025) merges validation into the consensus path, introduces a new
+Transaction Driver, and removes redundant pre-consensus checks. The claim is ~25–35%
+latency reduction with the largest gains in Asia (WAN), plus a TPS bump in the same
+range.
+
+The senior-level question is not "is it faster" but "what did they give up for the
+speed?" Merging validation into consensus couples two concerns that were previously
+layered. If a validation bug ships, it now affects liveness (network stall), not just
+the correctness of a specific committed block. This is the kind of tradeoff that should
+sit at the top of your mind during a consensus deep-dive.
+
+> *"Merging validation into consensus is a latency/risk tradeoff, not a free lunch."*
+
+### 4.5 DAG intuition at a whiteboard
+
+Picture rounds advancing left-to-right, validators stacked vertically. At each round,
+every validator broadcasts a block referencing 2f+1 parents from the prior round. The
+commit rule walks forward through the DAG looking for enough support to finalize a
+block. Multiple leaders per round = no leader-stall bottleneck, which is why DAG-BFT
+outperforms HotStuff-style pipelines on WAN latency dominated by tail-validator delays.
+
+### 4.6 CAP position and the safety/liveness choice
+
+Under partition, Sui picks C over A. The Jan 14, 2026 outage is the demonstration: a
+consensus commit edge case caused divergent checkpoint candidates, and the network
+**halted rather than forking**. This is the correct failure mode for a permissionless
+L1; fork-and-merge would imply double-spend, which cannot be undone in a system holding
+real assets. Mysticeti-C is live under **partial synchrony**, the classical BFT
+assumption, not full asynchrony.
+
+---
+
+## 5. Walrus, DeepBook, zkLogin, Seal, Nautilus — concise deep dives
+
+### 5.1 Walrus — decentralized blob storage
+
+- **Red Stuff 2D erasure code** (Twin-code framework): a blob becomes `f+1` primary
+  slivers (vertical) + `2f+1` secondary slivers (horizontal). Each storage node holds
+  one primary and one secondary sliver.
+- **Replication factor ~4.5x** for Byzantine tolerance (vs ~3x for naive 3-way with no
+  Byzantine guarantee).
+- **Self-healing**: recovery bandwidth is proportional to lost data, not full blob.
+  Surviving nodes contribute slivers; dropped-node slivers regenerate without central
+  coordination. This is what makes Walrus operationally viable; naive Reed-Solomon would
+  re-ingest full blobs on every repair.
+- **Availability**: blobs retrievable even if up to 2/3 of the storage network is
+  offline — same threshold as the BFT consensus, keeping one honest-majority assumption
+  across the stack.
+- **Sui integration**: blob ids + commitments live as Sui objects; payments in `$WAL`;
+  access policies as Move logic. Seal ciphertexts commonly land on Walrus.
+
+> *"Red Stuff's self-healing property — bandwidth proportional to lost data, not full
+> blob — is what makes Walrus viable at the scale of a Sui-backed storage network."*
+
+### 5.2 DeepBook — onchain CLOB
+
+- Each trading pair is a **shared `Pool<Base, Quote>` object** holding the order book
+  and escrow vault.
+- Matching synchronous within the transaction; maker orders sit in nested crit-bit
+  trees (O(log n)).
+- Every order on a pair serializes through Mysticeti consensus because the pool is
+  shared. This is a worst-case scenario for the parallel-execution story, and it works
+  anyway because consensus is sub-second and matching is cheap.
+- Shared liquidity: any dApp on Sui can trade against the same pool without bridging,
+  wrapping, or LP fragmentation.
+- DeepBook v3 (2024+) added governance, flash loans, better account abstraction.
+- Typical finality ~390 ms; fees typically <$0.01 per trade.
+
+### 5.3 zkLogin — OAuth-based Sui addresses
+
+Flow in one breath:
+
+1. User signs in via OAuth (Google, Facebook, Apple, Twitch) → receives a signed JWT.
+2. Client generates an ephemeral keypair; its pubkey is embedded in the OAuth nonce.
+3. Sui address = `H(iss, aud, sub, salt)` where `salt` is kept off the OAuth provider.
+4. Client produces a **Groth16 proof** over a circom circuit proving the JWT is valid,
+   `sub` matches the address, and the ephemeral pubkey is committed into the nonce,
+   without revealing `sub` or the full JWT.
+5. Transaction is signed with the ephemeral key and includes the proof + epoch bounds.
+6. Validators verify the Groth16 proof using the trusted-setup verifying key.
+
+**Why Groth16**: proof size ~128 bytes, verification a few ms. zkLogin's circuit is
+fixed (JWT parse) and the verifier runs on every validator for every login tx, so you
+optimize for verify. PLONK would save you the per-circuit setup but would cost bytes
+and verify-time.
+
+**Two-factor security**: you need a recent JWT (proves OAuth) AND the salt. Losing one
+is recoverable; losing both is not. The OAuth provider cannot grind addresses because
+they don't have the salt.
+
+**CRS ceremony**: 111 contributions (82 browser, 29 Docker) to the Phase-2 per-circuit
+setup. Groth16 soundness requires only one honest contributor.
+
+### 5.4 Seal — decentralized secrets management
+
+A quorum of key-server nodes holds shares of per-policy master keys. Apps encrypt with
+Seal's public keys and store ciphertext anywhere (commonly Walrus). An onchain Move
+policy decides who can request decryption: when a caller satisfies the policy, they can
+reconstruct the decryption key from the threshold of key servers. Mainnet launched Jan
+2026. The research flagged the exact key-server set size and threshold parameters as
+"verify in interview prep session" — don't quote specific numbers without confirming.
+
+The architectural win: access control becomes expressible in Move, right next to your
+business logic. Tradeoff: security is capped by the honesty of the key-server quorum.
+
+### 5.5 Nautilus — TEE-based verifiable compute
+
+AWS Nitro Enclaves attest to computations run inside them. A Sui smart contract can
+receive a signed attestation proving a computation ran in an approved, measured
+enclave. Paired with Seal, you get "compute over encrypted data with onchain
+verifiability" without rolling your own MPC/FHE.
+
+Trust root: Amazon's Nitro attestation. That's a deliberate choice over MPC or FHE
+(more decentralized, orders of magnitude more expensive). Mysten has been publicly
+careful about not locking the whole stack into a single TEE vendor — expect enclave
+diversity or MPC alternatives over time.
+
+### 5.6 How they compose
+
+The Sui Stack thesis depends on these products actually composing. The reference
+composition for confidential DeFi:
+
+- **Walrus** stores the ciphertext (cheap, durable, decentralized).
+- **Seal** gates decryption via onchain Move policy enforced by the key-server quorum.
+- **Nautilus** runs the computation over decrypted data inside an attested enclave.
+- **Sui** receives the signed result and updates state.
+
+The user's plaintext never leaves the enclave; the policy is enforced in Move; the
+storage substrate is independent of the compute substrate. This is the proof point of
+the Stack narrative.
+
+---
+
+## 6. Production incidents — the Jan 14, 2026 outage
+
+### 6.1 What happened
+
+Sui mainnet halted for roughly **6 hours** on Jan 14, 2026 — the largest incident since
+launch. Root cause: an edge case in consensus commit processing caused validators to
+produce **divergent checkpoint candidates**, stalling checkpoint certification.
+Approximately $1B in assets were temporarily frozen. **User funds were never at risk**:
+the network preserved safety and lost liveness, exactly the CP behavior the design
+targets.
+
+This is the third publicly-documented Sui incident per the research record:
+
+| Date       | Type                  | Notes                                                |
+|------------|-----------------------|------------------------------------------------------|
+| Nov 2024   | Brief halt            | Duration and root cause not fully detailed in public |
+| Dec 2025   | Degraded performance  | Not a full halt                                      |
+| Jan 14, 2026 | ~6h halt            | Consensus commit edge case; largest incident to date |
+
+### 6.2 What a senior engineer extracts
+
+1. **Recovery runbooks must be rehearsed, not filed.** A 6-hour halt across 100+
+   validators suggests the coordination loop (decide-patch-rollout) was slower than it
+   should be. Stronger runbooks have pre-approved rollback binaries, a documented
+   coordinator-election path, and tabletop exercises.
+2. **Consensus commit paths need adversarial fuzzing.** Edge cases emerge only under
+   specific DAG topologies and message orderings. Unit tests on commit-rule invariants
+   are insufficient; you want a scenario fuzzer that generates adversarial DAG shapes,
+   drives the commit rule to fixed points, and asserts checkpoint determinism across
+   replicas.
+3. **"Halt rather than fork" is the correct failure mode.** This is not a bug to be
+   fixed; it's the designed behavior. But the **duration** of the liveness gap is the
+   product — how quickly you can recover is what you invest in.
+
+### 6.3 As an interview talking point
+
+This is a high-signal topic. Bringing it up proactively demonstrates:
+
+- You pay attention to production reality, not just the marketing blog.
+- You understand why halting is correct (safety over liveness in a BFT L1).
+- You have concrete proposals for operational maturity (runbooks, fuzzing, automation).
+
+Do **not** use this to dunk on Mysten. Use it to show you understand the tradeoff space.
+
+> *"Halting was the correct failure mode. Forking would have been the wrong one, and
+> you don't fix forking without a chain reorg, which you can't do on a permissionless L1."*
+
+---
+
+## 7. Observability for a Sui validator
+
+### 7.1 Metrics endpoint and scrape config
+
+A Sui node exposes Prometheus metrics on **port 9184** at `/metrics` by default. RPC is
+separately on 9000. Minimal Prometheus scrape:
+
+```yaml
+scrape_configs:
+  - job_name: 'sui-node'
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['validator-1.example.com:9184']
+        labels:
+          role: validator
+          cluster: mainnet
+```
+
+### 7.2 Official Grafana dashboards
+
+Mysten publishes three dashboards on Grafana Labs. Memorize the IDs:
+
+| ID    | Name                                                         |
+|-------|--------------------------------------------------------------|
+| 18141 | SUI Fullnode Monitor Dashboard                               |
+| 18297 | Sui Validator Dashboard 1.0                                  |
+| 18512 | Sui Validator Metrics Container in Docker + System Monitoring|
+
+These are the starting floor, not the ceiling — any operator should be prepared to
+extend them with service-specific alerts.
+
+### 7.3 Metric families to look for
+
+Names are subject to evolution across Sui releases; confirm against your node's
+`/metrics` endpoint in actual prep:
+
+- `sui_validator_*` — validator-specific: committee round, certificates, peers.
+- `sui_fullnode_*` — fullnode sync status, checkpoint lag.
+- `narwhal_*` / `consensus_*` — DAG / Mysticeti metrics: round, latency, commit rate.
+- `sui_network_*` — peer stats, gossip.
+- `sui_execution_*` — per-kind transaction execution times and counts.
+- `sui_authority_*` — authority aggregator stats.
+- `rocksdb_*` — state store metrics via the RocksDB Prometheus hook.
+
+### 7.4 Key dashboards to build
+
+Block height / checkpoint lag:
+
+```promql
+# Lag in checkpoints vs fleet max
+max(sui_fullnode_highest_synced_checkpoint)
+  - on() sui_fullnode_highest_synced_checkpoint{instance="$node"}
+```
+
+Alert rule: fire when lag > 50 for more than 5 minutes. A senior refinement is to
+compare to a published network tip rather than the local fleet max, so one runaway peer
+doesn't skew the alert.
+
+Checkpoint creation latency (P99):
+
+```promql
+histogram_quantile(
+  0.99,
+  sum by (le) (rate(sui_checkpoint_creation_duration_seconds_bucket[5m]))
+)
+```
+
+Remember: **aggregate the rate of `_bucket` first, then apply `histogram_quantile`**.
+The `le` label must survive the aggregation or you get NaN.
+
+Consensus round progress:
+
+```promql
+# Alerting when round is not advancing
+deriv(consensus_round[5m]) < 0.01
+```
+
+Pair this with a histogram on round duration for P99 "slow but not stuck" detection.
+
+Peer count gauge:
+
+```promql
+sui_validator_peers_connected < 0.9 * vector($expected_committee_size)
+```
+
+Split into incoming / outgoing if the node exposes both. Asymmetric drops are more
+diagnostic than the total.
+
+RPC error rate by method (RED-style):
+
+```promql
+sum by (method) (rate(sui_rpc_requests_total{status=~"5.."}[5m]))
+  /
+sum by (method) (rate(sui_rpc_requests_total[5m]))
+```
+
+### 7.5 RED and USE applied to a Sui validator
+
+| Layer | Signal        | Validator mapping                                        |
+|-------|---------------|----------------------------------------------------------|
+| RED   | Rate          | Consensus commits per second; transactions per second    |
+| RED   | Errors        | RPC error ratio, consensus-path error counts             |
+| RED   | Duration      | End-to-end tx finality latency (histogram, P50/P95/P99)  |
+| USE   | Utilization   | CPU per core, disk I/O util, network bandwidth util      |
+| USE   | Saturation    | RocksDB compaction queue, swap usage, tokio queue depth  |
+| USE   | Errors        | Disk I/O errors, network dropped packets, oomkills       |
+
+Triage rule: **alert on RED, debug with USE**. When finality P99 regresses (RED), the
+first move is to correlate with RocksDB compaction, CPU saturation, and peer count
+(USE). If RED is green and USE is red, you have a latent issue you can fix without
+paging anyone. If both are red, it's an incident.
+
+> *"Alert on RED. Debug with USE. Don't alert on USE without a user-facing symptom or
+> you'll drown in noise."*
+
+---
+
+## 8. Interview bank — 18 questions with strong-answer outlines
+
+Each question is marked as [SYSTEMS], [MOVE/BLOCKCHAIN], [CRYPTO], [OBSERVABILITY], or
+[BEHAVIORAL].
+
+### Q1. Explain CAP and where Sui sits. [SYSTEMS]
+- Under partition, Sui picks C over A.
+- Jan 14, 2026 outage is the empirical demonstration.
+- Mysticeti-C is live under partial synchrony, not full async.
+- Permissionless L1 can't tolerate fork-and-merge; CP is the only correct choice.
+
+### Q2. Walk through Mysticeti's commit rule at a whiteboard level. [SYSTEMS]
+- DAG rounds; each block references 2f+1 parents.
+- Every block is a potential leader candidate.
+- Commit rule uses support from subsequent rounds instead of a certificate round.
+- FPC bypasses consensus for owned-object txs.
+- Mention why this beats HotStuff latency-wise: no single-leader pipeline stall.
+
+### Q3. Narwhal vs Bullshark vs Mysticeti v1 vs v2 — what's the progression? [SYSTEMS]
+- Narwhal: reliable-broadcast DAG mempool, separates data from ordering.
+- Bullshark: partially-synchronous ordering layer on Narwhal DAG (~200 LOC).
+- Mysticeti v1: uncertified DAG + novel commit rule → ~0.5s WAN, 200k+ TPS.
+- Mysticeti v2 (Nov 2025): merges validation into consensus, another ~25–35% latency win.
+
+### Q4. Safety vs liveness in BFT — examples of each failure. [SYSTEMS]
+- Safety: divergent commits (what broke in Jan 2026).
+- Liveness: stuck consensus, partition, too many faulty leaders.
+- 3f+1 stake, f Byzantine tolerance, quorum intersection argument.
+- Sui halts rather than violating safety.
+
+### Q5. Design a reliable broadcast layer for 100 globally distributed validators. [SYSTEMS]
+- mTLS gossip, QUIC vs TCP under jitter / 1% loss.
+- Worker/primary split à la Narwhal.
+- Back-pressure, windowing, dedup via content-addressable ids.
+- Tune per-region for trans-Pacific vs intra-US latency.
+
+### Q6. P99 latency just doubled. How do you debug? [OBSERVABILITY]
+- RED first: all methods or specific? All instances?
+- Correlate with deploy timeline, traffic shape, resource saturation.
+- Drill in with tracing spans + flamegraphs (tokio-console for Rust async).
+- Common causes: GC/allocator, lock contention, disk I/O stalls, dependency latency.
+
+### Q7. What does it mean for a struct to lack `drop`? [MOVE/BLOCKCHAIN]
+- Must be explicitly consumed: transfer, destructure, or move into another struct.
+- Prevents "forgot to do something with this asset" bugs at compile time.
+- `Coin<T>` lacks drop — you can't leave a coin on the stack.
+
+### Q8. Why does `key` require `id: UID` as first field in Sui Move? [MOVE/BLOCKCHAIN]
+- Sui storage is object-addressed; objects need a stable UID.
+- Fixed offset lets runtime extract UID without reflection.
+- Contrast with core Move (Aptos): (address, type) keying, no UID needed.
+
+### Q9. Walk through a PTB that swaps SUI → USDC and stakes the USDC. [MOVE/BLOCKCHAIN]
+- SplitCoins(gas, [amount]) → Coin<SUI>
+- MoveCall(deepbook::pool::swap, [pool, Coin<SUI>, min_out]) → Coin<USDC>
+- MoveCall(staking::stake, [Coin<USDC>, pool_id])
+- Atomic; one failure reverts the whole PTB.
+
+### Q10. Which bugs does Move prevent that Solidity is vulnerable to? [MOVE/BLOCKCHAIN]
+- Reentrancy (no external-call-mid-state-update; linear resources).
+- Integer overflow (checked by default).
+- "Missing storage update" (linear types force explicit consume).
+- Capability patterns replace brittle `msg.sender == owner` checks.
+- Caveat: Move does not prevent business-logic, oracle, or MEV bugs.
+
+### Q11. Shared object vs owned object — when to choose which? [MOVE/BLOCKCHAIN]
+- Owned: fast path, no consensus, sub-300 ms. Single-actor state.
+- Shared: consensus required, serializes on one object. Multi-party coordination.
+- Hybrid: DeepBook has a shared pool but orders consume owned coins.
+
+### Q12. How do package upgrades work on Sui? [MOVE/BLOCKCHAIN]
+- Immutable packages + `UpgradeCap` linking new versions.
+- Policies: compatible / additive / dep_only / immutable.
+- Freeze to immutable after audit; destroy `UpgradeCap` for permanent renunciation.
+
+### Q13. Why Groth16 for zkLogin? Tradeoffs vs PLONK? [CRYPTO]
+- Groth16: ~128-byte proof, few-ms verify, per-circuit trusted setup.
+- PLONK: universal setup, larger proofs, slightly slower verify.
+- zkLogin's circuit is fixed; validators run verify every tx; optimize for verify.
+
+### Q14. Explain zkLogin's address derivation and the two-factor security. [CRYPTO]
+- addr = H(iss || aud || sub || salt_hash).
+- Salt binds address to out-of-band data the OAuth provider doesn't have.
+- Requires recent JWT (OAuth) AND salt: compromise of either alone isn't sufficient.
+
+### Q15. Where does BLS fit in Sui? [CRYPTO]
+- BLS12-381 for aggregating validator signatures on checkpoints and certificates.
+- 2f+1 signatures aggregate into O(1) proof size — critical for light clients and
+  bridges.
+- Tradeoff: more expensive than Ed25519, but bandwidth/storage win dominates at scale.
+
+### Q16. Design dashboards for a Sui validator. [OBSERVABILITY]
+- RED: consensus commit rate, RPC error ratio, end-to-end finality histogram.
+- USE: CPU per core, RocksDB compaction queue, disk I/O, network bytes.
+- Consensus-specific: round advance rate, leader rotations, blocks/epoch.
+- Health: peer count, checkpoint lag, clock skew.
+- Alerts: checkpoint lag > N, peer count < K, round not advancing.
+
+### Q17. Tell me about a hard technical decision you made. [BEHAVIORAL]
+- Senior signal: articulate options considered, why alternatives were rejected, how you
+  validated, how you'd revisit. Avoid "we just picked X." Concrete tradeoffs beat
+  generalities.
+
+### Q18. Why Mysten? Why Sui over [X]? [BEHAVIORAL]
+- Must-answer. Opinion on object model / Move / Mysticeti as right bets, plus humility
+  that L1 competition is live. Avoid bashing Solana/Ethereum/Aptos.
+
+---
+
+## 9. Senior signals specific to Mysten
+
+### 9.1 Phrases that land well
+
+From the research file, these are explicitly flagged as quote-ready:
+
+- *"I read the Mysticeti paper — the uncertified-DAG + novel commit rule is what gives
+  you the 0.5s WAN latency, versus Narwhal+Bullshark's extra certification round-trip."*
+- *"The object model is what makes parallel execution tractable — declaring object
+  dependencies upfront is the opposite of the account model's post-hoc conflict
+  detection."*
+- *"PTBs are atomic by design, so I'd expect a lot of composition risk to be pushed onto
+  module authors — capability objects need to be robust against arbitrary caller
+  graphs."*
+- *"Move's lack-of-drop semantics gives you a compile-time guarantee that mirrors a
+  common pattern people hand-roll in Solidity with reentrancy guards."*
+- *"Red Stuff's self-healing property — bandwidth proportional to lost data, not full
+  blob — is what makes Walrus viable at the scale of a Sui-backed storage network."*
+- *"zkLogin's two-factor model (OAuth + salt) is subtler than people give it credit for
+  — the OAuth provider can't grind addresses because they don't have the salt."*
+- *"Separating data availability from ordering (Narwhal's insight) is the single most
+  important idea in modern DAG-BFT."*
+- *"For production consensus, safety over liveness — the Jan 2026 outage was a correct
+  failure mode, the network halted rather than forked."*
+
+### 9.2 Topics to bring up proactively
+
+- **The Mysticeti paper** (arXiv 2310.14821) — at minimum abstract + commit rule section.
+- **The Sui Lutris paper** — the formal combined broadcast/consensus paper.
+- **The Walrus paper** (arXiv 2505.05370) — Red Stuff at block-diagram level.
+- **The zkLogin paper** (arXiv 2401.11735) — two-factor model and Groth16 choice.
+- **An opinion on the object model vs account model**, honest about tradeoffs
+  (shared-object contention).
+- **A concrete prototype idea** — "I'd love to look at how Nautilus attestations can be
+  aggregated to reduce on-chain verification cost for MPC-style apps" or equivalent
+  genuine curiosity.
+- **Familiarity with the Jan 14, 2026 post-mortem**, framed around engineering maturity,
+  not dunking.
+
+### 9.3 Cultural red flags to avoid
+
+- **Pretending to have read papers you haven't.** Danezis or Chalkias will notice.
+- **Solana/Ethereum/Aptos bashing.** Mysten's culture documents are explicit:
+  "respectful criticism of ideas, never bashing competitors." Frame differences as
+  different bets on the same tradeoff surface.
+- **Oversimplified "Sui is faster because parallel."** Demonstrate you know *why* and
+  where the costs are (shared-object contention).
+- **Treating Move as "Solidity with Rust syntax."** It's a fundamentally different type
+  system with linear resources.
+- **Ignoring the Jan 2026 outage.** Show you pay attention to production reality.
+- **"I want to learn blockchain on the job"** — acceptable for new grads, not senior/
+  staff.
+- **Hand-wavy behavioral answers.** Mysten explicitly asks about failures and judgment
+  calls.
+
+### 9.4 Minimum viable pre-read list
+
+1. Sui docs landing page (docs.sui.io).
+2. "How Sui Works" + "Life of a transaction" pages.
+3. Mysticeti paper — abstract + intro + commit rule section.
+4. Narwhal + Bullshark DAG-BFT blog post (Decentralized Thoughts).
+5. Move abilities page — memorize the four abilities and canonical combos.
+6. PTB documentation — be able to sketch a 3-command PTB on a whiteboard.
+7. zkLogin explainer + paper abstract.
+8. 2025 Sui Stack retrospective (blog.sui.io/2025-sui-stack-developments).
+9. Walrus intro + Red Stuff blog post.
+10. Jan 14, 2026 post-mortem (status.sui.io → post-mortem link + crypto.news coverage).
+
+---
+
+## 10. Open items flagged for in-interview verification
+
+From the research file's "verify in interview prep" list, preserved here so the
+uncertainty is honest:
+
+- Exact Mysten headcount in Apr 2026 (Tracxn figure was 203 in Jan 2026).
+- No further consensus upgrade since Mysticeti v2 (Nov 2025) at interview date.
+- Whether Remora sharding has a public paper yet (roadmap mentions, formal publication
+  unclear).
+- Latest Seal mainnet key-server set size and exact threshold parameters.
+- Post-FTX cap table composition — buyback confirmed, exact current investors not fully
+  public.
+
+When these come up in interview, say "the last number I confirmed was X as of date Y"
+rather than guessing the current value. That's the senior move.
+
+---
+
+*Last reviewed: 2026-04-17. Sources in `MYSTEN_RESEARCH.md` at repo root.*
