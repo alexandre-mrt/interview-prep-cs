@@ -1,7 +1,7 @@
 {
   "project": "interview-prep-cs",
   "started_at": "2026-04-17T23:00:00Z",
-  "current_iteration": 0,
+  "current_iteration": 1,
   "branch": "feat/night-shift-2026-04-17",
   "stability_gate": {
     "active": false,
@@ -17,7 +17,7 @@
     {
       "id": "T01-scaffold",
       "title": "Scaffold Next.js 15 app with Tailwind, shadcn, Bun, Biome",
-      "status": "pending",
+      "status": "completed",
       "depends_on": [],
       "parallel_with": [],
       "agent": "night-coder",
@@ -28,7 +28,7 @@
     {
       "id": "T02-content-schema",
       "title": "Define flashcard TypeScript schema + Zod validator + content loader",
-      "status": "pending",
+      "status": "completed",
       "depends_on": ["T01-scaffold"],
       "parallel_with": [],
       "agent": "night-coder",
@@ -44,7 +44,11 @@
       "parallel_with": [],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/app/page.tsx", "src/components/topic-card.tsx", "src/components/daily-review-cta.tsx"],
+      "files": [
+        "src/app/page.tsx",
+        "src/components/topic-card.tsx",
+        "src/components/daily-review-cta.tsx"
+      ],
       "notes": "Dark mode default. Progress rings use CSS conic-gradient. Read SRS state from localStorage."
     },
     {
@@ -55,7 +59,11 @@
       "parallel_with": ["T03-ui-shell"],
       "agent": "night-coder",
       "model": "sonnet",
-      "files": ["src/app/review/page.tsx", "src/components/flashcard.tsx", "src/lib/srs.ts"],
+      "files": [
+        "src/app/review/page.tsx",
+        "src/components/flashcard.tsx",
+        "src/lib/srs.ts"
+      ],
       "notes": "Swipe left=hard right=easy up=medium tap=flip. SM-2 lite: ease factor, interval, next review date. localStorage key per card id. Filter bar topic+difficulty+due-only."
     },
     {
@@ -107,7 +115,14 @@
       "title": "Author 120 flashcards: algos & data structures",
       "status": "pending",
       "depends_on": ["T02-content-schema"],
-      "parallel_with": ["T10-content-sysdesign", "T11-content-backend", "T12-content-blockchain", "T13-content-ml", "T15-content-senior-signals", "T16-content-classics"],
+      "parallel_with": [
+        "T10-content-sysdesign",
+        "T11-content-backend",
+        "T12-content-blockchain",
+        "T13-content-ml",
+        "T15-content-senior-signals",
+        "T16-content-classics"
+      ],
       "agent": "night-coder",
       "model": "sonnet",
       "files": ["content/cs/flashcards/algos/*.json"],
@@ -165,7 +180,10 @@
       "parallel_with": [],
       "agent": "night-coder",
       "model": "opus",
-      "files": ["content/cs/flashcards/mysten/*.json", "content/cs/topics/mysten.mdx"],
+      "files": [
+        "content/cs/flashcards/mysten/*.json",
+        "content/cs/topics/mysten.mdx"
+      ],
       "notes": "Read MYSTEN_RESEARCH.md. Cover Sui object model, Move specifics, Mysticeti consensus, Walrus, DeepBook, zkLogin, Prometheus+Grafana observability for Sui nodes (RED/USE, PromQL examples, block height lag, peer count, finality latency). Include 20+ tailored interview questions with senior-quality answers. Use opus for this — judgment-heavy."
     },
     {
@@ -198,13 +216,16 @@
       "parallel_with": ["T09-content-algos"],
       "agent": "night-coder",
       "model": "opus",
-      "files": ["content/cs/stars/*.mdx", "content/cs/flashcards/behavioral/*.json"],
+      "files": [
+        "content/cs/stars/*.mdx",
+        "content/cs/flashcards/behavioral/*.json"
+      ],
       "notes": "STAR templates: Leadership, Conflict, Failure, Impact, Ambiguity, Disagreement, Ownership, Scaling a system. Each with placeholders. Questions to ask interviewer (senior-signal: oncall, tech debt, roadmap, why they joined). Negotiation phrases (competing offer framing, total comp vs base, signing bonus ask). Use opus — phrasing matters."
     },
     {
       "id": "T18-seed-basic-cards",
       "title": "Seed a minimal set of 30 cards across topics before big content authoring",
-      "status": "pending",
+      "status": "completed",
       "depends_on": ["T02-content-schema"],
       "parallel_with": [],
       "agent": "night-coder",
@@ -257,9 +278,16 @@
       "notes": "Scope, stack, commands (bun dev, build, lint), how to add flashcards, how to swap content set (cs → finance), deployed URL."
     }
   ],
-  "iteration_log": [],
+  "iteration_log": [
+    {
+      "iter": 1,
+      "ts": "2026-04-17T18:45:00Z",
+      "completed": ["T01-scaffold", "T02-content-schema", "T18-seed-basic-cards"],
+      "notes": "Scaffold + schema + 30 seed cards"
+    }
+  ],
   "decisions": [],
   "blocked_tasks": [],
-  "completed_count": 0,
+  "completed_count": 3,
   "total_tasks": 22
 }

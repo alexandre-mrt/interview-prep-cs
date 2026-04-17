@@ -24,7 +24,12 @@ See NIGHT_SHIFT_STATE.json `tasks`. Parallelism:
 - Haiku: seed cards, deploy, README
 
 ## Iteration log
-_(ralph-loop appends here)_
+
+### Iteration 1 (2026-04-17)
+- Scaffolded Next.js 15 with Tailwind, shadcn, Bun, Biome
+- Defined Zod schema, content loader, SM-2 lite SRS, localStorage helper
+- Authored 30 seed cards across 9 topics
+- Skipped next-pwa — Next 15 compat concern, logged to PROBLEMS.md
 
 ## Decisions
 _(appended per iteration)_

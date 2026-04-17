@@ -18,3 +18,11 @@ Categories: `UNCERTAINTY`, `ASSUMPTION`, `BLOCKED`, `UNFIXED`, `TEST GAP`, `DEPE
 ---
 
 ## Entries
+
+### DEPENDENCY: next-pwa skipped — Next.js 15/16 compatibility
+- **Iteration**: 1
+- **File**: package.json
+- **What I needed**: next-pwa compatible with Next.js 15+ (App Router)
+- **What I did**: Skipped next-pwa install. PWA support deferred to a later iteration (T08). Will evaluate @ducanh2912/next-pwa or manual service worker approach in T08.
+- **Confidence**: MEDIUM
+- **User action needed**: In T08, validate that @ducanh2912/next-pwa or a manual SW approach works with Next 15 App Router before installing.
