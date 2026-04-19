@@ -139,6 +139,9 @@ export function FlashcardViewer({
           dragElastic={0.18}
           dragMomentum={false}
           style={{ x, y, rotate, touchAction: "none" }}
+          onPointerDown={() => {
+            wasDragged.current = false;
+          }}
           onDragStart={(_, info) => {
             dragStartX.current = info.point.x;
             dragStartY.current = info.point.y;

@@ -351,6 +351,8 @@ export function CardDeck({
         </Button>
       </div>
 
+      <Filters state={state} dispatch={dispatch} topicOptions={topicOptions} />
+
       {currentCard && (
         <FlashcardViewer
           key={currentCard.id}
@@ -361,8 +363,6 @@ export function CardDeck({
           total={state.deck.length}
         />
       )}
-
-      <Filters state={state} dispatch={dispatch} topicOptions={topicOptions} />
     </motion.div>
   );
 }
